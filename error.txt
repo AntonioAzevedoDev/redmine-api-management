@@ -1,0 +1,69 @@
+2024-05-24T19:05:27.238854+00:00 heroku[router]: at=error code=H12 desc="Request timeout" method=GET path="/aprovar_hora?id=178" host=redmine-api-management-6ee02e37b6fb.herokuapp.com request_id=4505c312-09c8-4706-9bd2-8e34c3ac9015 fwd="191.253.126.56" dyno=web.1 connect=0ms service=30002ms status=503 bytes=0 protocol=https
+2024-05-24T19:05:28.019138+00:00 app[web.1]: [2024-05-24 19:05:28 +0000] [2] [CRITICAL] WORKER TIMEOUT (pid:9)
+2024-05-24T19:05:28.024320+00:00 app[web.1]: [2024-05-24 19:05:28 +0000] [9] [ERROR] Error handling request /aprovar_hora?id=178
+2024-05-24T19:05:28.024322+00:00 app[web.1]: Traceback (most recent call last):
+2024-05-24T19:05:28.024322+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/gunicorn/workers/sync.py", line 135, in handle
+2024-05-24T19:05:28.024323+00:00 app[web.1]: self.handle_request(listener, req, client, addr)
+2024-05-24T19:05:28.024323+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/gunicorn/workers/sync.py", line 178, in handle_request
+2024-05-24T19:05:28.024323+00:00 app[web.1]: respiter = self.wsgi(environ, resp.start_response)
+2024-05-24T19:05:28.024323+00:00 app[web.1]: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2024-05-24T19:05:28.024324+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/flask/app.py", line 1498, in __call__
+2024-05-24T19:05:28.024324+00:00 app[web.1]: return self.wsgi_app(environ, start_response)
+2024-05-24T19:05:28.024324+00:00 app[web.1]: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2024-05-24T19:05:28.024325+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/flask/app.py", line 1473, in wsgi_app
+2024-05-24T19:05:28.024325+00:00 app[web.1]: response = self.full_dispatch_request()
+2024-05-24T19:05:28.024325+00:00 app[web.1]: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2024-05-24T19:05:28.024325+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/flask/app.py", line 880, in full_dispatch_request
+2024-05-24T19:05:28.024325+00:00 app[web.1]: rv = self.dispatch_request()
+2024-05-24T19:05:28.024326+00:00 app[web.1]: ^^^^^^^^^^^^^^^^^^^^^^^
+2024-05-24T19:05:28.024326+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/flask/app.py", line 865, in dispatch_request
+2024-05-24T19:05:28.024326+00:00 app[web.1]: return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+2024-05-24T19:05:28.024326+00:00 app[web.1]: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2024-05-24T19:05:28.024327+00:00 app[web.1]: File "/app/app.py", line 58, in aprovar_hora
+2024-05-24T19:05:28.024327+00:00 app[web.1]: status_code, response = get_time_entry(data_id)
+2024-05-24T19:05:28.024327+00:00 app[web.1]: ^^^^^^^^^^^^^^^^^^^^^^^
+2024-05-24T19:05:28.024327+00:00 app[web.1]: File "/app/app.py", line 38, in get_time_entry
+2024-05-24T19:05:28.024327+00:00 app[web.1]: response = requests.get(url, headers=headers)  # Timeout adicionado
+2024-05-24T19:05:28.024328+00:00 app[web.1]: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2024-05-24T19:05:28.024328+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/requests/api.py", line 73, in get
+2024-05-24T19:05:28.024328+00:00 app[web.1]: return request("get", url, params=params, **kwargs)
+2024-05-24T19:05:28.024328+00:00 app[web.1]: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2024-05-24T19:05:28.024328+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/requests/api.py", line 59, in request
+2024-05-24T19:05:28.024328+00:00 app[web.1]: return session.request(method=method, url=url, **kwargs)
+2024-05-24T19:05:28.024329+00:00 app[web.1]: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2024-05-24T19:05:28.024329+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/requests/sessions.py", line 589, in request
+2024-05-24T19:05:28.024329+00:00 app[web.1]: resp = self.send(prep, **send_kwargs)
+2024-05-24T19:05:28.024329+00:00 app[web.1]: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2024-05-24T19:05:28.024329+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/requests/sessions.py", line 703, in send
+2024-05-24T19:05:28.024329+00:00 app[web.1]: r = adapter.send(request, **kwargs)
+2024-05-24T19:05:28.024329+00:00 app[web.1]: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2024-05-24T19:05:28.024330+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/requests/adapters.py", line 589, in send
+2024-05-24T19:05:28.024330+00:00 app[web.1]: resp = conn.urlopen(
+2024-05-24T19:05:28.024330+00:00 app[web.1]: ^^^^^^^^^^^^^
+2024-05-24T19:05:28.024330+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/urllib3/connectionpool.py", line 793, in urlopen
+2024-05-24T19:05:28.024330+00:00 app[web.1]: response = self._make_request(
+2024-05-24T19:05:28.024331+00:00 app[web.1]: ^^^^^^^^^^^^^^^^^^^
+2024-05-24T19:05:28.024331+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/urllib3/connectionpool.py", line 496, in _make_request
+2024-05-24T19:05:28.024331+00:00 app[web.1]: conn.request(
+2024-05-24T19:05:28.024331+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/urllib3/connection.py", line 400, in request
+2024-05-24T19:05:28.024331+00:00 app[web.1]: self.endheaders()
+2024-05-24T19:05:28.024332+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/http/client.py", line 1331, in endheaders
+2024-05-24T19:05:28.024332+00:00 app[web.1]: self._send_output(message_body, encode_chunked=encode_chunked)
+2024-05-24T19:05:28.024332+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/http/client.py", line 1091, in _send_output
+2024-05-24T19:05:28.024332+00:00 app[web.1]: self.send(msg)
+2024-05-24T19:05:28.024332+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/http/client.py", line 1035, in send
+2024-05-24T19:05:28.024332+00:00 app[web.1]: self.connect()
+2024-05-24T19:05:28.024333+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/urllib3/connection.py", line 238, in connect
+2024-05-24T19:05:28.024333+00:00 app[web.1]: self.sock = self._new_conn()
+2024-05-24T19:05:28.024333+00:00 app[web.1]: ^^^^^^^^^^^^^^^^
+2024-05-24T19:05:28.024333+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/urllib3/connection.py", line 198, in _new_conn
+2024-05-24T19:05:28.024333+00:00 app[web.1]: sock = connection.create_connection(
+2024-05-24T19:05:28.024333+00:00 app[web.1]: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2024-05-24T19:05:28.024333+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/urllib3/util/connection.py", line 73, in create_connection
+2024-05-24T19:05:28.024334+00:00 app[web.1]: sock.connect(sa)
+2024-05-24T19:05:28.024334+00:00 app[web.1]: File "/app/.heroku/python/lib/python3.12/site-packages/gunicorn/workers/base.py", line 203, in handle_abort
+2024-05-24T19:05:28.024334+00:00 app[web.1]: sys.exit(1)
+2024-05-24T19:05:28.024334+00:00 app[web.1]: SystemExit: 1
+2024-05-24T19:05:28.024534+00:00 app[web.1]: 10.1.14.110 - - [24/May/2024:19:05:28 +0000] "GET /aprovar_hora?id=178 HTTP/1.1" 500 0 "-" "-"
+2024-05-24T19:05:28.024781+00:00 app[web.1]: [2024-05-24 19:05:28 +0000] [9] [INFO] Worker exiting (pid: 9)
+2024-05-24T19:05:28.066370+00:00 app[web.1]: [2024-05-24 19:05:28 +0000] [12] [INFO] Booting worker with pid: 12
