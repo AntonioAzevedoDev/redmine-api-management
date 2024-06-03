@@ -14,9 +14,9 @@ CORS(app)
 
 #REDMINE_URL = os.getenv('REDMINE_URL')
 #REDMINE_API_KEY = os.getenv('REDMINE_API_KEY')
-REDMINE_URL = 'https://redmine5tec.evtit.com'
-REDMINE_API_KEY = "ea8d896c01e60cbc31baf6e84e9d4bf8eee5033b"
-API_URL = "https://192.168.1.76/"
+REDMINE_URL = 'REDMINEURL'
+REDMINE_API_KEY = "APIKEY"
+API_URL = "APIURL"
 
 
 @app.route('/')
