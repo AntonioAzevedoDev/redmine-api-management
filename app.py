@@ -389,7 +389,6 @@ def create_html_unitary_table(entry):
         <th style="border: 1px solid black;">Lançada em</th>
         <th style="border: 1px solid black;">Hora inicial (HH:MM)</th>
         <th style="border: 1px solid black;">Hora final (HH:MM)</th>
-        <th style="border: 1px solid black;">Ações</th>
       </tr>
     </thead>
     <tbody>
@@ -422,10 +421,6 @@ def create_html_unitary_table(entry):
           <td style="border: 1px solid black;">{entry['spent_on']}</td>
           <td style="border: 1px solid black;">{hora_inicial}</td>
           <td style="border: 1px solid black;">{hora_final}</td>
-          <td style="border: 1px solid black;">
-            <a href="{API_URL}aprovar_hora?id={entry['id']}&token={request.args.get('token')}" style="background-color: green; color: white; padding: 5px 10px; text-decoration: none; border-radius: 5px; font-weight: bold;" target="_blank">Aprovar</a>
-            <a href="{API_URL}reprovar_hora?id={entry['id']}&token={request.args.get('token')}" style="background-color: red; color: white; padding: 5px 10px; text-decoration: none; border-radius: 5px; font-weight: bold;" target="_blank">Reprovar</a>
-          </td>
         </tr>
         '''
 
