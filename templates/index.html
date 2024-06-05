@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVT Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div id="header">
+        <div class="header-logo">
+            <img src="{{ url_for('static', filename='transparent_evt_logo.png') }}" alt="EVT">
+            <h1>EVT - Dashboard</h1>
+        </div>
+    </div>
+    <div class="container">
+        <div id="sidebar">
+            <div class="sidebar-header">
+                <img src="{{ url_for('static', filename='transparent_evt_logo.png') }}" alt="EVT Logo">
+                <h2>EVT Dashboard</h2>
+            </div>
+            <div class="sidebar-menu">
+                <ul class="menu">
+                    <li class="menu-item">
+                        <a href="#" class="menu-link">Projetos</a>
+                        <ul class="submenu">
+                            {% for project in projects %}
+                                <li class="submenu-item">
+                                    <a href="#" class="btn" data-project-id="{{ project.id }}">{{ project.name }}</a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div id="main-content">
+            <div class="container">
+                <div id="charts">
+                    <div id="bar-chart"></div>
+                    <div id="pie-chart"></div>
+                    <div id="project-bar-chart" style="max-height: 400px; overflow-y: auto;"></div> <!-- Adicionada a rolagem vertical -->
+                </div>
+                <div class="project-list">
+                    <h2>Projetos</h2>
+                    <select id="project-select">
+                        <option value="all">Todos</option>
+                        {% for project in projects %}
+                            <option value="{{ project.id }}">{{ project.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div id="project-items">
+                        {% for project in projects %}
+                            <div class="project-item" data-project-id="{{ project.id }}">
+                                <h3>{{ project.name }}</h3>
+                                <p>Horas aprovadas: {{ project.approved_hours }}</p>
+                                <p>Horas não aprovadas: {{ project.unapproved_hours }}</p>
+                                <a href="#" class="btn" data-project-id="{{ project.id }}">Ver Detalhes →</a>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="project-info" id="project-info"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const projectSelect = document.getElementById('project-select');
+            const projectItems = document.querySelectorAll('.project-item');
+            const projectInfo = document.getElementById('project-info');
+
+            projectSelect.addEventListener('change', function() {
+                const selectedProject = this.value;
+
+                projectItems.forEach(item => {
+                    if (selectedProject === 'all' || item.getAttribute('data-project-id') === selectedProject) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+
+                fetchProjectData(selectedProject);
+            });
+
+            projectItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    const projectId = this.getAttribute('data-project-id');
+                    fetchProjectData(projectId);
+                });
+            });
+
+            function fetchProjectData(projectId) {
+                if (projectId === 'all') {
+                    fetchAllProjectsData();
+                } else {
+                    fetch(`/get_unapproved_hours?project_id=${projectId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            renderProjectInfo(data);
+                        });
+                }
+            }
+
+            function fetchAllProjectsData() {
+                fetch(`/get_unapproved_hours?project_id=null`)
+                    .then(response => response.json())
+                    .then(data => {
+                        renderBarChart(data);
+                        renderProjectsInfo(data);
+                        renderProjectBarChart(data);
+                    });
+
+                fetch(`/api/porcentagem_aprovacao?project_id=null`)
+                    .then(response => response.json())
+                    .then(data => {
+                        renderPieChart(data.percentage);
+                    });
+            }
+
+            function renderBarChart(data) {
+                const users = data.flatMap(project => project.users.map(user => user.name));
+                const unapprovedHours = data.flatMap(project => project.users.map(user => user.unapproved_hours));
+                const approvedHours = data.flatMap(project => project.users.map(user => user.approved_hours));
+
+                const trace1 = {
+                    x: users,
+                    y: unapprovedHours,
+                    type: 'bar',
+                    name: 'Horas não aprovadas',
+                    marker: {
+                        color: 'red'
+                    },
+                    text: unapprovedHours.map(String),
+                    textposition: 'auto'
+                };
+
+                const trace2 = {
+                    x: users,
+                    y: approvedHours,
+                    type: 'bar',
+                    name: 'Horas aprovadas',
+                    marker: {
+                        color: 'green'
+                    },
+                    text: approvedHours.map(String),
+                    textposition: 'auto'
+                };
+
+                const layout = {
+                    title: 'Horas por usuário',
+                    barmode: 'stack'
+                };
+
+                Plotly.newPlot('bar-chart', [trace1, trace2], layout);
+            }
+
+            function renderPieChart(approvedPercentage) {
+                const data = [{
+                    values: [approvedPercentage, 100 - approvedPercentage],
+                    labels: ['Horas aprovadas', 'Horas não aprovadas'],
+                    type: 'pie',
+                    marker: {
+                        colors: ['green', 'red']
+                    },
+                    textinfo: 'label+percent',
+                    textposition: 'inside'
+                }];
+
+                const layout = {
+                    title: 'Porcentagem de horas aprovadas'
+                };
+
+                Plotly.newPlot('pie-chart', data, layout);
+            }
+
+            function renderProjectBarChart(data) {
+                const projects = data.reduce((acc, project) => {
+                    acc[project.project_name] = project.users.reduce((userAcc, user) => {
+                        userAcc.approved_hours += user.approved_hours;
+                        userAcc.unapproved_hours += user.unapproved_hours;
+                        return userAcc;
+                    }, { approved_hours: 0, unapproved_hours: 0 });
+                    return acc;
+                }, {});
+
+                const projectNames = Object.keys(projects);
+                const approvedHours = projectNames.map(project => projects[project].approved_hours);
+                const unapprovedHours = projectNames.map(project => projects[project].unapproved_hours);
+
+                const trace1 = {
+                    x: projectNames,
+                    y: approvedHours,
+                    type: 'bar',
+                    name: 'Horas aprovadas',
+                    marker: {
+                        color: 'green'
+                    },
+                    text: approvedHours.map(String),
+                    textposition: 'auto'
+                };
+
+                const trace2 = {
+                    x: projectNames,
+                    y: unapprovedHours,
+                    type: 'bar',
+                    name: 'Horas não aprovadas',
+                    marker: {
+                        color: 'red'
+                    },
+                    text: unapprovedHours.map(String),
+                    textposition: 'auto'
+                };
+
+                const layout = {
+                    title: 'Horas por projeto',
+                    barmode: 'stack',
+                    height: 400,
+                    yaxis: {
+                        automargin: true,
+                        tickangle: 45
+                    }
+                };
+
+                Plotly.newPlot('project-bar-chart', [trace1, trace2], layout);
+            }
+
+            function renderProjectsInfo(data) {
+                const projectInfo = document.getElementById('project-info');
+                projectInfo.innerHTML = '<h2>Informações dos Projetos</h2>';
+                data.forEach(project => {
+                    projectInfo.innerHTML += `<h3>Projeto: ${project.project_name}</h3>`;
+                    project.users.forEach(user => {
+                        projectInfo.innerHTML += `
+                            <p>Usuário: ${user.name}, Horas aprovadas: ${user.approved_hours}, Horas não aprovadas: ${user.unapproved_hours}</p>
+                        `;
+                    });
+                });
+            }
+
+            // Carregar dados de todos os projetos ao entrar na página
+            fetchAllProjectsData();
+        });
+    </script>
+</body>
+</html>
