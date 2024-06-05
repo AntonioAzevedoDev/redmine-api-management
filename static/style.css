@@ -1,0 +1,388 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f5f5f5;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+#sidebar {
+    width: 250px;
+    background-color: #333;
+    color: #fff;
+    position: fixed;
+    top: 79px;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 1;
+}
+
+.sidebar-header {
+    padding: 20px;
+    text-align: center;
+}
+
+.sidebar-header img {
+    height: 40px;
+}
+
+.sidebar-header h2 {
+    margin: 10px 0 0;
+}
+
+.sidebar-menu {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.sidebar-menu .menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-menu .menu-item {
+    margin-bottom: 15px;
+}
+
+.sidebar-menu .submenu {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0 0;
+    display: none;
+}
+
+.sidebar-menu .submenu-item {
+    margin-bottom: 5px;
+}
+
+.sidebar-menu .submenu-item a {
+    color: #fff;
+    text-decoration: none;
+    padding: 10px;
+    display: block;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+.sidebar-menu .submenu-item a:hover {
+    background-color: #575757;
+}
+
+.menu-item:hover .submenu {
+    display: block;
+}
+
+#main-content {
+    margin-left: 250px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+#header {
+    background-color: #333;
+    color: #fff;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    position: fixed;
+    width: 100%;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+#header h1 {
+    margin: 0;
+}
+
+.header-logo {
+    display: flex;
+    align-items: center;
+}
+
+.header-logo img {
+    height: 40px;
+    margin-right: 10px;
+}
+
+#header-login {
+    background-color: #333;
+    color: #fff;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 12px;
+    width: 100%;
+}
+
+#header-login h1 {
+    margin: 0;
+}
+
+.header-logo img {
+    height: 40px;
+    margin-right: 10px;
+}
+
+.container {
+    margin-top: 80px; /* para acomodar o header fixo */
+    padding: 20px;
+    box-sizing: border-box;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-grow: 1;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.actions .btn {
+    padding: 10px 20px;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: bold;
+    text-align: center;
+    display: inline-block;
+    margin: 5px;
+    font-family: Arial, sans-serif;
+    background-color: #007BFF;
+    color: white;
+}
+
+.actions .btn:hover {
+    background-color: #0056b3;
+}
+
+#charts {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: -100px;
+}
+
+#bar-chart, #pie-chart, #project-bar-chart {
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 20px;
+    background-color: #fff;
+    font-size: 14px;
+    color: #333;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+th {
+    background-color: #f2f2f2;
+    color: #333;
+    font-weight: bold;
+}
+
+tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+tr:hover {
+    background-color: #f1f1f1;
+}
+
+.btn-approve, .btn-approve-table {
+    background-color: #4CAF50; /* Verde claro */
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    text-decoration: none; /* Remove a linha de baixo */
+}
+
+.btn-reject, .btn-reject-table {
+    background-color: #F44336; /* Vermelho claro */
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    text-decoration: none; /* Remove a linha de baixo */
+}
+
+.btn-approve:hover, .btn-reject:hover {
+    opacity: 0.8;
+}
+
+.btn-group {
+    display: flex;
+    justify-content: center;
+    gap: 10px; /* Adiciona espaçamento entre os botões */
+}
+
+#selected-actions {
+    display: none;
+    justify-content: center;
+}
+
+.login-container {
+    width: 300px;
+    margin: auto;
+    padding: 20px;
+    background-color: #ffebcd;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.login-container form {
+    display: flex;
+    flex-direction: column;
+}
+
+.login-container label {
+    margin-bottom: 5px;
+}
+
+.login-container input {
+    margin-bottom: 10px;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+.login-container button {
+    padding: 10px;
+    background-color: #008cba;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.login-container p {
+    text-align: center;
+}
+
+.login-container p a {
+    color: #008cba;
+    text-decoration: none;
+}
+
+.project-list {
+    background-color: #fff;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    width: 48%;
+    display: inline-block;
+    vertical-align: top;
+    max-height: 600px; /* Adicionei um limite de altura para permitir rolagem */
+    overflow-y: auto; /* Adicionei a rolagem vertical */
+}
+
+.project-info {
+    background-color: #fff;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    width: 48%;
+    display: inline-block;
+    vertical-align: top;
+}
+
+.project-item {
+    padding: 10px;
+    margin: 5px 0;
+    border-bottom: 1px solid #ddd;
+    cursor: pointer;
+}
+
+.project-item:hover {
+    background-color: #f1f1f1;
+}
+
+.filters {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    margin-top:-400px;
+}
+
+.filters label {
+    margin-right: 5px;
+}
+
+.filters input {
+    margin-right: 10px;
+    padding: 5px;
+    font-size: 14px;
+}
+
+.btn-approve-table, .btn-reject-table {
+    padding: 7px 14px; /* Reduz o padding para 30% menor */
+}
+
+.register-container {
+    width: 300px;
+    margin: auto;
+    padding: 20px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.register-container h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.register-container label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.register-container input {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+.register-container button {
+    width: 100%;
+    padding: 10px;
+    background-color: #008cba;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.register-container button:hover {
+    background-color: #005f7f;
+}
