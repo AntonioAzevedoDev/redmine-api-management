@@ -712,7 +712,7 @@ def relatorio_horas(user_id):
                     </div>
                 </div>
                 <div class="container">
-                    <form id="time_entries_form" method="get" action="http://127.0.0.1:5000/validar_selecionados">
+                    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados">
                         <div class="filters">
                             <label for="filterInput">Buscar:</label>
                             <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
