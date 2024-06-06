@@ -302,81 +302,68 @@ def send_unitary_report():
 @app.route('/aprovar_todos', methods=['GET'])
 def aprovar_todos():
     token = request.args.get('token')
-    return atualizar_todas_entradas(aprovacao=True, token=token)
+    return atualizar_todas_entradas(aprovacao=True, token=token, entries=request.args.getlist('entries'))
 
 @app.route('/reprovar_todos', methods=['GET'])
 def reprovar_todos():
     token = request.args.get('token')
-    return atualizar_todas_entradas(aprovacao=False, token=token)
+    return atualizar_todas_entradas(aprovacao=False, token=token, entries=request.args.getlist('entries'))
 
 
-def atualizar_todas_entradas(aprovacao, token):
+
+def atualizar_todas_entradas(aprovacao, token, entries):
     user = get_current_user()
-    today = datetime.today()
-    seven_days_ago = today - timedelta(days=7)
-    start_date = seven_days_ago.strftime('%Y-%m-%d')
-    end_date = today.strftime('%Y-%m-%d')
+    errors = []
 
-    url = f'{REDMINE_URL}/time_entries.json?from={start_date}&to={end_date}'
-    response = requests.get(url, headers={
-        'X-Redmine-API-Key': REDMINE_API_KEY,
-        'Content-Type': 'application/json'
-    }, verify=False)
+    for entry_id in entries:
+        status_code, response = get_time_entry(entry_id)
+        if status_code == 200:
+            time_entry = response.get('time_entry', {})
+            custom_fields = time_entry.get('custom_fields', [])
 
-    if response.ok:
-        time_entries = response.json().get('time_entries', [])
-        errors = []
-        for entry in time_entries:
-            entry_id = entry['id']
-            status_code, response = get_time_entry(entry_id)
-            if status_code == 200:
-                time_entry = response.get('time_entry', {})
-                custom_fields = time_entry.get('custom_fields', [])
+            data_original = time_entry.get('spent_on')
+            nova_data = (datetime.now() - timedelta(days=4)).strftime('%Y-%m-%d')
+            data_atual = datetime.now().strftime('%Y-%m-%d')
 
-                data_original = time_entry.get('spent_on')
-                nova_data = (datetime.now() - timedelta(days=4)).strftime('%Y-%m-%d')
-                data_atual = datetime.now().strftime('%Y-%m-%d')
+            alterar_status, alterar_response = alterar_data_temporariamente(entry_id, nova_data)
+            if alterar_status not in [200, 204]:
+                errors.append({
+                    'id': entry_id,
+                    'status': alterar_status,
+                    'response': alterar_response
+                })
+                continue
 
-                alterar_status, alterar_response = alterar_data_temporariamente(entry_id, nova_data)
-                if alterar_status not in [200, 204]:
-                    errors.append({
-                        'id': entry_id,
-                        'status': alterar_status,
-                        'response': alterar_response
-                    })
-                    continue
+            for field in custom_fields:
+                if field.get('name') == 'TS - Aprovado - EVT':
+                    field['value'] = '1' if aprovacao else '0'
+                if field.get('name') == 'TS - Dt. Aprovação - EVT':
+                    field['value'] = data_atual if aprovacao else ''
+                if field.get('name') == 'TS - Aprovador - EVT':
+                    field['value'] = get_recipient_by_token(token) if aprovacao else ''
 
-                for field in custom_fields:
-                    if field.get('name') == 'TS - Aprovado - EVT':
-                        field['value'] = '1' if aprovacao else '0'
-                    if field.get('name') == 'TS - Dt. Aprovação - EVT':
-                        field['value'] = end_date if aprovacao else ''
-                    if field.get('name') == 'TS - Aprovador - EVT':
-                        field['value'] = get_recipient_by_token(token) if aprovacao else ''
+            update_status, update_response = update_time_entry(entry_id, custom_fields)
+            if update_status == 200 or 204:
+                restaurar_data_original(entry_id, data_original)
+                log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'], 'aprovar' if aprovacao else 'reprovar', token)
+            else:
+                restaurar_data_original(entry_id, data_original)
+                errors.append({
+                    'id': entry_id,
+                    'status': update_status,
+                    'response': update_response
+                })
 
-                update_status, update_response = update_time_entry(entry_id, custom_fields)
-                if update_status == 200 or 204:
-                    restaurar_data_original(entry_id, data_original)
-                    log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'], 'aprovar' if aprovacao else 'reprovar', token)
-                else:
-                    restaurar_data_original(entry_id, data_original)
-                    errors.append({
-                        'id': entry_id,
-                        'status': update_status,
-                        'response': update_response
-                    })
-
-        if errors:
-            return jsonify({
-                "error": "Some entries failed to update",
-                "details": errors
-            }), 207
-        if aprovacao:
-            return jsonify({"message": "Todas as horas foram aprovadas!"}), 200
-        else:
-            return jsonify({"message": "Todas as horas foram reprovadas!"}), 200
+    if errors:
+        return jsonify({
+            "error": "Some entries failed to update",
+            "details": errors
+        }), 207
+    if aprovacao:
+        return jsonify({"message": "Todas as horas foram aprovadas!"}), 200
     else:
-        return jsonify({"error": "Failed to fetch time entries from Redmine", "details": response.json()}), 400
+        return jsonify({"message": "Todas as horas foram reprovadas!"}), 200
+
 
 
 def get_recipient_by_token(token):
@@ -611,7 +598,6 @@ def relatorio_horas_geral():
 
 
 @app.route('/relatorio_horas/<int:user_id>', methods=['GET'])
-#@token_required
 def relatorio_horas(user_id):
     try:
         # Faz uma requisição para obter o usuário pelo ID fornecido na URL
@@ -622,7 +608,7 @@ def relatorio_horas(user_id):
         }, verify=False)
 
         if not user_response.ok:
-            logger.error(f"Erro0 ao buscar usuário com ID {user_id}: {user_response.status_code}")
+            logger.error(f"Erro ao buscar usuário com ID {user_id}: {user_response.status_code}")
             return jsonify({"error": "Usuário não encontrado"}), 404
 
         user = user_response.json()
@@ -664,6 +650,9 @@ def relatorio_horas(user_id):
             table_html = create_html_table(unapproved_entries)
             # Obtém o token da URL atual
             token = request.args.get('token')
+            # Constrói a lista de IDs das entradas
+            entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
+
             # Template HTML para renderizar a página com filtros
             html_template = f'''
             <!DOCTYPE html>
@@ -719,8 +708,8 @@ def relatorio_horas(user_id):
                         </div>
                         {table_html}
                         <div id="all-actions" class="btn-group">
-                            <a href="{API_URL}aprovar_todos?user_id={user_id}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                            <a href="{API_URL}reprovar_todos?user_id={user_id}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                            <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
+                            <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
                         </div>
                         <div id="selected-actions" class="btn-group">
                             <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
@@ -740,6 +729,7 @@ def relatorio_horas(user_id):
     except Exception as e:
         logger.error(f"Erro ao gerar a página HTML: {e}")
         return jsonify({"error": "Erro ao gerar a página HTML"}), 500
+
 
 def create_html_table(time_entries):
     table = '''
