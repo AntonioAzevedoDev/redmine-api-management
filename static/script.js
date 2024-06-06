@@ -12,53 +12,47 @@ document.addEventListener('DOMContentLoaded', function() {
         checkbox.onclick = toggleSelectedActions;
     }
 
- function submitForm(actionType) {
-    const form = document.getElementById('time_entries_form');
-    form.setAttribute('target', '_blank');
-    const tipoInput = form.querySelector('input[name="tipo"]');
-    if (tipoInput) {
-        tipoInput.value = actionType;
-    } else {
-        const newInput = document.createElement('input');
-        newInput.setAttribute('type', 'hidden');
-        newInput.setAttribute('name', 'tipo');
-        newInput.setAttribute('value', actionType);
-        form.appendChild(newInput);
+    function submitForm(actionType) {
+        const form = document.getElementById('time_entries_form');
+        form.setAttribute('target', '_blank');
+        const tipoInput = form.querySelector('input[name="tipo"]');
+        if (tipoInput) {
+            tipoInput.value = actionType;
+        } else {
+            const newInput = document.createElement('input');
+            newInput.setAttribute('type', 'hidden');
+            newInput.setAttribute('name', 'tipo');
+            newInput.setAttribute('value', actionType);
+            form.appendChild(newInput);
+        }
+
+        var selectedEntries = [];
+        var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
+        for (var checkbox of checkboxes) {
+            selectedEntries.push(checkbox.value);
+        }
+
+        const selectedEntriesInput = form.querySelector('input[name="selected_entries"]');
+        if (selectedEntriesInput) {
+            selectedEntriesInput.value = selectedEntries.join(',');
+        } else {
+            const newSelectedEntriesInput = document.createElement('input');
+            newSelectedEntriesInput.setAttribute('type', 'hidden');
+            newSelectedEntriesInput.setAttribute('name', 'selected_entries');
+            newSelectedEntriesInput.setAttribute('value', selectedEntries.join(','));
+            form.appendChild(newSelectedEntriesInput);
+        }
+
+        // Obtendo o token da URL atual
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const newChildToken = document.createElement('input');
+        newChildToken.setAttribute('type', 'hidden');
+        newChildToken.setAttribute('name', 'token');
+        newChildToken.setAttribute('value', token);
+        form.appendChild(newChildToken);
+        form.submit();
     }
-
-    var selectedEntries = [];
-    var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
-    for (var checkbox of checkboxes) {
-        selectedEntries.push(checkbox.value);
-    }
-
-    const selectedEntriesInput = form.querySelector('input[name="selected_entries"]');
-    if (selectedEntriesInput) {
-        selectedEntriesInput.value = selectedEntries.join(',');
-    } else {
-        const newSelectedEntriesInput = document.createElement('input');
-        newSelectedEntriesInput.setAttribute('type', 'hidden');
-        newSelectedEntriesInput.setAttribute('name', 'selected_entries');
-        newSelectedEntriesInput.setAttribute('value', selectedEntries.join(','));
-        form.appendChild(newSelectedEntriesInput);
-    }
-
-    // Obtendo o token da URL atual
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-
-    // Adicionando o token à URL do formulário
-    let actionUrl = form.getAttribute('action');
-    console.log("URL antes de adicionar o token: " + actionUrl);
-    actionUrl += (actionUrl.includes('?') ? '&' : '?') + 'token=' + token;
-    console.log("URL após adicionar o token: " + actionUrl);
-    form.setAttribute('action', actionUrl);
-
-    form.submit();
-}
-
-
-
 
     document.getElementById('approve-selected').onclick = function() {
         submitForm('aprovar');
@@ -68,19 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
         submitForm('reprovar');
     };
 
-    document.getElementById('time_entries_form').onsubmit = function(e) {
-        e.preventDefault();
-        var form = e.target;
-        var formData = new FormData(form);
-        var params = new URLSearchParams();
 
-        for (var pair of formData.entries()) {
-            params.append(pair[0], pair[1]);
-        }
-
-        var url = form.action + '?' + params.toString();
-        window.open(url, '_blank');
-    };
 
     function toggleSelectedActions() {
         var selected = document.querySelectorAll('input[name="selected_entries"]:checked').length > 0;

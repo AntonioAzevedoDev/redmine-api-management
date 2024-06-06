@@ -165,10 +165,10 @@ def validar_selecionados():
 
     tipo = request.form.get('tipo_req') if request.method == 'POST' else request.args.get('tipo')
     token = request.args.get('token')
-
+    tipo = tipo+'_selecionados'
     if not selected_entries:
         return jsonify({"error": "No entries selected"}), 400
-    if tipo not in ['aprovar', 'reprovar']:
+    if tipo not in ['aprovar', 'reprovar','aprovar_selecionados', 'reprovar_selecionados']:
         return jsonify({"error": "Invalid type"}), 400
 
     messages = []
@@ -385,9 +385,8 @@ def get_recipient_by_token(token):
 
 
 def create_html_unitary_table(entry):
-    token = request.args.get('token')
-    table = f'''
-    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados?token={token}">
+    table = '''
+    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados">
     <input type="hidden" name="tipo" value="">
     <table style="border: 1px solid black; border-collapse: collapse;">
     <thead>
@@ -533,9 +532,6 @@ def relatorio_horas_geral():
 
             table_html = create_html_table(unapproved_entries)
 
-            # Obtém o token da URL atual
-            token = request.args.get('token')
-
             # Template HTML para renderizar a página
             html_template = f'''
             <!DOCTYPE html>
@@ -584,19 +580,19 @@ def relatorio_horas_geral():
                     </div>
                 </div>
                 <div class="container">
-                    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados?token={token}">
+                    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados">
                         <div class="filters">
                             <label for="filterInput">Buscar:</label>
                             <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
                         </div>
                         {table_html}
                         <div id="all-actions" class="btn-group">
-                            <a href="{API_URL}aprovar_todos?token={token}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                            <a href="{API_URL}reprovar_todos?token={token}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                            <a href="{API_URL}aprovar_todos" class="btn btn-approve" target="_blank">Aprovar Todos</a>
+                            <a href="{API_URL}reprovar_todos" class="btn btn-reject" target="_blank">Reprovar Todos</a>
                         </div>
                         <div id="selected-actions" class="btn-group">
-                            <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar" onclick="submitForm('aprovar')">Aprovar Selecionados</button>
-                            <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar" onclick="submitForm('reprovar')">Reprovar Selecionados</button>
+                            <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
+                            <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
                         </div>
                     </form>
                 </div>
@@ -613,6 +609,7 @@ def relatorio_horas_geral():
         return jsonify({"error": "Erro ao gerar a página HTML"}), 500
 
 
+
 @app.route('/relatorio_horas/<int:user_id>', methods=['GET'])
 #@token_required
 def relatorio_horas(user_id):
@@ -625,7 +622,7 @@ def relatorio_horas(user_id):
         }, verify=False)
 
         if not user_response.ok:
-            logger.error(f"Erro ao buscar usuário com ID {user_id}: {user_response.status_code}")
+            logger.error(f"Erro0 ao buscar usuário com ID {user_id}: {user_response.status_code}")
             return jsonify({"error": "Usuário não encontrado"}), 404
 
         user = user_response.json()
@@ -715,7 +712,7 @@ def relatorio_horas(user_id):
                     </div>
                 </div>
                 <div class="container">
-                    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados?token={token}">
+                    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados">
                         <div class="filters">
                             <label for="filterInput">Buscar:</label>
                             <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
@@ -870,16 +867,16 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token):
             return {"error": "Failed to temporarily change date", "details": alterar_response}
         for field in custom_fields:
             if field.get('name') == 'TS - Aprovado - EVT':
-                field['value'] = '1' if tipo == 'aprovar' else '0'
+                field['value'] = '1' if tipo == 'aprovar' else '0' or '1' if tipo == 'aprovar_selecionados' else '0'
             if field.get('name') == 'TS - Dt. Aprovação - EVT':
-                field['value'] = data_atual if tipo == 'aprovar' else ''
+                field['value'] = data_atual if tipo == 'aprovar' else '' or '1' if tipo == 'aprovar_selecionados' else '0'
             if field.get('name') == 'TS - Aprovador - EVT':
-                field['value'] = get_recipient_by_token(token) if tipo == 'aprovar' else ''
+                field['value'] = get_recipient_by_token(token) if tipo == 'aprovar' else '' or '1' if tipo == 'aprovar_selecionados' else '0'
         update_status, update_response = update_time_entry(entry_id, custom_fields)
         if update_status == 200 or 204:
             restaurar_data_original(entry_id, data_original)
             log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'], tipo, token)
-            return {"message": f"Hora {'aprovada' if tipo == 'aprovar' else 'reprovada'} para ID: {entry_id}"}
+            return {"message": f"Hora {'aprovada' if tipo == 'aprovar' else 'reprovada' or 'aprovada' if tipo == 'aprovar_selecionados' else 'reprovada' } para ID: {entry_id}"}
         else:
             restaurar_data_original(entry_id, data_original)
             return {"error": "Failed to update in Redmine", "details": update_response}
