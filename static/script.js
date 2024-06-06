@@ -13,38 +13,47 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function submitForm(actionType) {
-        const form = document.getElementById('time_entries_form');
-        form.setAttribute('target', '_blank');
-        const tipoInput = form.querySelector('input[name="tipo"]');
-        if (tipoInput) {
-            tipoInput.value = actionType;
-        } else {
-            const newInput = document.createElement('input');
-            newInput.setAttribute('type', 'hidden');
-            newInput.setAttribute('name', 'tipo');
-            newInput.setAttribute('value', actionType);
-            form.appendChild(newInput);
-        }
-
-        var selectedEntries = [];
-        var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
-        for (var checkbox of checkboxes) {
-            selectedEntries.push(checkbox.value);
-        }
-
-        const selectedEntriesInput = form.querySelector('input[name="selected_entries"]');
-        if (selectedEntriesInput) {
-            selectedEntriesInput.value = selectedEntries.join(',');
-        } else {
-            const newSelectedEntriesInput = document.createElement('input');
-            newSelectedEntriesInput.setAttribute('type', 'hidden');
-            newSelectedEntriesInput.setAttribute('name', 'selected_entries');
-            newSelectedEntriesInput.setAttribute('value', selectedEntries.join(','));
-            form.appendChild(newSelectedEntriesInput);
-        }
-
-        form.submit();
+    const form = document.getElementById('time_entries_form');
+    form.setAttribute('target', '_blank');
+    const tipoInput = form.querySelector('input[name="tipo"]');
+    if (tipoInput) {
+        tipoInput.value = actionType;
+    } else {
+        const newInput = document.createElement('input');
+        newInput.setAttribute('type', 'hidden');
+        newInput.setAttribute('name', 'tipo');
+        newInput.setAttribute('value', actionType);
+        form.appendChild(newInput);
     }
+
+    var selectedEntries = [];
+    var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
+    for (var checkbox of checkboxes) {
+        selectedEntries.push(checkbox.value);
+    }
+
+    const selectedEntriesInput = form.querySelector('input[name="selected_entries"]');
+    if (selectedEntriesInput) {
+        selectedEntriesInput.value = selectedEntries.join(',');
+    } else {
+        const newSelectedEntriesInput = document.createElement('input');
+        newSelectedEntriesInput.setAttribute('type', 'hidden');
+        newSelectedEntriesInput.setAttribute('name', 'selected_entries');
+        newSelectedEntriesInput.setAttribute('value', selectedEntries.join(','));
+        form.appendChild(newSelectedEntriesInput);
+    }
+
+    // Adicionar o token à URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    if (token) {
+        const action = form.getAttribute('action');
+        form.setAttribute('action', `${action}?token=${token}`);
+    }
+
+    form.submit();
+}
+
 
     document.getElementById('approve-selected').onclick = function() {
         submitForm('aprovar');
