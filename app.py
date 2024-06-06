@@ -52,7 +52,6 @@ class ApprovalRejectionLog(db.Model):
 
 def create_database():
     with app.app_context():
-        db.drop_all()
         db.create_all()
 
 create_database()
@@ -386,8 +385,8 @@ def get_recipient_by_token(token):
 
 
 def create_html_unitary_table(entry):
-    table = '''
-    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados">
+    table = f'''
+    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados?token={request.args.get('token')}">
     <input type="hidden" name="tipo" value="">
     <table style="border: 1px solid black; border-collapse: collapse;">
     <thead>
@@ -442,6 +441,7 @@ def create_html_unitary_table(entry):
     '''
 
     return table
+
 
 def create_html_table_mail(time_entries):
     table = '''
@@ -579,15 +579,15 @@ def relatorio_horas_geral():
                     </div>
                 </div>
                 <div class="container">
-                    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados">
+                    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados?token={request.args.get('token')}">
                         <div class="filters">
                             <label for="filterInput">Buscar:</label>
                             <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
                         </div>
                         {table_html}
                         <div id="all-actions" class="btn-group">
-                            <a href="{API_URL}aprovar_todos" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                            <a href="{API_URL}reprovar_todos" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                            <a href="{API_URL}aprovar_todos?token={request.args.get('token')}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
+                            <a href="{API_URL}reprovar_todos?token={request.args.get('token')}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
                         </div>
                         <div id="selected-actions" class="btn-group">
                             <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
