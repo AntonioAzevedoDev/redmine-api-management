@@ -81,7 +81,11 @@ def token_required(f):
 @app.route('/')
 @login_required
 def index():
-    return render_template('index.html')
+    user = get_current_user()
+    user_id = user['user']['id']
+    token = get_or_create_token(user_id, user['user']['mail'])
+    return redirect(url_for('relatorio_horas', user_id=user_id, token=token))
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -151,8 +155,9 @@ def reprovar_hora():
     else:
         return jsonify(result), 200
 
+
 @app.route('/validar_selecionados', methods=['POST', 'GET'])
-@login_required
+@token_required
 def validar_selecionados():
     if request.method == 'POST':
         selected_entries = request.form.getlist('selected_entries')
@@ -160,6 +165,7 @@ def validar_selecionados():
         selected_entries = request.args.get('selected_entries').split(',')
 
     tipo = request.form.get('tipo_req') if request.method == 'POST' else request.args.get('tipo')
+    token = request.args.get('token')
 
     if not selected_entries:
         return jsonify({"error": "No entries selected"}), 400
@@ -170,8 +176,7 @@ def validar_selecionados():
     errors = []
 
     for entry_id in selected_entries:
-        token = request.args.get('token')
-        result = aprovar_ou_reprovar(entry_id, 'aprovar' if tipo == 'aprovar' else 'reprovar', get_current_user(), token)
+        result = aprovar_ou_reprovar(entry_id, tipo, get_current_user(), token)
         if 'error' in result:
             errors.append(result)
         else:
@@ -182,6 +187,8 @@ def validar_selecionados():
         result["errors"] = errors
 
     return jsonify(result), 200 if not errors else 207
+
+
 
 def send_email_task(file_content, recipient_emails, project_name, user_id, user_name):
     logger.info("Tarefa de envio de e-mail iniciada.")
@@ -295,13 +302,16 @@ def send_unitary_report():
 
 @app.route('/aprovar_todos', methods=['GET'])
 def aprovar_todos():
-    return atualizar_todas_entradas(aprovacao=True)
+    token = request.args.get('token')
+    return atualizar_todas_entradas(aprovacao=True, token=token)
 
 @app.route('/reprovar_todos', methods=['GET'])
 def reprovar_todos():
-    return atualizar_todas_entradas(aprovacao=False)
+    token = request.args.get('token')
+    return atualizar_todas_entradas(aprovacao=False, token=token)
 
-def atualizar_todas_entradas(aprovacao):
+
+def atualizar_todas_entradas(aprovacao, token):
     user = get_current_user()
     today = datetime.today()
     seven_days_ago = today - timedelta(days=7)
@@ -324,14 +334,10 @@ def atualizar_todas_entradas(aprovacao):
                 time_entry = response.get('time_entry', {})
                 custom_fields = time_entry.get('custom_fields', [])
 
-                # Armazenar a data original
                 data_original = time_entry.get('spent_on')
-
-                # Definir uma nova data dentro do período permitido
                 nova_data = (datetime.now() - timedelta(days=4)).strftime('%Y-%m-%d')
                 data_atual = datetime.now().strftime('%Y-%m-%d')
 
-                # Alterar a data temporariamente
                 alterar_status, alterar_response = alterar_data_temporariamente(entry_id, nova_data)
                 if alterar_status not in [200, 204]:
                     errors.append({
@@ -347,14 +353,13 @@ def atualizar_todas_entradas(aprovacao):
                     if field.get('name') == 'TS - Dt. Aprovação - EVT':
                         field['value'] = end_date if aprovacao else ''
                     if field.get('name') == 'TS - Aprovador - EVT':
-                        field['value'] = user['user']['mail'] if aprovacao else ''
+                        field['value'] = get_recipient_by_token(token) if aprovacao else ''
 
                 update_status, update_response = update_time_entry(entry_id, custom_fields)
                 if update_status == 200 or 204:
-                    # Restaurar a data original
                     restaurar_data_original(entry_id, data_original)
+                    log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'], 'aprovar' if aprovacao else 'reprovar', token)
                 else:
-                    # Restaurar a data original em caso de falha
                     restaurar_data_original(entry_id, data_original)
                     errors.append({
                         'id': entry_id,
@@ -373,6 +378,12 @@ def atualizar_todas_entradas(aprovacao):
             return jsonify({"message": "Todas as horas foram reprovadas!"}), 200
     else:
         return jsonify({"error": "Failed to fetch time entries from Redmine", "details": response.json()}), 400
+
+
+def get_recipient_by_token(token):
+    access_token = AccessToken.query.filter_by(token=token).first()
+    return access_token.recipient_email if access_token else None
+
 
 def create_html_unitary_table(entry):
     table = '''
@@ -838,6 +849,7 @@ def restaurar_data_original(entry_id, data_original):
     else:
         return status_code, response
 
+
 def aprovar_ou_reprovar(entry_id, tipo, user, token):
     status_code, response = get_time_entry(entry_id)
     if status_code == 200:
@@ -855,7 +867,7 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token):
             if field.get('name') == 'TS - Dt. Aprovação - EVT':
                 field['value'] = data_atual if tipo == 'aprovar' else ''
             if field.get('name') == 'TS - Aprovador - EVT':
-                field['value'] = user['user']['mail'] if tipo == 'aprovar' else ''
+                field['value'] = get_recipient_by_token(token) if tipo == 'aprovar' else ''
         update_status, update_response = update_time_entry(entry_id, custom_fields)
         if update_status == 200 or 204:
             restaurar_data_original(entry_id, data_original)
@@ -866,6 +878,7 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token):
             return {"error": "Failed to update in Redmine", "details": update_response}
     else:
         return {"error": "Failed to fetch time entry from Redmine", "details": response}
+
 
 @app.route('/api/horas_nao_aprovadas', methods=['GET'])
 @login_required
@@ -951,6 +964,7 @@ def log_approval_rejection(entry_id, entry_date, hours, action, token):
         db.session.commit()
     except Exception as e:
         logger.error(f"Erro ao salvar log de {action} para entrada ID {entry_id}: {e}")
+
 
 @app.route('/api/logs', methods=['GET'])
 def get_logs():
