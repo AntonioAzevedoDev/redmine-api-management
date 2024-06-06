@@ -156,7 +156,7 @@ def reprovar_hora():
 
 
 @app.route('/validar_selecionados', methods=['POST', 'GET'])
-@token_required
+#@token_required
 def validar_selecionados():
     if request.method == 'POST':
         selected_entries = request.form.getlist('selected_entries')
@@ -708,7 +708,7 @@ def relatorio_horas(user_id):
                     </div>
                 </div>
                 <div class="container">
-                    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados">
+                    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados?token={request.args.get('token')}">
                         <div class="filters">
                             <label for="filterInput">Buscar:</label>
                             <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
