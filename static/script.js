@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
         checkbox.onclick = toggleSelectedActions;
     }
 
-    function submitForm(actionType) {
+ function submitForm(actionType) {
     const form = document.getElementById('time_entries_form');
     form.setAttribute('target', '_blank');
     const tipoInput = form.querySelector('input[name="tipo"]');
@@ -43,16 +43,21 @@ document.addEventListener('DOMContentLoaded', function() {
         form.appendChild(newSelectedEntriesInput);
     }
 
-    // Adicionar o token à URL
+    // Obtendo o token da URL atual
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
-    if (token) {
-        const action = form.getAttribute('action');
-        form.setAttribute('action', `${action}?token=${token}`);
-    }
+
+    // Adicionando o token à URL do formulário
+    let actionUrl = form.getAttribute('action');
+    console.log("URL antes de adicionar o token: " + actionUrl);
+    actionUrl += (actionUrl.includes('?') ? '&' : '?') + 'token=' + token;
+    console.log("URL após adicionar o token: " + actionUrl);
+    form.setAttribute('action', actionUrl);
 
     form.submit();
 }
+
+
 
 
     document.getElementById('approve-selected').onclick = function() {

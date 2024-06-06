@@ -385,8 +385,9 @@ def get_recipient_by_token(token):
 
 
 def create_html_unitary_table(entry):
+    token = request.args.get('token')
     table = f'''
-    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados?token={request.args.get('token')}">
+    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados?token={token}">
     <input type="hidden" name="tipo" value="">
     <table style="border: 1px solid black; border-collapse: collapse;">
     <thead>
@@ -441,6 +442,7 @@ def create_html_unitary_table(entry):
     '''
 
     return table
+
 
 
 def create_html_table_mail(time_entries):
@@ -531,6 +533,9 @@ def relatorio_horas_geral():
 
             table_html = create_html_table(unapproved_entries)
 
+            # Obtém o token da URL atual
+            token = request.args.get('token')
+
             # Template HTML para renderizar a página
             html_template = f'''
             <!DOCTYPE html>
@@ -579,19 +584,19 @@ def relatorio_horas_geral():
                     </div>
                 </div>
                 <div class="container">
-                    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados?token={request.args.get('token')}">
+                    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados?token={token}">
                         <div class="filters">
                             <label for="filterInput">Buscar:</label>
                             <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
                         </div>
                         {table_html}
                         <div id="all-actions" class="btn-group">
-                            <a href="{API_URL}aprovar_todos?token={request.args.get('token')}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                            <a href="{API_URL}reprovar_todos?token={request.args.get('token')}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                            <a href="{API_URL}aprovar_todos?token={token}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
+                            <a href="{API_URL}reprovar_todos?token={token}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
                         </div>
                         <div id="selected-actions" class="btn-group">
-                            <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
-                            <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
+                            <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar" onclick="submitForm('aprovar')">Aprovar Selecionados</button>
+                            <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar" onclick="submitForm('reprovar')">Reprovar Selecionados</button>
                         </div>
                     </form>
                 </div>
@@ -606,6 +611,7 @@ def relatorio_horas_geral():
     except Exception as e:
         logger.error(f"Erro ao gerar a página HTML: {e}")
         return jsonify({"error": "Erro ao gerar a página HTML"}), 500
+
 
 @app.route('/relatorio_horas/<int:user_id>', methods=['GET'])
 #@token_required
@@ -659,7 +665,8 @@ def relatorio_horas(user_id):
                     f"Nenhuma entrada de tempo não aprovada encontrada para o usuário ID {user_id} no período de {start_date} a {end_date}")
 
             table_html = create_html_table(unapproved_entries)
-
+            # Obtém o token da URL atual
+            token = request.args.get('token')
             # Template HTML para renderizar a página com filtros
             html_template = f'''
             <!DOCTYPE html>
@@ -708,7 +715,7 @@ def relatorio_horas(user_id):
                     </div>
                 </div>
                 <div class="container">
-                    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados?token={request.args.get('token')}">
+                    <form id="time_entries_form" method="get" action="http://192.168.1.119:5000/validar_selecionados?token={token}">
                         <div class="filters">
                             <label for="filterInput">Buscar:</label>
                             <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
