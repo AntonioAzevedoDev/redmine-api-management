@@ -302,20 +302,23 @@ def send_unitary_report():
 @app.route('/aprovar_todos', methods=['GET'])
 def aprovar_todos():
     token = request.args.get('token')
-    return atualizar_todas_entradas(aprovacao=True, token=token, entries=request.args.getlist('entries'))
+    entries = request.args.get('entries')
+    entry_ids = entries.split(',') if entries else []
+    return atualizar_todas_entradas(aprovacao=True, entry_ids=entry_ids, token=token)
 
 @app.route('/reprovar_todos', methods=['GET'])
 def reprovar_todos():
     token = request.args.get('token')
-    return atualizar_todas_entradas(aprovacao=False, token=token, entries=request.args.getlist('entries'))
+    entries = request.args.get('entries')
+    entry_ids = entries.split(',') if entries else []
+    return atualizar_todas_entradas(aprovacao=False, entry_ids=entry_ids, token=token)
 
 
-
-def atualizar_todas_entradas(aprovacao, token, entries):
+def atualizar_todas_entradas(aprovacao, entry_ids, token):
     user = get_current_user()
     errors = []
 
-    for entry_id in entries:
+    for entry_id in entry_ids:
         status_code, response = get_time_entry(entry_id)
         if status_code == 200:
             time_entry = response.get('time_entry', {})
@@ -343,9 +346,10 @@ def atualizar_todas_entradas(aprovacao, token, entries):
                     field['value'] = get_recipient_by_token(token) if aprovacao else ''
 
             update_status, update_response = update_time_entry(entry_id, custom_fields)
-            if update_status == 200 or 204:
+            if update_status in [200, 204]:
                 restaurar_data_original(entry_id, data_original)
-                log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'], 'aprovar' if aprovacao else 'reprovar', token)
+                log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'],
+                                       'aprovar' if aprovacao else 'reprovar', token)
             else:
                 restaurar_data_original(entry_id, data_original)
                 errors.append({
@@ -353,17 +357,20 @@ def atualizar_todas_entradas(aprovacao, token, entries):
                     'status': update_status,
                     'response': update_response
                 })
+        else:
+            errors.append({
+                'id': entry_id,
+                'status': status_code,
+                'response': response
+            })
 
     if errors:
         return jsonify({
             "error": "Some entries failed to update",
             "details": errors
         }), 207
-    if aprovacao:
-        return jsonify({"message": "Todas as horas foram aprovadas!"}), 200
-    else:
-        return jsonify({"message": "Todas as horas foram reprovadas!"}), 200
 
+    return jsonify({"message": f"Todas as horas foram {'aprovadas' if aprovacao else 'reprovadas'}!"}), 200
 
 
 def get_recipient_by_token(token):
