@@ -156,7 +156,7 @@ def reprovar_hora():
 
 
 @app.route('/validar_selecionados', methods=['POST', 'GET'])
-#@token_required
+@token_required
 def validar_selecionados():
     if request.method == 'POST':
         selected_entries = request.form.getlist('selected_entries')
@@ -867,16 +867,16 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token):
             return {"error": "Failed to temporarily change date", "details": alterar_response}
         for field in custom_fields:
             if field.get('name') == 'TS - Aprovado - EVT':
-                field['value'] = '1' if tipo == 'aprovar' else '0' or '1' if tipo == 'aprovar_selecionados' else '0'
+                field['value'] = '1' if tipo in ['aprovar', 'aprovar_selecionados'] else '0'
             if field.get('name') == 'TS - Dt. Aprovação - EVT':
-                field['value'] = data_atual if tipo == 'aprovar' else '' or '1' if tipo == 'aprovar_selecionados' else '0'
+                field['value'] = data_atual if tipo in ['aprovar', 'aprovar_selecionados'] else ''
             if field.get('name') == 'TS - Aprovador - EVT':
-                field['value'] = get_recipient_by_token(token) if tipo == 'aprovar' else '' or '1' if tipo == 'aprovar_selecionados' else '0'
+                field['value'] = get_recipient_by_token(token) if tipo in ['aprovar', 'aprovar_selecionados'] else ''
         update_status, update_response = update_time_entry(entry_id, custom_fields)
         if update_status == 200 or 204:
             restaurar_data_original(entry_id, data_original)
             log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'], tipo, token)
-            return {"message": f"Hora {'aprovada' if tipo == 'aprovar' else 'reprovada' or 'aprovada' if tipo == 'aprovar_selecionados' else 'reprovada' } para ID: {entry_id}"}
+            return {"message": f"Hora {'aprovada' if tipo in ['aprovar', 'aprovar_selecionados'] else 'reprovada'} para ID: {entry_id}"}
         else:
             restaurar_data_original(entry_id, data_original)
             return {"error": "Failed to update in Redmine", "details": update_response}
