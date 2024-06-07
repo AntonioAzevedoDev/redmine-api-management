@@ -595,6 +595,7 @@ def relatorio_horas_geral():
                         </div>
                     </form>
                 </div>
+                <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
             </body>
             </html>
             '''
