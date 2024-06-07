@@ -525,7 +525,12 @@ def relatorio_horas_geral():
                     f"Nenhuma entrada de tempo não aprovada encontrada no período de {start_date} a {end_date}")
 
             table_html = create_html_table(unapproved_entries)
-
+            # Obtém o token da URL atual
+            user = get_current_user()
+            user_id = user['user']['id']
+            token = get_or_create_token(user_id, user['user']['mail'])
+            # Constrói a lista de IDs das entradas
+            entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
             # Template HTML para renderizar a página
             html_template = f'''
             <!DOCTYPE html>
@@ -581,8 +586,8 @@ def relatorio_horas_geral():
                         </div>
                         {table_html}
                         <div id="all-actions" class="btn-group">
-                            <a href="{API_URL}aprovar_todos" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                            <a href="{API_URL}reprovar_todos" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                            <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
+                            <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
                         </div>
                         <div id="selected-actions" class="btn-group">
                             <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
