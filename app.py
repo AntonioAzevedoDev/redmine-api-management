@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
+from flask import render_template_string
 import logging
 from flask import Flask, request, jsonify, redirect, render_template, url_for, session, render_template_string
 import requests
@@ -57,6 +58,43 @@ def create_database():
 
 create_database()
 
+
+def render_response(message, status_code, details=None):
+    details_html = ''
+    if details:
+        details_html = '<ul>'
+        for error in details:
+            details_html += f'<li>{error}</li>'
+        details_html += '</ul>'
+
+    html_template = f'''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>API Response</title>
+        <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
+    </head>
+    <body>
+        <div id="header">
+            <div class="header-logo">
+                <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT" style="display:block; margin: 0 auto;">
+            </div>
+        </div>
+        <div class="container">
+            <div class="image">
+                <img src="{{{{ url_for('static', filename='evt.png') }}}}" alt="EVT">
+            </div>
+            <h2>{message}</h2>
+            {details_html}
+        </div>
+    </body>
+    </html>
+    '''
+    return render_template_string(html_template), status_code
+
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -98,7 +136,8 @@ def login():
             session['username'] = username
             return redirect(url_for('index'))
         else:
-            return "Invalid credentials", 401
+            return render_response("Invalid credentials"), 401
+
     return render_template('login.html')
 
 @app.route('/logout')
@@ -113,7 +152,7 @@ def register():
         username = request.form['username']
         password = request.form['password']
         if User.query.filter_by(username=username).first():
-            return "User already exists", 400
+            return render_response("User already exists"), 400
         new_user = User(username=username)
         new_user.set_password(password)
         db.session.add(new_user)
@@ -125,15 +164,15 @@ def register():
 
 def upload_file():
     if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
+        return render_response("No file part"), 400
     file = request.files['file']
     if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
+        return render_response("No selected file"), 400
     if file and file.filename.endswith('.txt'):
         file_content = file.read().decode('utf-8')
         send_email(file_content)
-        return jsonify({"message": "Email sent successfully"}), 200
-    return jsonify({"error": "Invalid file type"}), 400
+        return render_response("Email sent successfully"), 200
+    return render_response("Invalid file type"), 400
 
 @app.route('/aprovar_hora', methods=['GET'])
 def aprovar_hora():
@@ -141,9 +180,10 @@ def aprovar_hora():
     token = request.args.get('token')
     result = aprovar_ou_reprovar(data_id, 'aprovar', get_current_user(), token)
     if 'error' in result:
-        return jsonify(result), 400
+        return render_response(result['error'], 400)
     else:
-        return jsonify(result), 200
+        return render_response(result['message'], 200)
+
 
 @app.route('/reprovar_hora', methods=['GET'])
 def reprovar_hora():
@@ -151,9 +191,9 @@ def reprovar_hora():
     token = request.args.get('token')
     result = aprovar_ou_reprovar(data_id, 'reprovar', get_current_user(), token)
     if 'error' in result:
-        return jsonify(result), 400
+        return render_response(result['error'], 400)
     else:
-        return jsonify(result), 200
+        return render_response(result['message'], 200)
 
 
 @app.route('/validar_selecionados', methods=['POST', 'GET'])
@@ -166,11 +206,11 @@ def validar_selecionados():
 
     tipo = request.form.get('tipo_req') if request.method == 'POST' else request.args.get('tipo')
     token = request.args.get('token')
-    tipo = tipo+'_selecionados'
+    tipo = tipo + '_selecionados'
     if not selected_entries:
-        return jsonify({"error": "No entries selected"}), 400
-    if tipo not in ['aprovar', 'reprovar','aprovar_selecionados', 'reprovar_selecionados']:
-        return jsonify({"error": "Invalid type"}), 400
+        return render_response("No entries selected", 400)
+    if tipo not in ['aprovar', 'reprovar', 'aprovar_selecionados', 'reprovar_selecionados']:
+        return render_response("Invalid type", 400)
 
     messages = []
     errors = []
@@ -186,7 +226,8 @@ def validar_selecionados():
     if errors:
         result["errors"] = errors
 
-    return jsonify(result), 200 if not errors else 207
+    return render_response(result, 207 if errors else 200)
+
 
 
 
@@ -271,7 +312,7 @@ def send_email_report_client():
 
             if not email_entries:
                 logger.warning('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.')
-                return jsonify({'error': 'Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.'}), 400
+                return render_response('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.'), 400
 
             for email, entries in email_entries.items():
                 unapproved_entries = [entry for entry in entries if any(
@@ -285,10 +326,10 @@ def send_email_report_client():
                 else:
                     logger.info(f'Nenhuma entrada de tempo não aprovada encontrada para o email: {email}')
 
-            return jsonify({'message': 'Relatórios enviados com sucesso.'}), 200
+            return render_response('Relatórios enviados com sucesso.'), 200
         else:
             logger.error('Erro ao buscar entradas de tempo.')
-            return jsonify({'error': 'Erro ao buscar entradas de tempo'}), 500
+            return render_response('Erro ao buscar entradas de tempo.'), 500
     else:
         logger.error('Erro ao obter o usuário logado. Redirecionando para login.')
         return redirect(f'{REDMINE_URL}/login')
@@ -327,20 +368,20 @@ def send_email_report():
 
             if not unapproved_entries:
                 logger.warning('Nenhuma entrada de tempo não aprovada encontrada.')
-                return jsonify({'error': 'Nenhuma entrada de tempo não aprovada encontrada.'}), 400
+                return render_response('Nenhuma entrada de tempo não aprovada encontrada.'), 400
 
             table_html = create_html_table_mail(unapproved_entries)
             recipient_emails = request.headers.get('recipient', '').split(',')
             if not recipient_emails or recipient_emails == ['']:
                 logger.error('Nenhum e-mail de destinatário fornecido.')
-                return jsonify({'error': 'Nenhum e-mail de destinatário fornecido.'}), 400
+                return render_response('Nenhum e-mail de destinatário fornecido.'), 400
             project_name = unapproved_entries[0]['project']['name']
             user_name = unapproved_entries[0]['user']['name']
             send_email_task(table_html, recipient_emails, project_name, user_id, user_name)
-            return jsonify({'message': 'Relatório enviado com sucesso.'}), 200
+            return render_response('Relatório enviado com sucesso.'), 200
         else:
             logger.error('Erro ao buscar entradas de tempo.')
-            return jsonify({'error': 'Erro ao buscar entradas de tempo'}), 500
+            return render_response('Erro ao buscar entradas de tempo.'), 500
     else:
         logger.error('Erro ao obter o usuário logado. Redirecionando para login.')
         return redirect(f'{REDMINE_URL}/login')
@@ -349,12 +390,12 @@ def send_email_report():
 def send_unitary_report():
     entry_id = request.headers.get('id', '')
     if not entry_id:
-        return jsonify({'error': 'ID de entrada não fornecido.'}), 400
+        return render_response('ID de entrada não fornecido.'), 400
 
     recipient_emails = request.headers.get('recipient', '').split(',')
     if not recipient_emails or recipient_emails == ['']:
         logger.error('Nenhum e-mail de destinatário fornecido.')
-        return jsonify({'error': 'Nenhum e-mail de destinatário fornecido.'}), 400
+        return render_response('Nenhum e-mail de destinatário fornecido.'), 400
 
     try:
         status_code, response = get_time_entry(entry_id)
@@ -369,11 +410,11 @@ def send_unitary_report():
                 email_content = f"{table_html}\n\nPara visualizar as entradas de tempo, acesse o link: <a href='{link}'>relatório</a>"
                 send_email(email_content, email.strip(), project_name, user_name)
 
-        return jsonify({'message': 'Relatório enviado com sucesso.'}), 200
+        return render_response('Relatório enviado com sucesso.'), 200
 
     except Exception as e:
         logger.error(f"Erro ao processar a solicitação: {e}")
-        return jsonify({'error': 'Erro ao processar a solicitação.'}), 500
+        return render_response('Erro ao processar a solicitação.'), 500
 
 @app.route('/aprovar_todos', methods=['GET'])
 def aprovar_todos():
@@ -441,12 +482,9 @@ def atualizar_todas_entradas(aprovacao, entry_ids, token):
             })
 
     if errors:
-        return jsonify({
-            "error": "Some entries failed to update",
-            "details": errors
-        }), 207
+        return render_response("Some entries failed to update", 207, details=errors)
 
-    return jsonify({"message": f"Todas as horas foram {'aprovadas' if aprovacao else 'reprovadas'}!"}), 200
+    return render_response(f"Todas as horas foram {'aprovadas' if aprovacao else 'reprovadas'}!", 200)
 
 
 def get_recipient_by_token(token):
@@ -741,11 +779,10 @@ def relatorio_horas_geral():
             return render_template_string(html_template)
         else:
             logger.error(f"Erro ao buscar entradas de tempo: {entries_response.status_code}")
-            return jsonify({"error": "Erro ao buscar entradas de tempo"}), 500
+            return render_response("Erro ao buscar entradas de tempo", 500)
     except Exception as e:
         logger.error(f"Erro ao gerar a página HTML: {e}")
-        return jsonify({"error": "Erro ao gerar a página HTML"}), 500
-
+        return render_response("Erro ao gerar a página HTML", 500)
 
 
 @app.route('/relatorio_horas/<int:user_id>', methods=['GET'])
@@ -760,7 +797,7 @@ def relatorio_horas(user_id):
 
         if not user_response.ok:
             logger.error(f"Erro ao buscar usuário com ID {user_id}: {user_response.status_code}")
-            return jsonify({"error": "Usuário não encontrado"}), 404
+            return render_response("Usuário não encontrado", 404)
 
         user = user_response.json()
         user_name = user['user']['firstname'] + ' ' + user['user']['lastname']
@@ -876,10 +913,10 @@ def relatorio_horas(user_id):
             return render_template_string(html_template)
         else:
             logger.error(f"Erro ao buscar entradas de tempo: {entries_response.status_code}")
-            return jsonify({"error": "Erro ao buscar entradas de tempo"}), 500
+            return render_response("Erro ao buscar entradas de tempo", 500)
     except Exception as e:
         logger.error(f"Erro ao gerar a página HTML: {e}")
-        return jsonify({"error": "Erro ao gerar a página HTML"}), 500
+        return render_response("Erro ao gerar a página HTML", 500)
 
 @app.route('/relatorio_horas_client/<int:user_id>', methods=['GET'])
 def relatorio_horas_client(user_id):
@@ -893,7 +930,7 @@ def relatorio_horas_client(user_id):
 
         if not user_response.ok:
             logger.error(f"Erro ao buscar usuário com ID {user_id}: {user_response.status_code}")
-            return jsonify({"error": "Usuário não encontrado"}), 404
+            return render_response("Usuário não encontrado", 404)
 
         user = user_response.json()
         user_name = user['user']['firstname'] + ' ' + user['user']['lastname']
@@ -1024,13 +1061,10 @@ def relatorio_horas_client(user_id):
                 return render_template_string(html_template)
         else:
             logger.error(f"Erro ao buscar entradas de tempo: {entries_response.status_code}")
-            return jsonify({"error": "Erro ao buscar entradas de tempo"}), 500
+            return render_response("Erro ao buscar entradas de tempo", 500)
     except Exception as e:
         logger.error(f"Erro ao gerar a página HTML: {e}")
-        return jsonify({"error": "Erro ao gerar a página HTML"}), 500
-
-
-
+        return render_response("Erro ao gerar a página HTML", 500)
 
 def create_html_table(time_entries):
     table = '''
@@ -1149,7 +1183,11 @@ def get_time_entry(time_entry_id):
     url = f"{REDMINE_URL}/time_entries/{time_entry_id}.json"
     headers = {'X-Redmine-API-Key': REDMINE_API_KEY}
     response = requests.get(url, headers=headers, verify=False)
-    return response.status_code, response.json()
+
+    try:
+        return response.status_code, response.json()
+    except ValueError:
+        return response.status_code, {"error": "Invalid JSON response"}
 
 def update_time_entry(time_entry_id, custom_fields):
     url = f"{REDMINE_URL}/time_entries/{time_entry_id}.json"
@@ -1179,7 +1217,7 @@ def alterar_data_temporariamente(entry_id, nova_data):
                 return response.status_code, response.text
             else:
                 error_message = response.json().get('errors', [])
-                if any("já existente" in error for error in error_message):
+                if any("Apontamento retroativo" in error for error in error_message):
                     nova_data = (datetime.strptime(nova_data, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
                 else:
                     return response.status_code, response.text
