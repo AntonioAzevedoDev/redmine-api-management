@@ -945,7 +945,7 @@ def relatorio_horas_client(user_id):
             for recipient, entries in email_entries.items():
                 # Validação do e-mail do token com o recipient
                 if token_email != recipient:
-                    logger.warning(f'Token não autorizado para o e-mail: {recipient}')
+                    logger.warning(f'Token não autorizado para o e-mail: {recipient} ')
                     continue
 
                 table_html = create_html_table_client(entries, recipient)
