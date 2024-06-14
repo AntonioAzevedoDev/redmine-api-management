@@ -21,7 +21,7 @@ CORS(app)
 
 REDMINE_URL = 'https://redmineqas.evtit.com'
 REDMINE_API_KEY = "14f242e3ec7d71044d2b15dc285fd0b2603b9f0a"
-API_URL = "http://192.168.1.175:5000/"
+API_URL = "https://timesheetqas.evtit.com/"
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -380,7 +380,7 @@ def get_recipient_by_token(token):
 
 def create_html_unitary_table(entry):
     table = '''
-    <form id="time_entries_form" method="get" action="http://192.168.1.175:5000/validar_selecionados">
+    <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados">
     <input type="hidden" name="tipo" value="">
     <table style="border: 1px solid black; border-collapse: collapse;">
     <thead>
@@ -579,7 +579,7 @@ def relatorio_horas_geral():
                     </div>
                 </div>
                 <div class="container">
-                    <form id="time_entries_form" method="get" action="http://192.168.1.175:5000/validar_selecionados">
+                    <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados">
                         <div class="filters">
                             <label for="filterInput">Buscar:</label>
                             <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
@@ -714,7 +714,7 @@ def relatorio_horas(user_id):
                     </div>
                 </div>
                 <div class="container">
-                    <form id="time_entries_form" method="get" action="http://192.168.1.175:5000/validar_selecionados">
+                    <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados">
                         <div class="filters">
                             <label for="filterInput">Buscar:</label>
                             <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
