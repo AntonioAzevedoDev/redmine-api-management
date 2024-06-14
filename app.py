@@ -1,4 +1,3 @@
-from collections import defaultdict
 from datetime import datetime, timedelta
 import logging
 from flask import Flask, request, jsonify, redirect, render_template, url_for, session, render_template_string
@@ -205,22 +204,6 @@ def send_email_task(file_content, recipient_emails, project_name, user_id, user_
     except Exception as e:
         logger.error(f"Erro ao enviar e-mails: {e}")
 
-
-def send_email_task_client(file_content, recipient_email, project_name, user_id, user_name):
-    logger.info("Tarefa de envio de e-mail (Cliente) iniciada.")
-    try:
-        logger.info("Chamando função send_email com o seguinte conteúdo para o cliente:")
-        logger.info(file_content)
-        token = get_or_create_token(user_id, recipient_email)
-        link = f"http://127.0.0.1:5000/relatorio_horas_client/{user_id}?token={token}"
-        email_content = f"{file_content}\n\nPara visualizar as entradas de tempo, acesse o link: <a href='{link}'>relatório</a>"
-        send_email(email_content, recipient_email.strip(), project_name, user_name)
-        logger.info(f"E-mail enviado para: {recipient_email.strip()}")
-        logger.info("E-mail enviado com sucesso.")
-    except Exception as e:
-        logger.error(f"Erro ao enviar e-mail para o cliente: {e}")
-
-
 def get_current_user():
     logger.info('Tentando obter o usuário logado.')
     response = requests.get(f'{REDMINE_URL}/users/current.json', headers={
@@ -234,65 +217,6 @@ def get_current_user():
     else:
         logger.error('Erro ao obter o usuário logado. Redirecionando para login.')
         return redirect(f'{REDMINE_URL}/login')
-
-@app.route('/send_email_report_client', methods=['POST'])
-def send_email_report_client():
-    logger.info('Tentando obter o usuário logado.')
-    response = requests.get(f'{REDMINE_URL}/users/current.json', headers={
-        'X-Redmine-API-Key': REDMINE_API_KEY,
-        'Content-Type': 'application/json'
-    }, verify=False)  # Consider replacing verify=False with a valid certificate
-
-    if response.ok:
-        user_data = response.json()
-        user_id = user_data['user']['id']
-        user_email = user_data['user']['mail']
-        logger.info(f'Usuário logado obtido: {user_data["user"]["login"]}')
-
-        today = datetime.today()
-        seven_days_ago = today - timedelta(days=7)
-        start_date = seven_days_ago.strftime('%Y-%m-%d')
-        end_date = today.strftime('%Y-%m-%d')
-
-        url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
-        entries_response = requests.get(url, headers={
-            'X-Redmine-API-Key': REDMINE_API_KEY,
-            'Content-Type': 'application/json'
-        }, verify=False)  # Consider replacing verify=False with a valid certificate
-
-        if entries_response.ok:
-            time_entries = entries_response.json().get('time_entries', [])
-            email_entries = defaultdict(list)
-
-            for entry in time_entries:
-                approver_field = next((f for f in entry.get('custom_fields', []) if f['name'] == 'TS - Aprovador - CLI' and f['value']), None)
-                if approver_field:
-                    email_entries[approver_field['value']].append(entry)
-
-            if not email_entries:
-                logger.warning('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.')
-                return jsonify({'error': 'Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.'}), 400
-
-            for email, entries in email_entries.items():
-                unapproved_entries = [entry for entry in entries if any(
-                    field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in entry.get('custom_fields', []))]
-
-                if unapproved_entries:
-                    table_html = create_html_table_mail_client(unapproved_entries, email)
-                    project_name = unapproved_entries[0]['project']['name']
-                    user_name = unapproved_entries[0]['user']['name']
-                    send_email_task_client(table_html, email, project_name, user_id, user_name)
-                else:
-                    logger.info(f'Nenhuma entrada de tempo não aprovada encontrada para o email: {email}')
-
-            return jsonify({'message': 'Relatórios enviados com sucesso.'}), 200
-        else:
-            logger.error('Erro ao buscar entradas de tempo.')
-            return jsonify({'error': 'Erro ao buscar entradas de tempo'}), 500
-    else:
-        logger.error('Erro ao obter o usuário logado. Redirecionando para login.')
-        return redirect(f'{REDMINE_URL}/login')
-
 
 @app.route('/send_email_report', methods=['POST'])
 def send_email_report():
@@ -512,68 +436,6 @@ def create_html_unitary_table(entry):
 
     return table
 
-def create_html_table_mail_client(time_entries, recipient):
-    table = '''
-    <form id="time_entries_form" method="post" action="">
-    <input type="hidden" name="tipo" value="">
-    <table style="border: 1px solid black; border-collapse: collapse;">
-    <thead>
-      <tr>
-        <th style="border: 1px solid black;">ID</th>
-        <th style="border: 1px solid black;">Projeto</th>
-        <th style="border: 1px solid black;">Colaborador</th>
-        <th style="border: 1px solid black;">Horas</th>
-        <th style="border: 1px solid black;">Comentários</th>
-        <th style="border: 1px solid black;">Lançada em</th>
-        <th style="border: 1px solid black;">Hora inicial (HH:MM)</th>
-        <th style="border: 1px solid black;">Hora final (HH:MM)</th>
-      </tr>
-    </thead>
-    <tbody>
-    '''
-
-    for entry in time_entries:
-        approver_cli = next(
-            (field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Aprovador - CLI'), '')
-
-        if approver_cli == recipient:
-            hora_inicial = next(
-                (field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora inicial (HH:MM)'), '')
-            hora_final = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora final (HH:MM)'),
-                              '')
-            identificacao_cliente = next(
-                (field['value'] for field in entry['custom_fields'] if field['name'] == 'Identificação do Cliente'), '')
-            local_trabalho = next(
-                (field['value'] for field in entry['custom_fields'] if field['name'] == 'Local de trabalho'), '')
-            responsavel_cliente = next(
-                (field['value'] for field in entry['custom_fields'] if field['name'] == 'Responsável Cliente'), '')
-            ts_aprovado_evt = next(
-                (field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Aprovado - EVT'), '')
-            ts_aprovado_cli = next(
-                (field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Aprovado - CLI'), '')
-            ts_dt_aprovacao_evt = next(
-                (field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Dt. Aprovação - EVT'), '')
-
-            table += f'''
-            <tr>
-              <td style="border: 1px solid black;">{entry['id']}</td>
-              <td style="border: 1px solid black;">{entry['project']['name']}</td>
-              <td style="border: 1px solid black;">{entry['user']['name']}</td>
-              <td style="border: 1px solid black;">{entry['hours']}</td>
-              <td style="border: 1px solid black;">{entry['comments']}</td>
-              <td style="border: 1px solid black;">{entry['spent_on']}</td>
-              <td style="border: 1px solid black;">{hora_inicial}</td>
-              <td style="border: 1px solid black;">{hora_final}</td>
-            </tr>
-            '''
-
-    table += '''
-    </tbody>
-    </table>
-    </form>
-    '''
-
-    return table
 
 
 def create_html_table_mail(time_entries):
@@ -881,156 +743,6 @@ def relatorio_horas(user_id):
         logger.error(f"Erro ao gerar a página HTML: {e}")
         return jsonify({"error": "Erro ao gerar a página HTML"}), 500
 
-@app.route('/relatorio_horas_client/<int:user_id>', methods=['GET'])
-def relatorio_horas_client(user_id):
-    try:
-        # Faz uma requisição para obter o usuário pelo ID fornecido na URL
-        user_url = f'{REDMINE_URL}/users/{user_id}.json'
-        user_response = requests.get(user_url, headers={
-            'X-Redmine-API-Key': REDMINE_API_KEY,
-            'Content-Type': 'application/json'
-        }, verify=False)
-
-        if not user_response.ok:
-            logger.error(f"Erro ao buscar usuário com ID {user_id}: {user_response.status_code}")
-            return jsonify({"error": "Usuário não encontrado"}), 404
-
-        user = user_response.json()
-        user_name = user['user']['firstname'] + ' ' + user['user']['lastname']
-
-        # Obter parâmetros de filtro
-        project_id = request.args.get('project_id')
-        start_date = request.args.get('start_date')
-        end_date = request.args.get('end_date')
-
-        # Definir datas padrão (últimos 30 dias) se não fornecidas
-        if not start_date or not end_date:
-            today = datetime.today()
-            thirty_days_ago = today - timedelta(days=30)
-            start_date = thirty_days_ago.strftime('%Y-%m-%d')
-            end_date = today.strftime('%Y-%m-%d')
-
-        # Construir URL de requisição com filtros
-        url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
-        if project_id:
-            url += f'&project_id={project_id}'
-
-        entries_response = requests.get(url, headers={
-            'X-Redmine-API-Key': REDMINE_API_KEY,
-            'Content-Type': 'application/json'
-        }, verify=False)
-
-        if entries_response.ok:
-            # Filtra as entradas de tempo para incluir apenas aquelas que não foram aprovadas e têm o destinatário correto
-            time_entries = entries_response.json().get('time_entries', [])
-            unapproved_entries = [entry for entry in time_entries if any(
-                field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in entry.get('custom_fields', []))
-                and any(field['name'] == 'TS - Aprovador - CLI' for field in entry.get('custom_fields', []))
-            ]
-
-            # Agrupar entradas por destinatário
-            email_entries = defaultdict(list)
-            for entry in unapproved_entries:
-                recipient = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Aprovador - CLI'), None)
-                if recipient:
-                    email_entries[recipient].append(entry)
-
-            if not unapproved_entries:
-                logger.warning(
-                    f"Nenhuma entrada de tempo não aprovada encontrada para o usuário ID {user_id} no período de {start_date} a {end_date}")
-
-            token = request.args.get('token')
-            token_email = get_email_from_token(token)  # Obtendo o e-mail associado ao token
-
-            for recipient, entries in email_entries.items():
-                # Validação do e-mail do token com o recipient
-                if token_email != recipient:
-                    logger.warning(f'Token não autorizado para o e-mail: {recipient}')
-                    continue
-
-                table_html = create_html_table_client(entries, recipient)
-                # Constrói a lista de IDs das entradas
-                entry_ids = ','.join([str(entry['id']) for entry in entries])
-
-                # Template HTML para renderizar a página com filtros
-                html_template = f'''
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Tempo gasto</title>
-                    <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
-                    <script>
-                        function filterTable() {{
-                            var input, filter, table, tr, td, i, j, txtValue;
-                            input = document.getElementById("filterInput");
-                            filter = input.value.toUpperCase();
-                            table = document.getElementById("time_entries_table");
-                            tr = table.getElementsByTagName("tr");
-
-                            for (i = 1; i < tr.length; i++) {{
-                                tr[i].style.display = "none";
-                                td = tr[i].getElementsByTagName("td");
-                                for (j = 0; j < td.length; j++) {{
-                                    if (td[j]) {{
-                                        txtValue = td[j].textContent || td[j].innerText;
-                                        if (txtValue.toUpperCase().indexOf(filter) > -1) {{
-                                            tr[i].style.display = "";
-                                            break;
-                                        }}
-                                    }}
-                                }}
-                            }}
-                        }}
-
-                        function toggleAll(source) {{
-                            checkboxes = document.getElementsByName('selected_entries');
-                            for(var i=0, n=checkboxes.length;i<n;i++) {{
-                                checkboxes[i].checked = source.checked;
-                            }}
-                        }}
-                    </script>
-                </head>
-                <body>
-                    <div id="header">
-                        <div class="header-logo">
-                            <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
-                            <h1>EVT - Aprovação de Horas - {user_name}</h1>
-                        </div>
-                    </div>
-                    <div class="container">
-                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados">
-                            <div class="filters">
-                                <label for="filterInput">Buscar:</label>
-                                <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
-                            </div>
-                            {table_html}
-                            <div id="all-actions" class="btn-group">
-                                <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                                <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
-                            </div>
-                            <div id="selected-actions" class="btn-group">
-                                <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
-                                <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
-                            </div>
-                        </form>
-                    </div>
-                    <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
-                </body>
-                </html>
-                '''
-
-                return render_template_string(html_template)
-        else:
-            logger.error(f"Erro ao buscar entradas de tempo: {entries_response.status_code}")
-            return jsonify({"error": "Erro ao buscar entradas de tempo"}), 500
-    except Exception as e:
-        logger.error(f"Erro ao gerar a página HTML: {e}")
-        return jsonify({"error": "Erro ao gerar a página HTML"}), 500
-
-
-
 
 def create_html_table(time_entries):
     table = '''
@@ -1084,66 +796,6 @@ def create_html_table(time_entries):
     '''
 
     return table
-
-
-def create_html_table_client(time_entries, recipient):
-    table = '''
-    <table id="time_entries_table">
-    <thead>
-      <tr>
-        <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th>
-        <th>Data</th>
-        <th>Usuário</th>
-        <th>Atividade</th>
-        <th>Projeto</th>
-        <th>Comentário</th>
-        <th>Hora inicial (HH:MM)</th>
-        <th>Hora final (HH:MM)</th>
-        <th>Horas</th>
-        <th>Ações</th>
-      </tr>
-    </thead>
-    <tbody>
-    '''
-
-    for entry in time_entries:
-        approver_cli = next(
-            (field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Aprovador - CLI'), '')
-
-        if approver_cli == recipient:
-            hora_inicial = next(
-                (field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora inicial (HH:MM)'), '')
-            hora_final = next(
-                (field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora final (HH:MM)'),
-                '')
-            project_name = entry['project']['name'] if 'project' in entry else 'N/A'
-
-            table += f'''
-            <tr>
-              <td><input type="checkbox" name="selected_entries" value="{entry['id']}"></td>
-              <td>{entry['spent_on']}</td>
-              <td>{entry['user']['name']}</td>
-              <td>{entry['activity']['name']}</td>
-              <td>{project_name}</td>
-              <td>{entry['comments']}</td>
-              <td>{hora_inicial}</td>
-              <td>{hora_final}</td>
-              <td>{entry['hours']}</td>
-              <td>
-                <a href="{API_URL}aprovar_hora?id={entry['id']}&token={request.args.get('token')}" class="btn btn-approve-table" target="_blank">Aprovar</a>
-                <a href="{API_URL}reprovar_hora?id={entry['id']}&token={request.args.get('token')}" class="btn btn-reject-table" target="_blank">Reprovar</a>
-              </td>
-            </tr>
-            '''
-
-    table += '''
-    </tbody>
-    </table>
-    <br>
-    '''
-
-    return table
-
 
 def get_time_entry(time_entry_id):
     url = f"{REDMINE_URL}/time_entries/{time_entry_id}.json"
@@ -1304,15 +956,6 @@ def get_or_create_token(user_id, recipient_email):
     db.session.add(access_token)
     db.session.commit()
     return token
-
-def get_email_from_token(token):
-    # Tenta encontrar o token existente
-    existing_token = AccessToken.query.filter_by(token=token).first()
-
-    if existing_token:
-        return existing_token.recipient_email
-
-    return None
 
 
 def log_approval_rejection(entry_id, entry_date, hours, action, token):
