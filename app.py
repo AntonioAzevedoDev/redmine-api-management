@@ -79,7 +79,7 @@ def token_required(f):
     return decorated_function
 
 @app.route('/')
-@login_required
+
 def index():
     user = get_current_user()
     user_id = user['user']['id']
@@ -122,7 +122,7 @@ def register():
     return render_template('register.html')
 
 @app.route('/upload', methods=['POST'])
-@login_required
+
 def upload_file():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
@@ -1236,7 +1236,7 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token):
 
 
 @app.route('/api/horas_nao_aprovadas', methods=['GET'])
-@login_required
+
 def horas_nao_aprovadas():
     try:
         url = f'{REDMINE_URL}/time_entries.json?limit=1000'
@@ -1260,7 +1260,7 @@ def horas_nao_aprovadas():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/recipients_tokens', methods=['GET'])
-#@login_required
+#
 def get_recipients_tokens():
     try:
         # Consultar todos os tokens de acesso no banco de dados

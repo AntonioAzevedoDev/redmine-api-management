@@ -10,7 +10,7 @@ ENABLE_STARTTLS_AUTO = True
 OPENSSL_VERIFY_MODE = 'none'
 
 
-REDMINE_URL = 'https://redmine5tec.evtit.com'
-REDMINE_API_KEY = "ea8d896c01e60cbc31baf6e84e9d4bf8eee5033b"
+REDMINE_URL = 'https://redmineqas.evtit.com'
+REDMINE_API_KEY = "14f242e3ec7d71044d2b15dc285fd0b2603b9f0a"
 #REDMINE_URL = os.getenv('REDMINE_URL')
 #REDMINE_API_KEY = os.getenv('REDMINE_API_KEY')
