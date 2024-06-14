@@ -237,7 +237,7 @@ def get_current_user():
 
 @app.route('/send_email_report_client', methods=['POST'])
 def send_email_report_client():
-    logger.info('Tentando obter o usuário logado.')
+    logger.info('Tentando obter o usuário logado. ')
     response = requests.get(f'{REDMINE_URL}/users/current.json', headers={
         'X-Redmine-API-Key': REDMINE_API_KEY,
         'Content-Type': 'application/json'
