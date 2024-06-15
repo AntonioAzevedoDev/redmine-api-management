@@ -907,10 +907,13 @@ def relatorio_horas_geral():
                         var table = document.getElementById("time_entries_table");
                         var tr = table.getElementsByTagName("tr");
                         var data = [];
-                        for (var i = 1; i < tr.length; i++) {{
-                            if (tr[i].style.display !== "none") {{
-                                var td = tr[i].getElementsByTagName("td");
-                                var row = {{
+                        var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
+
+                        if (checkboxes.length > 0) {{
+                            for (var checkbox of checkboxes) {{
+                                var row = checkbox.closest("tr");
+                                var td = row.getElementsByTagName("td");
+                                var entry = {{
                                     id: td[0].querySelector("input").value,
                                     date: td[1].textContent,
                                     user: td[2].textContent,
@@ -921,9 +924,28 @@ def relatorio_horas_geral():
                                     end_time: td[7].textContent,
                                     hours: td[8].textContent
                                 }};
-                                data.push(row);
+                                data.push(entry);
+                            }}
+                        }} else {{
+                            for (var i = 1; i < tr.length; i++) {{
+                                if (tr[i].style.display !== "none") {{
+                                    var td = tr[i].getElementsByTagName("td");
+                                    var entry = {{
+                                        id: td[0].querySelector("input").value,
+                                        date: td[1].textContent,
+                                        user: td[2].textContent,
+                                        activity: td[3].textContent,
+                                        project: td[4].textContent,
+                                        comments: td[5].textContent,
+                                        start_time: td[6].textContent,
+                                        end_time: td[7].textContent,
+                                        hours: td[8].textContent
+                                    }};
+                                    data.push(entry);
+                                }}
                             }}
                         }}
+
                         return data;
                     }}
 
