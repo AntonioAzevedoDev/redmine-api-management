@@ -1000,7 +1000,7 @@ def relatorio_horas_geral():
                     </div>
                 </div>
                 <div class="container">
-                    <form id="time_entries_form" method="get" action="http://127.0.0.1:5000/validar_selecionados">
+                    <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados">
                         <fieldset class="collapsible">
                             <legend onclick="toggleFieldset(this);">
                                 <span class="legend-button">
