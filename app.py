@@ -67,6 +67,26 @@ def render_response(message, status_code, details=None):
             details_html += f'<li>{error}</li>'
         details_html += '</ul>'
 
+    # Verifica se a mensagem é um dicionário e formata as mensagens e erros separadamente
+    messages_html = ''
+    errors_html = ''
+    if isinstance(message, dict):
+        if 'messages' in message:
+            messages_html = '<ul>'
+            for msg in message['messages']:
+                messages_html += f'<li>{msg}</li>'
+            messages_html += '</ul>'
+        if 'errors' in message and len(message['errors']) > 0:
+            errors_html = '<ul>'
+            for error in message['errors']:
+                errors_html += f'<li>{error}</li>'
+            errors_html += '</ul>'
+    else:
+        if status_code >= 400:
+            errors_html = f'<p>{message}</p>'
+        else:
+            messages_html = f'<p>{message}</p>'
+
     html_template = f'''
     <!DOCTYPE html>
     <html lang="en">
@@ -75,6 +95,49 @@ def render_response(message, status_code, details=None):
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>API Response</title>
         <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+            }}
+            .container {{
+                width: 80%;
+                margin: 0 auto;
+                text-align: center;
+            }}
+            .message-box, .error-box {{
+                margin-top: 20px;
+                padding: 20px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            }}
+            .message-box h2, .error-box h2 {{
+                margin-top: 0;
+            }}
+            .message-box {{
+                border-color: #4CAF50;
+            }}
+            .message-box h2 {{
+                color: #4CAF50;
+            }}
+            .error-box {{
+                border-color: #f44336;
+            }}
+            .error-box h2 {{
+                color: #f44336;
+            }}
+            ul {{
+                list-style: none;
+                padding: 0;
+            }}
+            ul li {{
+                margin: 5px 0;
+                padding: 10px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                background-color: #f9f9f9;
+            }}
+        </style>
     </head>
     <body>
         <div id="header">
@@ -86,7 +149,8 @@ def render_response(message, status_code, details=None):
             <div class="image">
                 <img src="{{{{ url_for('static', filename='evt.png') }}}}" alt="EVT">
             </div>
-            <h2>{message}</h2>
+            {f'<div class="message-box"><h2>Mensagens</h2>{messages_html}</div>' if messages_html else ''}
+            {f'<div class="error-box"><h2>Erros</h2>{errors_html}</div>' if errors_html else ''}
             {details_html}
         </div>
     </body>
@@ -208,9 +272,9 @@ def validar_selecionados():
     token = request.args.get('token')
     tipo = tipo + '_selecionados'
     if not selected_entries:
-        return render_response("No entries selected", 400)
+        return render_response("Nenhuma entrada selecionada", 400)
     if tipo not in ['aprovar', 'reprovar', 'aprovar_selecionados', 'reprovar_selecionados']:
-        return render_response("Invalid type", 400)
+        return render_response("Tipo inválido", 400)
 
     messages = []
     errors = []
@@ -222,9 +286,10 @@ def validar_selecionados():
         else:
             messages.append(result['message'])
 
-    result = {"messages": messages}
-    if errors:
-        result["errors"] = errors
+    result = {
+        "messages": messages,
+        "errors": errors
+    }
 
     return render_response(result, 207 if errors else 200)
 
@@ -935,7 +1000,7 @@ def relatorio_horas_geral():
                     </div>
                 </div>
                 <div class="container">
-                    <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados">
+                    <form id="time_entries_form" method="get" action="http://127.0.0.1:5000/validar_selecionados">
                         <fieldset class="collapsible">
                             <legend onclick="toggleFieldset(this);">
                                 <span class="legend-button">
@@ -1529,6 +1594,7 @@ def clean_tokens():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+
 def get_or_create_token(user_id, recipient_email):
     # Tenta encontrar um token existente para o destinatário
     existing_token = AccessToken.query.filter_by(recipient_email=recipient_email).first()
@@ -1544,6 +1610,22 @@ def get_or_create_token(user_id, recipient_email):
     db.session.add(access_token)
     db.session.commit()
     return token
+
+
+@app.route('/get_or_create_token', methods=['POST'])
+def get_or_create_token_endpoint():
+    try:
+        data = request.json
+        user_id = data.get('user_id', '')
+        recipient_email = data['recipient_email']
+
+        token = get_or_create_token(user_id, recipient_email)
+
+        return jsonify({'token': token}), 200
+    except Exception as e:
+        logger.error(f"Erro ao obter ou criar token: {e}")
+        return jsonify({'error': 'Erro ao obter ou criar token'}), 500
+
 
 def get_email_from_token(token):
     # Tenta encontrar o token existente
