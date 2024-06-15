@@ -377,7 +377,7 @@ def send_email_report_client():
 
             if not email_entries:
                 logger.warning('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.')
-                return render_response('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.'), 400
+                return jsonify('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.'), 400
 
             for email, entries in email_entries.items():
                 unapproved_entries = [entry for entry in entries if any(
@@ -391,10 +391,10 @@ def send_email_report_client():
                 else:
                     logger.info(f'Nenhuma entrada de tempo não aprovada encontrada para o email: {email}')
 
-            return render_response('Relatórios enviados com sucesso.'), 200
+            return jsonify('Relatórios enviados com sucesso.'), 200
         else:
             logger.error('Erro ao buscar entradas de tempo.')
-            return render_response('Erro ao buscar entradas de tempo.'), 500
+            return jsonify('Erro ao buscar entradas de tempo.'), 500
     else:
         logger.error('Erro ao obter o usuário logado. Redirecionando para login.')
         return redirect(f'{REDMINE_URL}/login')
@@ -419,7 +419,7 @@ def send_email_report_client_geral():
                 time_entries.append(time_entry)
             else:
                 logger.error(f"Erro ao buscar entrada de tempo com ID {entry_id}: {response.status_code}")
-                return render_response(f"Erro ao buscar entrada de tempo com ID {entry_id}", 500)
+                return jsonify(f"Erro ao buscar entrada de tempo com ID {entry_id}", 500)
 
         email_entries = defaultdict(list)
 
@@ -431,7 +431,7 @@ def send_email_report_client_geral():
 
         if not email_entries:
             logger.warning('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.')
-            return render_response('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.'), 400
+            return jsonify('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.'), 400
 
         for email, entries in email_entries.items():
             unapproved_entries = [entry for entry in entries if any(
@@ -450,7 +450,7 @@ def send_email_report_client_geral():
         return jsonify({"message": "Relatórios enviados com sucesso."}), 200
     except Exception as e:
         logger.error(f"Erro ao enviar relatórios por email: {e}")
-        return render_response("Erro ao enviar relatórios por email", 500)
+        return jsonify("Erro ao enviar relatórios por email", 500)
 
 
 @app.route('/send_email_report', methods=['POST'])
@@ -486,20 +486,23 @@ def send_email_report():
 
             if not unapproved_entries:
                 logger.warning('Nenhuma entrada de tempo não aprovada encontrada.')
-                return render_response('Nenhuma entrada de tempo não aprovada encontrada.'), 400
+                return jsonify('Nenhuma entrada de tempo não aprovada encontrada.'), 400
 
             table_html = create_html_table_mail(unapproved_entries)
             recipient_emails = request.headers.get('recipient', '').split(',')
             if not recipient_emails or recipient_emails == ['']:
                 logger.error('Nenhum e-mail de destinatário fornecido.')
-                return render_response('Nenhum e-mail de destinatário fornecido.'), 400
+                return jsonify('Nenhum e-mail de destinatário fornecido.'), 400
+                #return render_response('Nenhum e-mail de destinatário fornecido.'), 400
             project_name = unapproved_entries[0]['project']['name']
             user_name = unapproved_entries[0]['user']['name']
             send_email_task(table_html, recipient_emails, project_name, user_id, user_name)
-            return render_response('Relatório enviado com sucesso.'), 200
+            return jsonify('Relatório enviado com sucesso.'), 200
+            #return render_response('Relatório enviado com sucesso.'), 200
         else:
             logger.error('Erro ao buscar entradas de tempo.')
-            return render_response('Erro ao buscar entradas de tempo.'), 500
+            return jsonify('Erro ao buscar entradas de tempo.'), 500
+            #return render_response('Erro ao buscar entradas de tempo.'), 500
     else:
         logger.error('Erro ao obter o usuário logado. Redirecionando para login.')
         return redirect(f'{REDMINE_URL}/login')
@@ -508,12 +511,12 @@ def send_email_report():
 def send_unitary_report():
     entry_id = request.headers.get('id', '')
     if not entry_id:
-        return render_response('ID de entrada não fornecido.'), 400
+        return jsonify('ID de entrada não fornecido.'), 400
 
     recipient_emails = request.headers.get('recipient', '').split(',')
     if not recipient_emails or recipient_emails == ['']:
         logger.error('Nenhum e-mail de destinatário fornecido.')
-        return render_response('Nenhum e-mail de destinatário fornecido.'), 400
+        return jsonify('Nenhum e-mail de destinatário fornecido.'), 400
 
     try:
         status_code, response = get_time_entry(entry_id)
@@ -528,11 +531,11 @@ def send_unitary_report():
                 email_content = f"{table_html}\n\nPara visualizar as entradas de tempo, acesse o link: <a href='{link}'>relatório</a>"
                 send_email(email_content, email.strip(), project_name, user_name)
 
-        return render_response('Relatório enviado com sucesso.'), 200
+        return jsonify('Relatório enviado com sucesso.'), 200
 
     except Exception as e:
         logger.error(f"Erro ao processar a solicitação: {e}")
-        return render_response('Erro ao processar a solicitação.'), 500
+        return jsonify('Erro ao processar a solicitação.'), 500
 
 @app.route('/aprovar_todos', methods=['GET'])
 def aprovar_todos():
@@ -1049,12 +1052,12 @@ def relatorio_horas_geral():
                         <div id="all-actions" class="btn-group">
                             <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
                             <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
-                            <button type="button" onclick="sendFilteredData()" class="btn">Enviar Relatório</button>
+                            <button type="button" onclick="sendFilteredData()" class="btn">Enviar Relatório - Cliente</button>
                         </div>
                         <div id="selected-actions" class="btn-group">
                             <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
                             <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
-                            <button type="button" onclick="sendFilteredData()" class="btn">Enviar Relatório</button>
+                            <button type="button" onclick="sendFilteredData()" class="btn">Enviar Relatório - Cliente</button>
                         </div>
                     </form>
                 </div>
