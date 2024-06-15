@@ -335,6 +335,59 @@ def send_email_report_client():
         return redirect(f'{REDMINE_URL}/login')
 
 
+@app.route('/send_email_report_client_geral', methods=['POST'])
+def send_email_report_client_geral():
+    try:
+        data = request.get_json()
+        time_entries_ids = [entry['id'] for entry in data['entries']]
+
+        time_entries = []
+        for entry_id in time_entries_ids:
+            url = f'{REDMINE_URL}/time_entries/{entry_id}.json'
+            response = requests.get(url, headers={
+                'X-Redmine-API-Key': REDMINE_API_KEY,
+                'Content-Type': 'application/json'
+            }, verify=False)
+
+            if response.ok:
+                time_entry = response.json().get('time_entry', {})
+                time_entries.append(time_entry)
+            else:
+                logger.error(f"Erro ao buscar entrada de tempo com ID {entry_id}: {response.status_code}")
+                return render_response(f"Erro ao buscar entrada de tempo com ID {entry_id}", 500)
+
+        email_entries = defaultdict(list)
+
+        for entry in time_entries:
+            approver_field = next(
+                (f for f in entry.get('custom_fields', []) if f['name'] == 'TS - Aprovador - CLI' and f['value']), None)
+            if approver_field:
+                email_entries[approver_field['value']].append(entry)
+
+        if not email_entries:
+            logger.warning('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.')
+            return render_response('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.'), 400
+
+        for email, entries in email_entries.items():
+            unapproved_entries = [entry for entry in entries if any(
+                field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in
+                entry.get('custom_fields', []))]
+
+            if unapproved_entries:
+                table_html = create_html_table_mail_client(unapproved_entries, email)
+                project_name = unapproved_entries[0]['project']['name']
+                user_name = unapproved_entries[0]['user']['name']
+                user_id = unapproved_entries[0]['user']['id']
+                send_email_task_client(table_html, email, project_name, user_id, user_name)
+            else:
+                logger.info(f'Nenhuma entrada de tempo não aprovada encontrada para o email: {email}')
+
+        return jsonify({"message": "Relatórios enviados com sucesso."}), 200
+    except Exception as e:
+        logger.error(f"Erro ao enviar relatórios por email: {e}")
+        return render_response("Erro ao enviar relatórios por email", 500)
+
+
 @app.route('/send_email_report', methods=['POST'])
 def send_email_report():
     logger.info('Tentando obter o usuário logado.')
@@ -707,6 +760,11 @@ def relatorio_horas_geral():
             token = get_or_create_token(user_id, user['user']['mail'])
             # Constrói a lista de IDs das entradas
             entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
+
+            # Extrai usuários e projetos para os filtros
+            usuarios = {entry['user']['name'] for entry in unapproved_entries}
+            projetos = {entry['project']['name'] for entry in unapproved_entries}
+
             # Template HTML para renderizar a página
             html_template = f'''
             <!DOCTYPE html>
@@ -739,35 +797,177 @@ def relatorio_horas_geral():
                         }}
                     }}
 
+                    function filterBySelect() {{
+                        var userSelect = document.getElementById("userSelect").value.toUpperCase();
+                        var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
+                        var table = document.getElementById("time_entries_table");
+                        var tr = table.getElementsByTagName("tr");
+                        for (var i = 1; i < tr.length; i++) {{
+                            tr[i].style.display = "none";
+                            var userTd = tr[i].getElementsByTagName("td")[2];
+                            var projectTd = tr[i].getElementsByTagName("td")[4];
+                            if (userTd && projectTd) {{
+                                var userValue = userTd.textContent || userTd.innerText;
+                                var projectValue = projectTd.textContent || projectTd.innerText;
+                                if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
+                                    (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect)) {{
+                                    tr[i].style.display = "";
+                                }}
+                            }}
+                        }}
+                    }}
+
+                    function toggleFieldset(legend) {{
+                        var fieldset = legend.parentElement;
+                        fieldset.classList.toggle('collapsed');
+                        var div = fieldset.querySelector('div');
+                        var arrow = legend.querySelector('.arrow');
+                        if (fieldset.classList.contains('collapsed')) {{
+                            div.style.display = 'none';
+                            arrow.innerHTML = '▼';  // Seta para a direita
+                        }} else {{
+                            div.style.display = 'block';
+                            arrow.innerHTML = '▶';  // Seta para baixo
+                        }}
+                    }}
+
                     function toggleAll(source) {{
                         checkboxes = document.getElementsByName('selected_entries');
                         for(var i=0, n=checkboxes.length;i<n;i++) {{
                             checkboxes[i].checked = source.checked;
                         }}
                     }}
+
+                    function getFilteredTableData() {{
+                        var table = document.getElementById("time_entries_table");
+                        var tr = table.getElementsByTagName("tr");
+                        var data = [];
+                        for (var i = 1; i < tr.length; i++) {{
+                            if (tr[i].style.display !== "none") {{
+                                var td = tr[i].getElementsByTagName("td");
+                                var row = {{
+                                    id: td[0].querySelector("input").value,
+                                    date: td[1].textContent,
+                                    user: td[2].textContent,
+                                    activity: td[3].textContent,
+                                    project: td[4].textContent,
+                                    comments: td[5].textContent,
+                                    start_time: td[6].textContent,
+                                    end_time: td[7].textContent,
+                                    hours: td[8].textContent
+                                }};
+                                data.push(row);
+                            }}
+                        }}
+                        return data;
+                    }}
+
+                    function sendFilteredData() {{
+                        var data = getFilteredTableData();
+                        fetch('/send_email_report_client_geral', {{
+                            method: 'POST',
+                            headers: {{
+                                'Content-Type': 'application/json'
+                            }},
+                            body: JSON.stringify({{ entries: data }})
+                        }})
+                        .then(response => response.json())
+                        .then(data => {{
+                            console.log('Success:', data);
+                        }})
+                        .catch((error) => {{
+                            console.error('Error:', error);
+                        }});
+                    }}
                 </script>
+                <style>
+                    fieldset {{
+                        border: none;
+                    }}
+                    fieldset.collapsed > div {{
+                        display: none;
+                    }}
+                    legend {{
+                        cursor: pointer;
+                        margin-left: -708px;
+                        margin-bottom: -30px;
+                        padding: 5px 10px;
+                        font-size: 18px;
+                        background: #f4f4f4;
+                        border: 1px solid #ccc;
+                        border-radius: 5px;
+                        display: inline-block;
+                    }}
+                    .legend-button {{
+                        display: flex;
+                        align-items: center;
+                    }}
+                    .arrow {{
+                        margin-right: 5px;
+                    }}
+                    body {{
+                        margin: 0;
+                        padding: 0;
+                        font-family: Arial, sans-serif;
+                    }}
+                    .container {{
+                        padding: 20px;
+                        margin-top: -400px;
+                    }}
+                    .filters {{
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    }}
+                    .filters label {{
+                        margin: 0 5px;
+                    }}
+                    #filterInput, #userSelect, #projectSelect {{
+                        padding: 5px;
+                    }}
+                </style>
             </head>
             <body>
                 <div id="header">
                     <div class="header-logo">
                         <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
-                        <h1>EVT - Lançamento de Horas</h1>
+                        <h1>EVT - Aprovação de Horas</h1>
                     </div>
                 </div>
                 <div class="container">
                     <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados">
-                        <div class="filters">
-                            <label for="filterInput">Buscar:</label>
-                            <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
-                        </div>
+                        <fieldset class="collapsible">
+                            <legend onclick="toggleFieldset(this);">
+                                <span class="legend-button">
+                                    <span class="arrow">▶</span>
+                                    Filtros
+                                </span>
+                            </legend>
+                            <div>
+                                <label for="filterInput">Buscar:</label>
+                                <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
+                                <label for="userSelect">Usuário:</label>
+                                <select id="userSelect" onchange="filterBySelect()">
+                                    <option value="ALL">Todos</option>
+                                    {''.join([f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
+                                </select>
+                                <label for="projectSelect">Projeto:</label>
+                                <select id="projectSelect" onchange="filterBySelect()">
+                                    <option value="ALL">Todos</option>
+                                    {''.join([f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
+                                </select>
+                            </div>
+                        </fieldset>
                         {table_html}
                         <div id="all-actions" class="btn-group">
                             <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
                             <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                            <button type="button" onclick="sendFilteredData()" class="btn">Enviar Relatório</button>
                         </div>
                         <div id="selected-actions" class="btn-group">
                             <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
                             <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
+                            <button type="button" onclick="sendFilteredData()" class="btn">Enviar Relatório</button>
                         </div>
                     </form>
                 </div>
@@ -885,7 +1085,7 @@ def relatorio_horas(user_id):
                 <div id="header">
                     <div class="header-logo">
                         <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
-                        <h1>EVT - Lançamento de Horas - {user_name}</h1>
+                        <h1>EVT - Aprovação de Horas - {user_name}</h1>
                     </div>
                 </div>
                 <div class="container">
@@ -1338,6 +1538,8 @@ def get_or_create_token(user_id, recipient_email):
 
     # Se não houver token existente, cria um novo
     token = str(uuid.uuid4())
+    if user_id == '':
+        user_id = recipient_email
     access_token = AccessToken(token=token, user_id=user_id, recipient_email=recipient_email)
     db.session.add(access_token)
     db.session.commit()
