@@ -1379,7 +1379,11 @@ def create_html_table(time_entries):
         hora_final = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora final (HH:MM)'),
                           '')
         project_name = entry['project']['name'] if 'project' in entry else 'N/A'
-
+        user_id = entry['user']['id']
+        user_email = 'teste@teste.com' #tornar dinâmico após ajustar o plugin
+        token = request.args.get('token')
+        if token == None:
+            token = get_or_create_token(user_id, user_email)
         table += f'''
         <tr>
           <td><input type="checkbox" name="selected_entries" value="{entry['id']}"></td>
@@ -1392,8 +1396,8 @@ def create_html_table(time_entries):
           <td>{hora_final}</td>
           <td>{entry['hours']}</td>
           <td>
-            <a href="{API_URL}aprovar_hora?id={entry['id']}&token={request.args.get('token')}" class="btn btn-approve-table" target="_blank">Aprovar</a>
-            <a href="{API_URL}reprovar_hora?id={entry['id']}&token={request.args.get('token')}" class="btn btn-reject-table" target="_blank">Reprovar</a>
+            <a href="{API_URL}aprovar_hora?id={entry['id']}&token={token}" class="btn btn-approve-table" target="_blank">Aprovar</a>
+            <a href="{API_URL}reprovar_hora?id={entry['id']}&token={token}" class="btn btn-reject-table" target="_blank">Reprovar</a>
           </td>
         </tr>
         '''
