@@ -289,6 +289,11 @@ def send_email_task(file_content, recipient_emails, project_name, user_id, user_
     try:
         logger.info("Chamando função send_email com o seguinte conteúdo:")
         logger.info(file_content)
+
+        # Verifica se recipient_emails é uma string e converte para lista
+        if isinstance(recipient_emails, str):
+            recipient_emails = [email.strip() for email in recipient_emails.split(',')]
+
         for email in recipient_emails:
             token = get_or_create_token(user_id, email)
             link = f"{API_URL}relatorio_horas/{user_id}?token={token}"
@@ -548,12 +553,14 @@ def send_unitary_report_new():
             time_entry = response.get('time_entry', {})
             project_name = time_entry['project']['name']
             user_name = time_entry['user']['name']
+            user_id = time_entry['user']['id']
+            allowed_emails = request.headers.get('allowed_emails', '').split(',')
             table_html = create_html_unitary_table(time_entry)
             for email in recipient_emails:
                 token = get_or_create_token(time_entry['user']['id'], email)
                 link = f"{API_URL}relatorio_horas/{time_entry['user']['id']}?token={token}"
                 email_content = f"{table_html}\n\nPara visualizar as entradas de tempo, acesse o link: <a href='{link}'>relatório</a>"
-                send_email(email_content, email.strip(), project_name, user_name)
+                send_email_task(email_content, email.strip(), project_name, user_id, user_name, allowed_emails)
 
             return jsonify('Relatório enviado com sucesso.'), 200
 
