@@ -537,6 +537,42 @@ def send_unitary_report():
         logger.error(f"Erro ao processar a solicitação: {e}")
         return jsonify('Erro ao processar a solicitação.'), 500
 
+@app.route('/send_unitary_report_new', methods=['POST'])
+def send_unitary_report_new():
+    entry_id = request.headers.get('id', '')
+    if not entry_id:
+        return jsonify('ID de entrada não fornecido.'), 400
+
+    recipient_emails = request.headers.get('recipient', '').split(',')
+    if not recipient_emails or recipient_emails == ['']:
+        logger.error('Nenhum e-mail de destinatário fornecido.')
+        return jsonify('Nenhum e-mail de destinatário fornecido.'), 400
+
+    try:
+        # Realiza a busca na API do Redmine para obter as informações da entrada de tempo
+        status_code, response = get_time_entry(entry_id)
+        if status_code == 200:
+            time_entry = response.get('time_entry', {})
+            project_name = time_entry['project']['name']
+            user_name = time_entry['user']['name']
+            table_html = create_html_unitary_table(time_entry)
+            for email in recipient_emails:
+                token = get_or_create_token(time_entry['user']['id'], email)
+                link = f"{API_URL}relatorio_horas/{time_entry['user']['id']}?token={token}"
+                email_content = f"{table_html}\n\nPara visualizar as entradas de tempo, acesse o link: <a href='{link}'>relatório</a>"
+                send_email(email_content, email.strip(), project_name, user_name)
+
+            return jsonify('Relatório enviado com sucesso.'), 200
+
+        else:
+            logger.error(f"Erro ao buscar entrada de tempo: {status_code} - {response}")
+            return jsonify('Erro ao buscar entrada de tempo.'), 500
+
+    except Exception as e:
+        logger.error(f"Erro ao processar a solicitação: {e}")
+        return jsonify('Erro ao processar a solicitação.'), 500
+
+
 @app.route('/aprovar_todos', methods=['GET'])
 def aprovar_todos():
     token = request.args.get('token')
