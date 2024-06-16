@@ -294,9 +294,7 @@ def validar_selecionados():
     return render_response(result, 207 if errors else 200)
 
 
-
-
-def send_email_task(file_content, recipient_emails, project_name, user_id, user_name):
+def send_email_task(file_content, recipient_emails, project_name, user_id, user_name, allowed_emails):
     logger.info("Tarefa de envio de e-mail iniciada.")
     try:
         logger.info("Chamando função send_email com o seguinte conteúdo:")
@@ -304,7 +302,12 @@ def send_email_task(file_content, recipient_emails, project_name, user_id, user_
         for email in recipient_emails:
             token = get_or_create_token(user_id, email)
             link = f"{API_URL}relatorio_horas/{user_id}?token={token}"
-            email_content = f"{file_content}\n\nPara visualizar as entradas de tempo, acesse o link: <a href='{link}'>relatório</a>"
+            email_content = f"{file_content}\n\nPara visualizar as entradas de tempo, acesse o link: <a href='{link}'>Relatório</a>"
+
+            if email.strip() in allowed_emails:
+                additional_message = f"Acesso ao painel de horas: <a href='{API_URL}relatorio_horas?token={token}'>Painel de Horas</a>"
+                email_content += f"\n\n{additional_message}"
+
             send_email(email_content, email.strip(), project_name, user_name)
             logger.info(f"Enviando e-mail para: {email.strip()}")
         logger.info("E-mails enviados com sucesso.")
@@ -466,7 +469,7 @@ def send_email_report():
         user_id = user_data['user']['id']
         user_email = user_data['user']
         logger.info(f'Usuário logado obtido: {user_data["user"]["login"]}')
-
+        allowed_emails = request.headers.get('allowed_emails', '').split(',')
         today = datetime.today()
         seven_days_ago = today - timedelta(days=7)
         start_date = seven_days_ago.strftime('%Y-%m-%d')
@@ -496,7 +499,7 @@ def send_email_report():
                 #return render_response('Nenhum e-mail de destinatário fornecido.'), 400
             project_name = unapproved_entries[0]['project']['name']
             user_name = unapproved_entries[0]['user']['name']
-            send_email_task(table_html, recipient_emails, project_name, user_id, user_name)
+            send_email_task(table_html, recipient_emails, project_name, user_id, user_name, allowed_emails)
             return jsonify('Relatório enviado com sucesso.'), 200
             #return render_response('Relatório enviado com sucesso.'), 200
         else:
