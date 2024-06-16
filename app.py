@@ -224,25 +224,12 @@ def register():
         return redirect(url_for('login'))
     return render_template('register.html')
 
-@app.route('/upload', methods=['POST'])
-
-def upload_file():
-    if 'file' not in request.files:
-        return render_response("No file part"), 400
-    file = request.files['file']
-    if file.filename == '':
-        return render_response("No selected file"), 400
-    if file and file.filename.endswith('.txt'):
-        file_content = file.read().decode('utf-8')
-        send_email(file_content)
-        return render_response("Email sent successfully"), 200
-    return render_response("Invalid file type"), 400
-
 @app.route('/aprovar_hora', methods=['GET'])
 def aprovar_hora():
     data_id = request.args.get('id')
     token = request.args.get('token')
-    result = aprovar_ou_reprovar(data_id, 'aprovar', get_current_user(), token)
+    is_client = request.args.get('client')
+    result = aprovar_ou_reprovar(data_id, 'aprovar', get_current_user(), token, is_client)
     if 'error' in result:
         return render_response(result['error'], 400)
     else:
@@ -253,7 +240,8 @@ def aprovar_hora():
 def reprovar_hora():
     data_id = request.args.get('id')
     token = request.args.get('token')
-    result = aprovar_ou_reprovar(data_id, 'reprovar', get_current_user(), token)
+    is_client = request.args.get('client')
+    result = aprovar_ou_reprovar(data_id, 'reprovar', get_current_user(), token, is_client)
     if 'error' in result:
         return render_response(result['error'], 400)
     else:
@@ -263,6 +251,8 @@ def reprovar_hora():
 @app.route('/validar_selecionados', methods=['POST', 'GET'])
 @token_required
 def validar_selecionados():
+    is_client = request.args.get('client')  # Busca a variável is_client dos parâmetros da URL
+
     if request.method == 'POST':
         selected_entries = request.form.getlist('selected_entries')
     else:
@@ -280,7 +270,7 @@ def validar_selecionados():
     errors = []
 
     for entry_id in selected_entries:
-        result = aprovar_ou_reprovar(entry_id, tipo, get_current_user(), token)
+        result = aprovar_ou_reprovar(entry_id, tipo, get_current_user(), token, is_client)
         if 'error' in result:
             errors.append(result)
         else:
@@ -580,18 +570,20 @@ def send_unitary_report_new():
 def aprovar_todos():
     token = request.args.get('token')
     entries = request.args.get('entries')
+    is_client = request.args.get('client')
     entry_ids = entries.split(',') if entries else []
-    return atualizar_todas_entradas(aprovacao=True, entry_ids=entry_ids, token=token)
+    return atualizar_todas_entradas(aprovacao=True, entry_ids=entry_ids, token=token, is_client=is_client)
 
 @app.route('/reprovar_todos', methods=['GET'])
 def reprovar_todos():
     token = request.args.get('token')
     entries = request.args.get('entries')
+    is_client = request.args.get('client')
     entry_ids = entries.split(',') if entries else []
-    return atualizar_todas_entradas(aprovacao=False, entry_ids=entry_ids, token=token)
+    return atualizar_todas_entradas(aprovacao=False, entry_ids=entry_ids, token=token, is_client=is_client)
 
 
-def atualizar_todas_entradas(aprovacao, entry_ids, token):
+def atualizar_todas_entradas(aprovacao, entry_ids, token, is_client):
     user = get_current_user()
     errors = []
 
@@ -867,7 +859,7 @@ def relatorio_horas_geral():
             token = get_or_create_token(user_id, user['user']['mail'])
             # Constrói a lista de IDs das entradas
             entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
-
+            is_client = 1 if 'client' in request.full_path else 0
             # Extrai usuários e projetos para os filtros
             usuarios = {entry['user']['name'] for entry in unapproved_entries}
             projetos = {entry['project']['name'] for entry in unapproved_entries}
@@ -1065,7 +1057,7 @@ def relatorio_horas_geral():
                 </div>
                 <div class="container">
                     <div class="filters-container">
-                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados">
+                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
                             <fieldset class="collapsible">
                                 <legend class="legend-text" onclick="toggleFieldset(this);">
                                     <span class="legend-button">
@@ -1094,8 +1086,8 @@ def relatorio_horas_geral():
                         {table_html}
                     </div>
                     <div id="all-actions" class="btn-group">
-                        <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                        <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                        <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
+                        <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
                         <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
                     </div>
                     <div id="selected-actions" class="btn-group">
@@ -1138,6 +1130,7 @@ def relatorio_horas(user_id):
         project_id = request.args.get('project_id')
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
+        is_client = 1 if 'client' in request.full_path else 0
 
         # Definir datas padrão (últimos 30 dias) se não fornecidas
         if not start_date or not end_date:
@@ -1370,7 +1363,7 @@ def relatorio_horas(user_id):
                 </div>
                 <div class="container">
                     <div class="filters-container">
-                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados">
+                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
                             <fieldset class="collapsible">
                                 <legend onclick="toggleFieldset(this);">
                                     <span class="legend-button">
@@ -1399,8 +1392,8 @@ def relatorio_horas(user_id):
                         {table_html}
                     </div>
                     <div id="all-actions" class="btn-group">
-                        <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                        <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                        <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
+                        <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
                         <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
                     </div>
                     <div id="selected-actions" class="btn-group">
@@ -1443,7 +1436,7 @@ def relatorio_horas_client(user_id):
         project_id = request.args.get('project_id')
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
-
+        is_client = 1 if 'client' in request.full_path else 0
         # Definir datas padrão (últimos 30 dias) se não fornecidas
         if not start_date or not end_date:
             today = datetime.today()
@@ -1541,15 +1534,15 @@ def relatorio_horas_client(user_id):
                         </div>
                     </div>
                     <div class="container">
-                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados">
+                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
                             <div class="filters">
                                 <label for="filterInput">Buscar:</label>
                                 <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
                             </div>
                             {table_html}
                             <div id="all-actions" class="btn-group">
-                                <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                                <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                                <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
+                                <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
                             </div>
                             <div id="selected-actions" class="btn-group">
                                 <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
@@ -1751,7 +1744,7 @@ def restaurar_data_original(entry_id, data_original):
         return status_code, response
 
 
-def aprovar_ou_reprovar(entry_id, tipo, user, token):
+def aprovar_ou_reprovar(entry_id, tipo, user, token, is_client):
     status_code, response = get_time_entry(entry_id)
     if status_code == 200:
         time_entry = response.get('time_entry', {})
@@ -1760,23 +1753,42 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token):
         nova_data = (datetime.now() - timedelta(days=4)).strftime('%Y-%m-%d')
         data_atual = datetime.now().strftime('%Y-%m-%d')
         alterar_status, alterar_response = alterar_data_temporariamente(entry_id, nova_data)
-        if alterar_status not in [200, 204]:
-            return {"error": "Failed to temporarily change date", "details": alterar_response}
-        for field in custom_fields:
-            if field.get('name') == 'TS - Aprovado - EVT':
-                field['value'] = '1' if tipo in ['aprovar', 'aprovar_selecionados'] else '0'
-            if field.get('name') == 'TS - Dt. Aprovação - EVT':
-                field['value'] = data_atual if tipo in ['aprovar', 'aprovar_selecionados'] else ''
-            if field.get('name') == 'TS - Aprovador - EVT':
-                field['value'] = get_recipient_by_token(token) if tipo in ['aprovar', 'aprovar_selecionados'] else ''
-        update_status, update_response = update_time_entry(entry_id, custom_fields)
-        if update_status == 200 or 204:
-            restaurar_data_original(entry_id, data_original)
-            log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'], tipo, token)
-            return {"message": f"Hora {'aprovada' if tipo in ['aprovar', 'aprovar_selecionados'] else 'reprovada'} para ID: {entry_id}"}
+        if is_client == 0:
+            if alterar_status not in [200, 204]:
+                return {"error": "Failed to temporarily change date", "details": alterar_response}
+            for field in custom_fields:
+                if field.get('name') == 'TS - Aprovado - EVT':
+                    field['value'] = '1' if tipo in ['aprovar', 'aprovar_selecionados'] else '0'
+                if field.get('name') == 'TS - Dt. Aprovação - EVT':
+                    field['value'] = data_atual if tipo in ['aprovar', 'aprovar_selecionados'] else ''
+                if field.get('name') == 'TS - Aprovador - EVT':
+                    field['value'] = get_recipient_by_token(token) if tipo in ['aprovar', 'aprovar_selecionados'] else ''
+            update_status, update_response = update_time_entry(entry_id, custom_fields)
+            if update_status == 200 or 204:
+                restaurar_data_original(entry_id, data_original)
+                log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'], tipo, token)
+                return {"message": f"Hora {'aprovada' if tipo in ['aprovar', 'aprovar_selecionados'] else 'reprovada'} para ID: {entry_id}"}
+            else:
+                restaurar_data_original(entry_id, data_original)
+                return {"error": "Failed to update in Redmine", "details": update_response}
         else:
-            restaurar_data_original(entry_id, data_original)
-            return {"error": "Failed to update in Redmine", "details": update_response}
+            if alterar_status not in [200, 204]:
+                return {"error": "Failed to temporarily change date", "details": alterar_response}
+            for field in custom_fields:
+                if field.get('name') == 'TS - Aprovado - CLI':
+                    field['value'] = '1' if tipo in ['aprovar', 'aprovar_selecionados'] else '0'
+                if field.get('name') == 'TS - Dt. Aprovação - CLI':
+                    field['value'] = data_atual if tipo in ['aprovar', 'aprovar_selecionados'] else ''
+                if field.get('name') == 'TS - Aprovador - CLI':
+                    field['value'] = get_recipient_by_token(token) if tipo in ['aprovar', 'aprovar_selecionados'] else ''
+            update_status, update_response = update_time_entry(entry_id, custom_fields)
+            if update_status == 200 or 204:
+                restaurar_data_original(entry_id, data_original)
+                log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'], tipo, token)
+                return {"message": f"Hora {'aprovada' if tipo in ['aprovar', 'aprovar_selecionados'] else 'reprovada'} para ID: {entry_id}"}
+            else:
+                restaurar_data_original(entry_id, data_original)
+                return {"error": "Failed to update in Redmine", "details": update_response}
     else:
         return {"error": "Failed to fetch time entry from Redmine", "details": response}
 
