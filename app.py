@@ -1592,6 +1592,7 @@ def create_html_table(time_entries):
         user_id = entry['user']['id']
         user_email = 'teste@teste.com' #tornar dinâmico após ajustar o plugin
         token = request.args.get('token')
+        is_client = 1 if 'client' in request.full_path else 0
         if token == None:
             token = get_or_create_token(user_id, user_email)
         table += f'''
@@ -1606,8 +1607,8 @@ def create_html_table(time_entries):
           <td>{hora_final}</td>
           <td>{entry['hours']}</td>
           <td>
-            <a href="{API_URL}aprovar_hora?id={entry['id']}&token={token}" class="btn btn-approve-table" target="_blank">Aprovar</a>
-            <a href="{API_URL}reprovar_hora?id={entry['id']}&token={token}" class="btn btn-reject-table" target="_blank">Reprovar</a>
+            <a href="{API_URL}aprovar_hora?id={entry['id']}&token={token}&client={is_client}" class="btn btn-approve-table" target="_blank">Aprovar</a>
+            <a href="{API_URL}reprovar_hora?id={entry['id']}&token={token}&client={is_client}" class="btn btn-reject-table" target="_blank">Reprovar</a>
           </td>
         </tr>
         '''
@@ -1652,7 +1653,7 @@ def create_html_table_client(time_entries, recipient):
                 (field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora final (HH:MM)'),
                 '')
             project_name = entry['project']['name'] if 'project' in entry else 'N/A'
-
+            is_client = 1 if 'client' in request.full_path else 0
             table += f'''
             <tr>
               <td><input type="checkbox" name="selected_entries" value="{entry['id']}"></td>
@@ -1665,8 +1666,8 @@ def create_html_table_client(time_entries, recipient):
               <td>{hora_final}</td>
               <td>{entry['hours']}</td>
               <td>
-                <a href="{API_URL}aprovar_hora?id={entry['id']}&token={request.args.get('token')}" class="btn btn-approve-table" target="_blank">Aprovar</a>
-                <a href="{API_URL}reprovar_hora?id={entry['id']}&token={request.args.get('token')}" class="btn btn-reject-table" target="_blank">Reprovar</a>
+                <a href="{API_URL}aprovar_hora?id={entry['id']}&token={request.args.get('token')}&client={is_client}" class="btn btn-approve-table" target="_blank">Aprovar</a>
+                <a href="{API_URL}reprovar_hora?id={entry['id']}&token={request.args.get('token')}&client={is_client}" class="btn btn-reject-table" target="_blank">Reprovar</a>
               </td>
             </tr>
             '''
@@ -1753,16 +1754,17 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token, is_client):
         nova_data = (datetime.now() - timedelta(days=4)).strftime('%Y-%m-%d')
         data_atual = datetime.now().strftime('%Y-%m-%d')
         alterar_status, alterar_response = alterar_data_temporariamente(entry_id, nova_data)
-        if is_client == 0:
+        if is_client == '0':
             if alterar_status not in [200, 204]:
                 return {"error": "Failed to temporarily change date", "details": alterar_response}
             for field in custom_fields:
                 if field.get('name') == 'TS - Aprovado - EVT':
                     field['value'] = '1' if tipo in ['aprovar', 'aprovar_selecionados'] else '0'
-                if field.get('name') == 'TS - Dt. Aprovação - EVT':
-                    field['value'] = data_atual if tipo in ['aprovar', 'aprovar_selecionados'] else ''
                 if field.get('name') == 'TS - Aprovador - EVT':
                     field['value'] = get_recipient_by_token(token) if tipo in ['aprovar', 'aprovar_selecionados'] else ''
+                if field.get('name') == 'TS - Dt. Aprovação - EVT':
+                    field['value'] = data_atual if tipo in ['aprovar', 'aprovar_selecionados'] else ''
+
             update_status, update_response = update_time_entry(entry_id, custom_fields)
             if update_status == 200 or 204:
                 restaurar_data_original(entry_id, data_original)
@@ -1779,8 +1781,6 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token, is_client):
                     field['value'] = '1' if tipo in ['aprovar', 'aprovar_selecionados'] else '0'
                 if field.get('name') == 'TS - Dt. Aprovação - CLI':
                     field['value'] = data_atual if tipo in ['aprovar', 'aprovar_selecionados'] else ''
-                if field.get('name') == 'TS - Aprovador - CLI':
-                    field['value'] = get_recipient_by_token(token) if tipo in ['aprovar', 'aprovar_selecionados'] else ''
             update_status, update_response = update_time_entry(entry_id, custom_fields)
             if update_status == 200 or 204:
                 restaurar_data_original(entry_id, data_original)
