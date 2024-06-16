@@ -1009,52 +1009,52 @@ def relatorio_horas_geral():
                         }});
                     }}
                 </script>
-                <style>
-                    fieldset {{
-                        border: none;
-                    }}
-                    fieldset.collapsed > div {{
-                        display: none;
-                    }}
-                    legend {{
-                        cursor: pointer;
-                        margin-left: -708px;
-                        margin-bottom: -30px;
-                        padding: 5px 10px;
-                        font-size: 18px;
-                        background: #f4f4f4;
-                        border: 1px solid #ccc;
-                        border-radius: 5px;
-                        display: inline-block;
-                    }}
-                    .legend-button {{
-                        display: flex;
-                        align-items: center;
-                    }}
-                    .arrow {{
-                        margin-right: 5px;
-                    }}
-                    body {{
-                        margin: 0;
-                        padding: 0;
-                        font-family: Arial, sans-serif;
-                    }}
-                    .container {{
-                        padding: 20px;
-                        margin-top: -400px;
-                    }}
-                    .filters {{
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
-                    }}
-                    .filters label {{
-                        margin: 0 5px;
-                    }}
-                    #filterInput, #userSelect, #projectSelect {{
-                        padding: 5px;
-                    }}
-                </style>
+              <style>
+    .container {{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }}
+    .filters-container {{
+        display: flex;
+        justify-content: center;
+        margin-bottom: 10px;
+    }}
+    fieldset {{
+        border: none;
+        margin-top: -510px;
+        margin-right: 1110px;
+    }}
+    .filters {{
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }}
+    .table-container {{
+        margin-top: -480px;
+        width: 100%;
+    }}
+    .btn-group {{
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+    }}
+    .filters label, .legend-button {{
+        color: black;
+    }}
+    .btn-relatorio {{
+        background-color: #1E90FF; /* Cor azul padrão */
+        color: white; /* Texto branco */
+        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+        border-radius: 5px; /* Bordas arredondadas */
+        border: none; /* Remover borda */
+        transition: background-color 0.3s; /* Suavização da transição de cor */
+    }}
+    .btn-relatorio:hover {{
+        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+    }}
+</style>
+
             </head>
             <body>
                 <div id="header">
@@ -1064,41 +1064,45 @@ def relatorio_horas_geral():
                     </div>
                 </div>
                 <div class="container">
-                    <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados">
-                        <fieldset class="collapsible">
-                            <legend onclick="toggleFieldset(this);">
-                                <span class="legend-button">
-                                    <span class="arrow">▶</span>
-                                    Filtros
-                                </span>
-                            </legend>
-                            <div>
-                                <label for="filterInput">Buscar:</label>
-                                <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
-                                <label for="userSelect">Usuário:</label>
-                                <select id="userSelect" onchange="filterBySelect()">
-                                    <option value="ALL">Todos</option>
-                                    {''.join([f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
-                                </select>
-                                <label for="projectSelect">Projeto:</label>
-                                <select id="projectSelect" onchange="filterBySelect()">
-                                    <option value="ALL">Todos</option>
-                                    {''.join([f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
-                                </select>
-                            </div>
-                        </fieldset>
+                    <div class="filters-container">
+                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados">
+                            <fieldset class="collapsible">
+                                <legend class="legend-text" onclick="toggleFieldset(this);">
+                                    <span class="legend-button">
+                                        <span class="arrow">▶</span>
+                                        Filtros
+                                    </span>
+                                </legend>
+                                <div>
+                                    <label for="filterInput">Buscar:</label>
+                                    <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
+                                    <label for="userSelect">Usuário:</label>
+                                    <select id="userSelect" onchange="filterBySelect()">
+                                        <option value="ALL">Todos</option>
+                                        {''.join([f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
+                                    </select>
+                                    <label for="projectSelect">Projeto:</label>
+                                    <select id="projectSelect" onchange="filterBySelect()">
+                                        <option value="ALL">Todos</option>
+                                        {''.join([f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
+                                    </select>
+                                </div>
+                            </fieldset>
+                        </form>
+                    </div>
+                    <div class="table-container">
                         {table_html}
-                        <div id="all-actions" class="btn-group">
-                            <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                            <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
-                            <button type="button" onclick="sendFilteredData()" class="btn">Enviar Relatório - Cliente</button>
-                        </div>
-                        <div id="selected-actions" class="btn-group">
-                            <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
-                            <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
-                            <button type="button" onclick="sendFilteredData()" class="btn">Enviar Relatório - Cliente</button>
-                        </div>
-                    </form>
+                    </div>
+                    <div id="all-actions" class="btn-group">
+                        <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
+                        <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                        <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
+                    </div>
+                    <div id="selected-actions" class="btn-group">
+                        <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
+                        <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
+                        <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
+                    </div>
                 </div>
                 <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
             </body>
@@ -1112,7 +1116,6 @@ def relatorio_horas_geral():
     except Exception as e:
         logger.error(f"Erro ao gerar a página HTML: {e}")
         return render_response("Erro ao gerar a página HTML", 500)
-
 
 @app.route('/relatorio_horas/<int:user_id>', methods=['GET'])
 def relatorio_horas(user_id):
@@ -1166,9 +1169,14 @@ def relatorio_horas(user_id):
 
             table_html = create_html_table(unapproved_entries)
             # Obtém o token da URL atual
+
             token = request.args.get('token')
             # Constrói a lista de IDs das entradas
             entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
+
+            # Extrai usuários e projetos para os filtros
+            usuarios = {entry['user']['name'] for entry in unapproved_entries}
+            projetos = {entry['project']['name'] for entry in unapproved_entries}
 
             # Template HTML para renderizar a página com filtros
             html_template = f'''
@@ -1180,6 +1188,20 @@ def relatorio_horas(user_id):
                 <title>Tempo gasto</title>
                 <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
                 <script>
+                    function toggleFieldset(legend) {{
+                        var fieldset = legend.parentElement;
+                        fieldset.classList.toggle('collapsed');
+                        var div = fieldset.querySelector('div');
+                        var arrow = legend.querySelector('.arrow');
+                        if (fieldset.classList.contains('collapsed')) {{
+                            div.style.display = 'none';
+                            arrow.innerHTML = '▼';  // Seta para a direita
+                        }} else {{
+                            div.style.display = 'block';
+                            arrow.innerHTML = '▶';  // Seta para baixo
+                        }}
+                    }}
+
                     function filterTable() {{
                         var input, filter, table, tr, td, i, j, txtValue;
                         input = document.getElementById("filterInput");
@@ -1202,13 +1224,142 @@ def relatorio_horas(user_id):
                         }}
                     }}
 
+                    function filterBySelect() {{
+                        var userSelect = document.getElementById("userSelect").value.toUpperCase();
+                        var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
+                        var table = document.getElementById("time_entries_table");
+                        var tr = table.getElementsByTagName("tr");
+                        for (var i = 1; i < tr.length; i++) {{
+                            tr[i].style.display = "none";
+                            var userTd = tr[i].getElementsByTagName("td")[2];
+                            var projectTd = tr[i].getElementsByTagName("td")[4];
+                            if (userTd && projectTd) {{
+                                var userValue = userTd.textContent || userTd.innerText;
+                                var projectValue = projectTd.textContent || projectTd.innerText;
+                                if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
+                                    (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect)) {{
+                                    tr[i].style.display = "";
+                                }}
+                            }}
+                        }}
+                    }}
+
                     function toggleAll(source) {{
                         checkboxes = document.getElementsByName('selected_entries');
                         for(var i=0, n=checkboxes.length;i<n;i++) {{
                             checkboxes[i].checked = source.checked;
                         }}
                     }}
+
+                    function getFilteredTableData() {{
+                        var table = document.getElementById("time_entries_table");
+                        var tr = table.getElementsByTagName("tr");
+                        var data = [];
+                        var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
+
+                        if (checkboxes.length > 0) {{
+                            for (var checkbox of checkboxes) {{
+                                var row = checkbox.closest("tr");
+                                var td = row.getElementsByTagName("td");
+                                var entry = {{
+                                    id: td[0].querySelector("input").value,
+                                    date: td[1].textContent,
+                                    user: td[2].textContent,
+                                    activity: td[3].textContent,
+                                    project: td[4].textContent,
+                                    comments: td[5].textContent,
+                                    start_time: td[6].textContent,
+                                    end_time: td[7].textContent,
+                                    hours: td[8].textContent
+                                }};
+                                data.push(entry);
+                            }}
+                        }} else {{
+                            for (var i = 1; i < tr.length; i++) {{
+                                if (tr[i].style.display !== "none") {{
+                                    var td = tr[i].getElementsByTagName("td");
+                                    var entry = {{
+                                        id: td[0].querySelector("input").value,
+                                        date: td[1].textContent,
+                                        user: td[2].textContent,
+                                        activity: td[3].textContent,
+                                        project: td[4].textContent,
+                                        comments: td[5].textContent,
+                                        start_time: td[6].textContent,
+                                        end_time: td[7].textContent,
+                                        hours: td[8].textContent
+                                    }};
+                                    data.push(entry);
+                                }}
+                            }}
+                        }}
+
+                        return data;
+                    }}
+
+                    function sendFilteredData() {{
+                        var data = getFilteredTableData();
+                        fetch('/send_email_report_client_geral', {{
+                            method: 'POST',
+                            headers: {{
+                                'Content-Type': 'application/json'
+                            }},
+                            body: JSON.stringify({{ entries: data }})
+                        }})
+                        .then(response => response.json())
+                        .then(data => {{
+                            console.log('Success:', data);
+                        }})
+                        .catch((error) => {{
+                            console.error('Error:', error);
+                        }});
+                    }}
                 </script>
+                <style>
+    .container {{
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }}
+    .filters-container {{
+        display: flex;
+        justify-content: center;
+        margin-bottom: 10px;
+    }}
+    fieldset {{
+        border: none;
+        margin-top: -510px;
+        margin-right: 1110px;
+    }}
+    .filters {{
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }}
+    .table-container {{
+        margin-top: -480px;
+        width: 100%;
+    }}
+    .btn-group {{
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+    }}
+    .filters label, .legend-button {{
+        color: black;
+    }}
+    .btn-relatorio {{
+        background-color: #1E90FF; /* Cor azul padrão */
+        color: white; /* Texto branco */
+        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+        border-radius: 5px; /* Bordas arredondadas */
+        border: none; /* Remover borda */
+        transition: background-color 0.3s; /* Suavização da transição de cor */
+    }}
+    .btn-relatorio:hover {{
+        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+    }}
+</style>
             </head>
             <body>
                 <div id="header">
@@ -1218,21 +1369,45 @@ def relatorio_horas(user_id):
                     </div>
                 </div>
                 <div class="container">
-                    <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados">
-                        <div class="filters">
-                            <label for="filterInput">Buscar:</label>
-                            <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
-                        </div>
+                    <div class="filters-container">
+                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados">
+                            <fieldset class="collapsible">
+                                <legend onclick="toggleFieldset(this);">
+                                    <span class="legend-button">
+                                        <span class="arrow">▶</span>
+                                        Filtros
+                                    </span>
+                                </legend>
+                                <div>
+                                    <label for="filterInput">Buscar:</label>
+                                    <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
+                                    <label for="userSelect">Usuário:</label>
+                                    <select id="userSelect" onchange="filterBySelect()">
+                                        <option value="ALL">Todos</option>
+                                        {''.join([f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
+                                    </select>
+                                    <label for="projectSelect">Projeto:</label>
+                                    <select id="projectSelect" onchange="filterBySelect()">
+                                        <option value="ALL">Todos</option>
+                                        {''.join([f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
+                                    </select>
+                                </div>
+                            </fieldset>
+                        </form>
+                    </div>
+                    <div class="table-container">
                         {table_html}
-                        <div id="all-actions" class="btn-group">
-                            <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                            <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
-                        </div>
-                        <div id="selected-actions" class="btn-group">
-                            <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
-                            <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
-                        </div>
-                    </form>
+                    </div>
+                    <div id="all-actions" class="btn-group">
+                        <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
+                        <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                        <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
+                    </div>
+                    <div id="selected-actions" class="btn-group">
+                        <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
+                        <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
+                        <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
+                    </div>
                 </div>
                 <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
             </body>
