@@ -297,8 +297,8 @@ def send_email_task(file_content, recipient_emails, project_name, user_id, user_
         for email in recipient_emails:
             token = get_or_create_token(user_id, email)
             link = f"{API_URL}relatorio_horas/{user_id}?token={token}"
-            email_content = f"{file_content}\n\nPara visualizar as entradas de tempo, acesse o link: <a href='{link}'>Relatório</a>"
-
+            #email_content = f"{file_content}\n\nPara visualizar as entradas de tempo, acesse o link: <a href='{link}'>Relatório</a>"
+            email_content = f"{file_content}"
             if email.strip() in allowed_emails:
                 additional_message = f"\n\nAcesso ao painel de horas: <a href='{API_URL}relatorio_horas?token={token}'>Painel de Horas</a>"
                 email_content += f"\n\n{additional_message}"
