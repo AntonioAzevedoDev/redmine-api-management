@@ -559,8 +559,7 @@ def send_unitary_report_new():
             for email in recipient_emails:
                 token = get_or_create_token(time_entry['user']['id'], email)
                 link = f"{API_URL}relatorio_horas/{time_entry['user']['id']}?token={token}"
-                email_content = f"{table_html}\n\nPara visualizar as entradas de tempo, acesse o link: <a href='{link}'>relatório</a>"
-                send_email_task(email_content, email.strip(), project_name, user_id, user_name, allowed_emails)
+                send_email_task(table_html, email.strip(), project_name, user_id, user_name, allowed_emails)
 
             return jsonify('Relatório enviado com sucesso.'), 200
 
