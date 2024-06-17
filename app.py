@@ -1444,7 +1444,7 @@ def relatorio_horas_client(user_id):
             # Filtra as entradas de tempo para incluir apenas aquelas que não foram aprovadas e têm o destinatário correto
             time_entries = entries_response.json().get('time_entries', [])
             unapproved_entries = [entry for entry in time_entries if any(
-                field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in entry.get('custom_fields', []))
+                field['name'] == 'TS - Aprovado - CLI' and field['value'] == '0' for field in entry.get('custom_fields', []))
                 and any(field['name'] == 'TS - Aprovador - CLI' for field in entry.get('custom_fields', []))
             ]
 
@@ -1461,7 +1461,7 @@ def relatorio_horas_client(user_id):
 
             token = request.args.get('token')
             token_email = get_email_from_token(token)  # Obtendo o e-mail associado ao token
-
+            logger.warning(f'TOKEN_EMAIL:{token_email}')
             for recipient, entries in email_entries.items():
                 # Validação do e-mail do token com o recipient
                 if token_email != recipient:
