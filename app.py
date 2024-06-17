@@ -370,7 +370,7 @@ def send_email_report_client():
 
         for email, entries in email_entries.items():
             unapproved_entries = [entry for entry in entries if any(
-                field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in entry.get('custom_fields', []))]
+                field['name'] == 'TS - Aprovado - CLI' and field['value'] == '0' for field in entry.get('custom_fields', []))]
 
             if unapproved_entries:
                 table_html = create_html_table_mail_client(unapproved_entries, email)
