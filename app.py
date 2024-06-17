@@ -1450,12 +1450,12 @@ def relatorio_horas_client(user_id):
 
             # Agrupar entradas por destinatário
             email_entries = defaultdict(list)
-            for entry in unapproved_entries:
+            for entry in time_entries:
                 recipient = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Aprovador - CLI'), None)
                 if recipient:
                     email_entries[recipient].append(entry)
 
-            if not unapproved_entries:
+            if not time_entries:
                 logger.warning(
                     f"Nenhuma entrada de tempo não aprovada encontrada para o usuário ID {user_id} no período de {start_date} a {end_date}")
 
@@ -1592,7 +1592,7 @@ def create_html_table(time_entries):
         total_hours += entry['hours']  # Soma as horas da entrada atual
 
         approved = any(
-            field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '1' or field['value'] == '0') for field in
+            field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '1') for field in
             entry['custom_fields'])
         if approved:
             approved_hours += entry['hours']
@@ -1748,7 +1748,7 @@ def create_html_table_client(time_entries, recipient):
             is_client = 1 if 'client' in request.full_path else 0
 
             approved = any(
-                field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '1' or field['value'] == '0') for field
+                field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '1') for field
                 in entry['custom_fields'])
             disable_attr = 'disabled' if approved else ''
             aprovado = 'Sim' if approved else 'Não'
