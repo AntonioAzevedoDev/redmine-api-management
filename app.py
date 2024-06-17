@@ -231,10 +231,9 @@ def aprovar_hora():
     is_client = request.args.get('client')
     result = aprovar_ou_reprovar(data_id, 'aprovar', get_current_user(), token, is_client)
     if 'error' in result:
-        return render_response(result['error'], 400)
+        return jsonify({'message': result['error']}), 400
     else:
-        return render_response(result['message'], 200)
-
+        return jsonify({'message': result['message']}), 200
 
 @app.route('/reprovar_hora', methods=['GET'])
 def reprovar_hora():
@@ -243,9 +242,9 @@ def reprovar_hora():
     is_client = request.args.get('client')
     result = aprovar_ou_reprovar(data_id, 'reprovar', get_current_user(), token, is_client)
     if 'error' in result:
-        return render_response(result['error'], 400)
+        return jsonify({'message': result['error']}), 400
     else:
-        return render_response(result['message'], 200)
+        return jsonify({'message': result['message']}), 200
 
 
 @app.route('/validar_selecionados', methods=['POST', 'GET'])
@@ -341,61 +340,51 @@ def get_current_user():
 
 @app.route('/send_email_report_client', methods=['POST'])
 def send_email_report_client():
-    logger.info('Tentando obter o usuário logado. ')
-    response = requests.get(f'{REDMINE_URL}/users/current.json', headers={
+    user_id = request.headers.get('user_id', '')
+    logger.info(f"Usuario {user_id} solicitando aprovação de horas.")
+
+    today = datetime.today()
+    seven_days_ago = today - timedelta(days=7)
+    start_date = seven_days_ago.strftime('%Y-%m-%d')
+    end_date = today.strftime('%Y-%m-%d')
+
+    # url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
+    url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}'
+    entries_response = requests.get(url, headers={
         'X-Redmine-API-Key': REDMINE_API_KEY,
         'Content-Type': 'application/json'
     }, verify=False)  # Consider replacing verify=False with a valid certificate
 
-    if response.ok:
-        user_data = response.json()
-        user_id = user_data['user']['id']
-        user_email = user_data['user']['mail']
-        logger.info(f'Usuário logado obtido: {user_data["user"]["login"]}')
+    if entries_response.ok:
+        time_entries = entries_response.json().get('time_entries', [])
+        email_entries = defaultdict(list)
 
-        today = datetime.today()
-        seven_days_ago = today - timedelta(days=7)
-        start_date = seven_days_ago.strftime('%Y-%m-%d')
-        end_date = today.strftime('%Y-%m-%d')
+        for entry in time_entries:
+            approver_field = next((f for f in entry.get('custom_fields', []) if f['name'] == 'TS - Aprovador - CLI' and f['value']), None)
+            if approver_field:
+                email_entries[approver_field['value']].append(entry)
 
-        url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
-        entries_response = requests.get(url, headers={
-            'X-Redmine-API-Key': REDMINE_API_KEY,
-            'Content-Type': 'application/json'
-        }, verify=False)  # Consider replacing verify=False with a valid certificate
+        if not email_entries:
+            logger.warning('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.')
+            return jsonify('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.'), 400
 
-        if entries_response.ok:
-            time_entries = entries_response.json().get('time_entries', [])
-            email_entries = defaultdict(list)
+        for email, entries in email_entries.items():
+            unapproved_entries = [entry for entry in entries if any(
+                field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in entry.get('custom_fields', []))]
 
-            for entry in time_entries:
-                approver_field = next((f for f in entry.get('custom_fields', []) if f['name'] == 'TS - Aprovador - CLI' and f['value']), None)
-                if approver_field:
-                    email_entries[approver_field['value']].append(entry)
+            if unapproved_entries:
+                table_html = create_html_table_mail_client(unapproved_entries, email)
+                project_name = unapproved_entries[0]['project']['name']
+                user_name = unapproved_entries[0]['user']['name']
+                send_email_task_client(table_html, email, project_name, user_id, user_name)
+            else:
+                logger.info(f'Nenhuma entrada de tempo não aprovada encontrada para o email: {email}')
 
-            if not email_entries:
-                logger.warning('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.')
-                return jsonify('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.'), 400
-
-            for email, entries in email_entries.items():
-                unapproved_entries = [entry for entry in entries if any(
-                    field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in entry.get('custom_fields', []))]
-
-                if unapproved_entries:
-                    table_html = create_html_table_mail_client(unapproved_entries, email)
-                    project_name = unapproved_entries[0]['project']['name']
-                    user_name = unapproved_entries[0]['user']['name']
-                    send_email_task_client(table_html, email, project_name, user_id, user_name)
-                else:
-                    logger.info(f'Nenhuma entrada de tempo não aprovada encontrada para o email: {email}')
-
-            return jsonify('Relatórios enviados com sucesso.'), 200
-        else:
-            logger.error('Erro ao buscar entradas de tempo.')
-            return jsonify('Erro ao buscar entradas de tempo.'), 500
+        return jsonify('Relatórios enviados com sucesso.'), 200
     else:
-        logger.error('Erro ao obter o usuário logado. Redirecionando para login.')
-        return redirect(f'{REDMINE_URL}/login')
+        logger.error('Erro ao buscar entradas de tempo.')
+        return jsonify('Erro ao buscar entradas de tempo.'), 500
+
 
 
 @app.route('/send_email_report_client_geral', methods=['POST'])
@@ -453,7 +442,6 @@ def send_email_report_client_geral():
 
 @app.route('/send_email_report', methods=['POST'])
 def send_email_report():
-    logger.info('Tentando obter o usuário logado.')
     user_id = request.headers.get('user_id', '')
     logger.info(f"Usuario {user_id} solicitando aprovação de horas.")
     allowed_emails = request.headers.get('allowed_emails', '').split(',')
@@ -462,7 +450,8 @@ def send_email_report():
     start_date = seven_days_ago.strftime('%Y-%m-%d')
     end_date = today.strftime('%Y-%m-%d')
 
-    url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
+    #url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
+    url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}'
     entries_response = requests.get(url, headers={
         'X-Redmine-API-Key': REDMINE_API_KEY,
         'Content-Type': 'application/json'
@@ -826,7 +815,7 @@ def relatorio_horas_geral():
     try:
         # Define o período de 30 dias
         today = datetime.today() + timedelta(days=1)
-        thirty_days_ago = today - timedelta(days=30)
+        thirty_days_ago = today - timedelta(days=90)
         start_date = thirty_days_ago.strftime('%Y-%m-%d')
         end_date = today.strftime('%Y-%m-%d')
 
@@ -840,25 +829,18 @@ def relatorio_horas_geral():
         if entries_response.ok:
             # Filtra as entradas de tempo para incluir apenas aquelas que não foram aprovadas
             time_entries = entries_response.json().get('time_entries', [])
-            unapproved_entries = [entry for entry in time_entries if any(
-                field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in
-                entry.get('custom_fields', []))]
 
-            if not unapproved_entries:
-                logger.warning(
-                    f"Nenhuma entrada de tempo não aprovada encontrada no período de {start_date} a {end_date}")
-
-            table_html = create_html_table(unapproved_entries)
+            table_html = create_html_table(time_entries)
             # Obtém o token da URL atual
             user = get_current_user()
             user_id = user['user']['id']
             token = get_or_create_token(user_id, user['user']['mail'])
             # Constrói a lista de IDs das entradas
-            entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
+            entry_ids = ','.join([str(entry['id']) for entry in time_entries])
             is_client = 1 if 'client' in request.full_path else 0
             # Extrai usuários e projetos para os filtros
-            usuarios = {entry['user']['name'] for entry in unapproved_entries}
-            projetos = {entry['project']['name'] for entry in unapproved_entries}
+            usuarios = {entry['user']['name'] for entry in time_entries}
+            projetos = {entry['project']['name'] for entry in time_entries}
 
             # Template HTML para renderizar a página
             html_template = f'''
@@ -1001,26 +983,31 @@ def relatorio_horas_geral():
     .container {{
         display: flex;
         flex-direction: column;
-        align-items: center;
+        margin-top: 0; /* Remove qualquer margem superior */
     }}
     .filters-container {{
         display: flex;
-        justify-content: center;
+        justify-content: flex-start; /* Alinha os itens no início */
         margin-bottom: 10px;
+        width: 100%; /* Garante que ocupe a largura total */
     }}
     fieldset {{
         border: none;
-        margin-top: -510px;
-        margin-right: 1110px;
+        margin: 0; /* Remove margem */
+        padding: 0; /* Remove padding */
     }}
     .filters {{
         display: flex;
         align-items: center;
         gap: 10px;
+        margin: 0; /* Remove margem */
+        padding: 0; /* Remove padding */
     }}
     .table-container {{
-        margin-top: -480px;
         width: 100%;
+        overflow-x: auto; /* Adiciona rolagem horizontal */
+        overflow-y: auto; /* Adiciona rolagem vertical */
+        max-height: 400px; /* Define uma altura máxima para a tabela */
     }}
     .btn-group {{
         display: flex;
@@ -1040,6 +1027,9 @@ def relatorio_horas_geral():
     }}
     .btn-relatorio:hover {{
         background-color: #63B8FF; /* Azul claro ao passar o mouse */
+    }}
+    table {{
+        width: 100%;
     }}
 </style>
 
@@ -1559,8 +1549,10 @@ def relatorio_horas_client(user_id):
         logger.error(f"Erro ao gerar a página HTML: {e}")
         return render_response("Erro ao gerar a página HTML", 500)
 
+
 def create_html_table(time_entries):
     table = '''
+    <div style="overflow-x:auto;">
     <table id="time_entries_table">
     <thead>
       <tr>
@@ -1573,11 +1565,16 @@ def create_html_table(time_entries):
         <th>Hora inicial (HH:MM)</th>
         <th>Hora final (HH:MM)</th>
         <th>Horas</th>
+        <th>Aprovado</th>
         <th>Ações</th>
       </tr>
     </thead>
     <tbody>
     '''
+
+    total_hours = 0  # Variável para somar as horas
+    approved_hours = 0  # Variável para somar as horas aprovadas
+    unapproved_hours = 0  # Variável para somar as horas não aprovadas
 
     for entry in time_entries:
         hora_inicial = next(
@@ -1586,14 +1583,28 @@ def create_html_table(time_entries):
                           '')
         project_name = entry['project']['name'] if 'project' in entry else 'N/A'
         user_id = entry['user']['id']
-        user_email = 'teste@teste.com' #tornar dinâmico após ajustar o plugin
+        user_email = 'teste@teste.com'  # tornar dinâmico após ajustar o plugin
         token = request.args.get('token')
         is_client = 1 if 'client' in request.full_path else 0
-        if token == None:
+        if token is None:
             token = get_or_create_token(user_id, user_email)
+
+        total_hours += entry['hours']  # Soma as horas da entrada atual
+
+        approved = any(
+            field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '1' or field['value'] == '0') for field in
+            entry['custom_fields'])
+        if approved:
+            approved_hours += entry['hours']
+        else:
+            unapproved_hours += entry['hours']
+
+        disable_attr = 'disabled' if approved else ''
+        aprovado = 'Sim' if approved else 'Não'
+
         table += f'''
-        <tr>
-          <td><input type="checkbox" name="selected_entries" value="{entry['id']}"></td>
+        <tr id="entry-row-{entry['id']}">
+          <td><input type="checkbox" name="selected_entries" value="{entry['id']}" {disable_attr}></td>
           <td>{entry['spent_on']}</td>
           <td>{entry['user']['name']}</td>
           <td>{entry['activity']['name']}</td>
@@ -1602,17 +1613,100 @@ def create_html_table(time_entries):
           <td>{hora_inicial}</td>
           <td>{hora_final}</td>
           <td>{entry['hours']}</td>
+          <td>{aprovado}</td>
           <td>
-            <a href="{API_URL}aprovar_hora?id={entry['id']}&token={token}&client={is_client}" class="btn btn-approve-table" target="_blank">Aprovar</a>
-            <a href="{API_URL}reprovar_hora?id={entry['id']}&token={token}&client={is_client}" class="btn btn-reject-table" target="_blank">Reprovar</a>
+            <a href="#" onclick="approveHour({entry['id']}, '{token}', {is_client})" class="btn btn-approve-table" style="pointer-events:{'none' if approved else 'auto'};opacity:{'0.5' if approved else '1'};">Aprovar</a>
+            <a href="#" onclick="rejectHour({entry['id']}, '{token}', {is_client})" class="btn btn-reject-table" style="pointer-events:{'none' if approved else 'auto'};opacity:{'0.5' if approved else '1'};">Reprovar</a>
           </td>
         </tr>
         '''
 
+    # Adiciona a linha com o total de horas no final da tabela
+    table += f'''
+    <tr>
+      <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas:</td>
+      <td colspan="2" style="font-weight: bold;">{total_hours}</td>
+    </tr>
+    <tr>
+      <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas Aprovadas:</td>
+      <td colspan="2" style="font-weight: bold;">{approved_hours}</td>
+    </tr>
+    <tr>
+      <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas Não Aprovadas:</td>
+      <td colspan="2" style="font-weight: bold;">{unapproved_hours}</td>
+    </tr>
+    '''
+
     table += '''
     </tbody>
     </table>
+    </div>
     <br>
+    '''
+
+    table += f'''
+    <script>
+      function approveHour(entryId, token, isClient) {{
+        fetch("{API_URL}aprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
+        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+        .then(result => {{
+          const status = result.status;
+          const body = result.body;
+          if (status === 200) {{
+            alert(body.message);
+            disableRow(entryId);
+          }} else {{
+            alert(body.message);
+          }}
+        }})
+        .catch(error => {{
+          console.error('Erro:', error);
+          alert('Erro ao aprovar hora.');
+        }});
+      }}
+
+      function rejectHour(entryId, token, isClient) {{
+        fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
+        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+        .then(result => {{
+          const status = result.status;
+          const body = result.body;
+          if (status === 200) {{
+            alert(body.message);
+            disableRow(entryId);
+          }} else {{
+            alert(body.message);
+          }}
+        }})
+        .catch(error => {{
+          console.error('Erro:', error);
+          alert('Erro ao reprovar hora.');
+        }});
+      }}
+
+      function disableRow(entryId) {{
+        var row = document.getElementById("entry-row-" + entryId);
+        var checkBox = row.querySelector('input[type="checkbox"]');
+        var buttons = row.querySelectorAll('a');
+
+        if (checkBox) {{
+          checkBox.disabled = true;
+        }}
+        buttons.forEach(button => {{
+          button.style.pointerEvents = 'none';
+          button.style.opacity = '0.5';
+        }});
+      }}
+
+      function toggleAll(source) {{
+        var checkboxes = document.getElementsByName('selected_entries');
+        for (var i = 0, n = checkboxes.length; i < n; i++) {{
+          if (!checkboxes[i].disabled) {{
+            checkboxes[i].checked = source.checked;
+          }}
+        }}
+      }}
+    </script>
     '''
 
     return table
@@ -1620,6 +1714,7 @@ def create_html_table(time_entries):
 
 def create_html_table_client(time_entries, recipient):
     table = '''
+    <div style="overflow-x:auto;">
     <table id="time_entries_table">
     <thead>
       <tr>
@@ -1632,6 +1727,7 @@ def create_html_table_client(time_entries, recipient):
         <th>Hora inicial (HH:MM)</th>
         <th>Hora final (HH:MM)</th>
         <th>Horas</th>
+        <th>Aprovado</th>
         <th>Ações</th>
       </tr>
     </thead>
@@ -1650,9 +1746,16 @@ def create_html_table_client(time_entries, recipient):
                 '')
             project_name = entry['project']['name'] if 'project' in entry else 'N/A'
             is_client = 1 if 'client' in request.full_path else 0
+
+            approved = any(
+                field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '1' or field['value'] == '0') for field
+                in entry['custom_fields'])
+            disable_attr = 'disabled' if approved else ''
+            aprovado = 'Sim' if approved else 'Não'
+
             table += f'''
-            <tr>
-              <td><input type="checkbox" name="selected_entries" value="{entry['id']}"></td>
+            <tr id="entry-row-{entry['id']}">
+              <td><input type="checkbox" name="selected_entries" value="{entry['id']}" {disable_attr}></td>
               <td>{entry['spent_on']}</td>
               <td>{entry['user']['name']}</td>
               <td>{entry['activity']['name']}</td>
@@ -1661,9 +1764,10 @@ def create_html_table_client(time_entries, recipient):
               <td>{hora_inicial}</td>
               <td>{hora_final}</td>
               <td>{entry['hours']}</td>
+              <td>{aprovado}</td>
               <td>
-                <a href="{API_URL}aprovar_hora?id={entry['id']}&token={request.args.get('token')}&client={is_client}" class="btn btn-approve-table" target="_blank">Aprovar</a>
-                <a href="{API_URL}reprovar_hora?id={entry['id']}&token={request.args.get('token')}&client={is_client}" class="btn btn-reject-table" target="_blank">Reprovar</a>
+                <a href="#" onclick="approveHour({entry['id']}, '{request.args.get('token')}', {is_client})" class="btn btn-approve-table" style="pointer-events:{'none' if approved else 'auto'};opacity:{'0.5' if approved else '1'};">Aprovar</a>
+                <a href="#" onclick="rejectHour({entry['id']}, '{request.args.get('token')}', {is_client})" class="btn btn-reject-table" style="pointer-events:{'none' if approved else 'auto'};opacity:{'0.5' if approved else '1'};">Reprovar</a>
               </td>
             </tr>
             '''
@@ -1671,7 +1775,64 @@ def create_html_table_client(time_entries, recipient):
     table += '''
     </tbody>
     </table>
+    </div>
     <br>
+    '''
+
+    table += f'''
+    <script>
+      function approveHour(entryId, token, isClient) {{
+        fetch("{API_URL}aprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
+        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+        .then(result => {{
+          const status = result.status;
+          const body = result.body;
+          if (status === 200) {{
+            alert(body.message);
+            disableRow(entryId);
+          }} else {{
+            alert(body.message);
+          }}
+        }})
+        .catch(error => {{
+          console.error('Erro:', error);
+          alert('Erro ao aprovar hora.');
+        }});
+      }}
+
+      function rejectHour(entryId, token, isClient) {{
+        fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
+        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+        .then(result => {{
+          const status = result.status;
+          const body = result.body;
+          if (status === 200) {{
+            alert(body.message);
+            disableRow(entryId);
+          }} else {{
+            alert(body.message);
+          }}
+        }})
+        .catch(error => {{
+          console.error('Erro:', error);
+          alert('Erro ao reprovar hora.');
+        }});
+      }}
+
+      function disableRow(entryId) {{
+        var row = document.getElementById("entry-row-" + entryId);
+        var checkBox = row.querySelector('input[type="checkbox"]');
+        var buttons = row.querySelectorAll('a');
+
+        if (checkBox) {{
+          checkBox.disabled = true;
+        }}
+        buttons.forEach(button => {{
+          button.style.pointerEvents = 'none';
+          button.style.opacity = '0.5';
+        }});
+      }}
+    </script>
     '''
 
     return table
@@ -1715,8 +1876,8 @@ def alterar_data_temporariamente(entry_id, nova_data):
                 return response.status_code, response.text
             else:
                 error_message = response.json().get('errors', [])
-                if any("Apontamento retroativo" in error for error in error_message) or any("Foi detectado um apontamento" in error for error in error_message):
-                    nova_data = (datetime.strptime(nova_data, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
+                if any("Apontamento retroativo" in error for error in error_message) or any("Foi detectado um apontamento" in error for error in error_message) or any("semana" in error for error in error_message):
+                    nova_data = (datetime.strptime(nova_data, '%Y-%m-%d') + timedelta(days=5)).strftime('%Y-%m-%d')
                 else:
                     return response.status_code, response.text
         else:
