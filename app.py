@@ -454,56 +454,46 @@ def send_email_report_client_geral():
 @app.route('/send_email_report', methods=['POST'])
 def send_email_report():
     logger.info('Tentando obter o usuário logado.')
-    response = requests.get(f'{REDMINE_URL}/users/current.json', headers={
+    user_id = request.headers.get('user_id', '')
+    logger.info(f"Usuario {user_id} solicitando aprovação de horas.")
+    allowed_emails = request.headers.get('allowed_emails', '').split(',')
+    today = datetime.today()
+    seven_days_ago = today - timedelta(days=7)
+    start_date = seven_days_ago.strftime('%Y-%m-%d')
+    end_date = today.strftime('%Y-%m-%d')
+
+    url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
+    entries_response = requests.get(url, headers={
         'X-Redmine-API-Key': REDMINE_API_KEY,
         'Content-Type': 'application/json'
     }, verify=False)
 
-    if response.ok:
-        user_data = response.json()
-        user_id = user_data['user']['id']
-        user_email = user_data['user']
-        logger.info(f'Usuário logado obtido: {user_data["user"]["login"]}')
-        allowed_emails = request.headers.get('allowed_emails', '').split(',')
-        today = datetime.today()
-        seven_days_ago = today - timedelta(days=7)
-        start_date = seven_days_ago.strftime('%Y-%m-%d')
-        end_date = today.strftime('%Y-%m-%d')
+    if entries_response.ok:
+        time_entries = entries_response.json().get('time_entries', [])
+        unapproved_entries = [entry for entry in time_entries if any(
+            field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in
+            entry.get('custom_fields', []))]
 
-        url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
-        entries_response = requests.get(url, headers={
-            'X-Redmine-API-Key': REDMINE_API_KEY,
-            'Content-Type': 'application/json'
-        }, verify=False)
+        if not unapproved_entries:
+            logger.warning('Nenhuma entrada de tempo não aprovada encontrada.')
+            return jsonify('Nenhuma entrada de tempo não aprovada encontrada.'), 400
 
-        if entries_response.ok:
-            time_entries = entries_response.json().get('time_entries', [])
-            unapproved_entries = [entry for entry in time_entries if any(
-                field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in
-                entry.get('custom_fields', []))]
-
-            if not unapproved_entries:
-                logger.warning('Nenhuma entrada de tempo não aprovada encontrada.')
-                return jsonify('Nenhuma entrada de tempo não aprovada encontrada.'), 400
-
-            table_html = create_html_table_mail(unapproved_entries)
-            recipient_emails = request.headers.get('recipient', '').split(',')
-            if not recipient_emails or recipient_emails == ['']:
-                logger.error('Nenhum e-mail de destinatário fornecido.')
-                return jsonify('Nenhum e-mail de destinatário fornecido.'), 400
-                #return render_response('Nenhum e-mail de destinatário fornecido.'), 400
-            project_name = unapproved_entries[0]['project']['name']
-            user_name = unapproved_entries[0]['user']['name']
-            send_email_task(table_html, recipient_emails, project_name, user_id, user_name, allowed_emails)
-            return jsonify('Relatório enviado com sucesso.'), 200
-            #return render_response('Relatório enviado com sucesso.'), 200
-        else:
-            logger.error('Erro ao buscar entradas de tempo.')
-            return jsonify('Erro ao buscar entradas de tempo.'), 500
-            #return render_response('Erro ao buscar entradas de tempo.'), 500
+        table_html = create_html_table_mail(unapproved_entries)
+        recipient_emails = request.headers.get('recipient', '').split(',')
+        if not recipient_emails or recipient_emails == ['']:
+            logger.error('Nenhum e-mail de destinatário fornecido.')
+            return jsonify('Nenhum e-mail de destinatário fornecido.'), 400
+            # return render_response('Nenhum e-mail de destinatário fornecido.'), 400
+        project_name = unapproved_entries[0]['project']['name']
+        user_name = unapproved_entries[0]['user']['name']
+        send_email_task(table_html, recipient_emails, project_name, user_id, user_name, allowed_emails)
+        return jsonify('Relatório enviado com sucesso.'), 200
+        # return render_response('Relatório enviado com sucesso.'), 200
     else:
-        logger.error('Erro ao obter o usuário logado. Redirecionando para login.')
-        return redirect(f'{REDMINE_URL}/login')
+        logger.error('Erro ao buscar entradas de tempo.')
+        return jsonify('Erro ao buscar entradas de tempo.'), 500
+        # return render_response('Erro ao buscar entradas de tempo.'), 500
+
 
 @app.route('/send_unitary_report', methods=['POST'])
 def send_unitary_report():
