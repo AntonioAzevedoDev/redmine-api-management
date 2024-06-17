@@ -1725,7 +1725,7 @@ def alterar_data_temporariamente(entry_id, nova_data):
                 return response.status_code, response.text
             else:
                 error_message = response.json().get('errors', [])
-                if any("Apontamento retroativo" in error for error in error_message):
+                if any("Apontamento retroativo" in error for error in error_message) or any("Foi detectado um apontamento" in error for error in error_message):
                     nova_data = (datetime.strptime(nova_data, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
                 else:
                     return response.status_code, response.text
