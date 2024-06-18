@@ -1733,7 +1733,9 @@ def create_html_table_client(time_entries, recipient):
     </thead>
     <tbody>
     '''
-
+    total_hours = 0  # Variável para somar as horas
+    approved_hours = 0  # Variável para somar as horas aprovadas
+    unapproved_hours = 0  # Variável para somar as horas não aprovadas
     for entry in time_entries:
         approver_cli = next(
             (field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Aprovador - CLI'), '')
@@ -1750,6 +1752,10 @@ def create_html_table_client(time_entries, recipient):
             approved = any(
                 field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '1') for field
                 in entry['custom_fields'])
+            if approved:
+                approved_hours += entry['hours']
+            else:
+                unapproved_hours += entry['hours']
             disable_attr = 'disabled' if approved else ''
             aprovado = 'Sim' if approved else 'Não'
 
@@ -1778,7 +1784,21 @@ def create_html_table_client(time_entries, recipient):
     </div>
     <br>
     '''
-
+    # Adiciona a linha com o total de horas no final da tabela
+    table += f'''
+        <tr>
+          <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas:</td>
+          <td colspan="2" style="font-weight: bold;">{total_hours}</td>
+        </tr>
+        <tr>
+          <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas Aprovadas:</td>
+          <td colspan="2" style="font-weight: bold;">{approved_hours}</td>
+        </tr>
+        <tr>
+          <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas Não Aprovadas:</td>
+          <td colspan="2" style="font-weight: bold;">{unapproved_hours}</td>
+        </tr>
+        '''
     table += f'''
     <script>
       function approveHour(entryId, token, isClient) {{
