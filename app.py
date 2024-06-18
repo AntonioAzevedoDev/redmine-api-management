@@ -1728,36 +1728,38 @@ def relatorio_horas_client(user_id):
 
 
 def create_html_table(time_entries):
-    table = '''
-    <div style="overflow-x:auto;" class="table-container">
-    <table id="time_entries_table">
-    <thead>
-      <tr>
-        <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th>
-        <th>Data</th>
-        <th>Usuário</th>
-        <th>Atividade</th>
-        <th>Projeto</th>
-        <th>Comentário</th>
-        <th>Hora inicial (HH:MM)</th>
-        <th>Hora final (HH:MM)</th>
-        <th>Horas</th>
-        <th>Aprovado</th>
-        <th>Ações</th>
-      </tr>
-    </thead>
-    <tbody>
-    '''
-
     total_hours = 0  # Variável para somar as horas
     approved_hours = 0  # Variável para somar as horas aprovadas
     unapproved_hours = 0  # Variável para somar as horas não aprovadas
 
+    table = '''
+    <div class="container">
+      <div class="filters-container">
+        <!-- Coloque aqui os elementos do filtro -->
+      </div>
+      <div style="overflow-x:auto;" class="table-container">
+        <table id="time_entries_table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th>
+              <th>Data</th>
+              <th>Usuário</th>
+              <th>Atividade</th>
+              <th>Projeto</th>
+              <th>Comentário</th>
+              <th>Hora inicial (HH:MM)</th>
+              <th>Hora final (HH:MM)</th>
+              <th>Horas</th>
+              <th>Aprovado</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+    '''
+
     for entry in time_entries:
-        hora_inicial = next(
-            (field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora inicial (HH:MM)'), '')
-        hora_final = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora final (HH:MM)'),
-                          '')
+        hora_inicial = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora inicial (HH:MM)'), '')
+        hora_final = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora final (HH:MM)'), '')
         project_name = entry['project']['name'] if 'project' in entry else 'N/A'
         user_id = entry['user']['id']
         user_email = 'teste@teste.com'  # tornar dinâmico após ajustar o plugin
@@ -1768,9 +1770,7 @@ def create_html_table(time_entries):
 
         total_hours += entry['hours']  # Soma as horas da entrada atual
 
-        approved = any(
-            field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '1') for field in
-            entry['custom_fields'])
+        approved = any(field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '1') for field in entry['custom_fields'])
         if approved:
             approved_hours += entry['hours']
         else:
@@ -1799,18 +1799,15 @@ def create_html_table(time_entries):
         '''
 
     table += '''
-    </tbody>
-    </table>
-    </div>
-    <br>
-    '''
-
-    # Adiciona as contagens de horas em uma nova div
-    table += f'''
-    <div class="hours-summary">
+          </tbody>
+        </table>
+      </div>
+      <br>
+      <div class="hours-summary">
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
         <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
         <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
+      </div>
     </div>
     <br>
     '''
@@ -1913,46 +1910,46 @@ def create_html_table(time_entries):
 
 
 def create_html_table_client(time_entries, recipient):
-    table = '''
-    <div style="overflow-x:auto;" class="table-container">
-    <table id="time_entries_table">
-    <thead>
-      <tr>
-        <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th>
-        <th>Data</th>
-        <th>Usuário</th>
-        <th>Atividade</th>
-        <th>Projeto</th>
-        <th>Comentário</th>
-        <th>Hora inicial (HH:MM)</th>
-        <th>Hora final (HH:MM)</th>
-        <th>Horas</th>
-        <th>Aprovado</th>
-        <th>Ações</th>
-      </tr>
-    </thead>
-    <tbody>
-    '''
     total_hours = 0  # Variável para somar as horas
     approved_hours = 0  # Variável para somar as horas aprovadas
     unapproved_hours = 0  # Variável para somar as horas não aprovadas
+
+    table = '''
+    <div class="container">
+      <div class="filters-container">
+        <!-- Coloque aqui os elementos do filtro -->
+      </div>
+      <div style="overflow-x:auto;" class="table-container">
+        <table id="time_entries_table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th>
+              <th>Data</th>
+              <th>Usuário</th>
+              <th>Atividade</th>
+              <th>Projeto</th>
+              <th>Comentário</th>
+              <th>Hora inicial (HH:MM)</th>
+              <th>Hora final (HH:MM)</th>
+              <th>Horas</th>
+              <th>Aprovado</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+    '''
+
     for entry in time_entries:
-        approver_cli = next(
-            (field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Aprovador - CLI'), '')
+        approver_cli = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Aprovador - CLI'), '')
 
         if approver_cli == recipient:
-            hora_inicial = next(
-                (field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora inicial (HH:MM)'), '')
-            hora_final = next(
-                (field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora final (HH:MM)'),
-                '')
+            hora_inicial = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora inicial (HH:MM)'), '')
+            hora_final = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora final (HH:MM)'), '')
             project_name = entry['project']['name'] if 'project' in entry else 'N/A'
             is_client = 1 if 'client' in request.full_path else 0
 
             total_hours += entry['hours']
-            approved = any(
-                field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '1') for field
-                in entry['custom_fields'])
+            approved = any(field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '1') for field in entry['custom_fields'])
             if approved:
                 approved_hours += entry['hours']
             else:
@@ -1980,18 +1977,15 @@ def create_html_table_client(time_entries, recipient):
             '''
 
     table += '''
-    </tbody>
-    </table>
-    </div>
-    <br>
-    '''
-
-    # Adiciona as contagens de horas em uma nova div
-    table += f'''
-    <div class="hours-summary">
+          </tbody>
+        </table>
+      </div>
+      <br>
+      <div class="hours-summary">
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
         <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
         <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
+      </div>
     </div>
     <br>
     '''
