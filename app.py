@@ -587,7 +587,7 @@ def reprovar_todos():
 def atualizar_todas_entradas(aprovacao, entry_ids, token, is_client):
     user = get_current_user()
     errors = []
-    if is_client == 0:
+    if is_client == '0':
         for entry_id in entry_ids:
             status_code, response = get_time_entry(entry_id)
             if status_code == 200:
