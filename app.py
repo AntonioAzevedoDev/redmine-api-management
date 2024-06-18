@@ -1803,12 +1803,13 @@ def create_html_table(time_entries):
         </table>
       </div>
       <br>
+      </div>
       <div class="hours-summary">
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
         <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
         <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
+      
       </div>
-    </div>
     <br>
     '''
 
@@ -1981,11 +1982,12 @@ def create_html_table_client(time_entries, recipient):
         </table>
       </div>
       <br>
+      </div>
       <div class="hours-summary">
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
         <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
         <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
-      </div>
+      
     </div>
     <br>
     '''
