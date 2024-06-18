@@ -1748,7 +1748,7 @@ def create_html_table_client(time_entries, recipient):
                 '')
             project_name = entry['project']['name'] if 'project' in entry else 'N/A'
             is_client = 1 if 'client' in request.full_path else 0
-
+            total_hours += entry['hours']  # Soma as horas da entrada atual
             approved = any(
                 field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '1') for field
                 in entry['custom_fields'])
