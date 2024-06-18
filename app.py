@@ -1677,9 +1677,17 @@ def create_html_table_client(time_entries, recipient):
 
     table += f'''
     <style>
-      .table-container {{
+      .table-wrapper {{
         width: 100%;
-        max-height: 400px;
+        overflow-x: auto;
+      }}
+      .table-container {{
+        max-height: 450px;
+        width: 100%;
+      }}
+      .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+        width: 80px; /* Define uma largura menor para a coluna "Ações" */
+        text-align: center; /* Centraliza o texto e os botões na coluna */
       }}
       .hours-summary {{
         font-size: 1.2em;
@@ -1705,16 +1713,34 @@ def create_html_table_client(time_entries, recipient):
         background: white;
         z-index: 10;
         box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
-        padding: 16px 8px; /* Aumenta a altura do thead */
+        padding: 8px 4px; /* Aumenta a altura do thead */
         min-height: 10px; /* Define uma altura mínima para o thead */
         text-align: center; /* Centraliza os textos do thead */
       }}
       .table-container td {{
-        white-space: normal; /* Permite quebra de linha */
+        white-space: nowrap; /* Impede quebra de linha */
       }}
       .btn {{
         display: inline-block; /* Garante que os botões fiquem lado a lado */
         margin-right: 5px; /* Espaçamento entre os botões */
+      }}
+      .btn-approve-table, .btn-reject-table {{
+        display: inline-block;
+        width: 70px;
+        margin-right: 2px; /* Adiciona espaçamento entre os botões */
+        text-align: center; /* Centraliza o texto do botão */
+        font-size: 0.8em; /* Reduz o tamanho da fonte */
+        padding: 5px; /* Ajusta o padding */
+      }}
+      .btn-approve-table {{
+        background-color: #28a745;
+        color: white;
+        margin-bottom: 2px; /* Adiciona espaçamento vertical entre os botões */
+      }}
+      .btn-reject-table {{
+        background-color: #dc3545;
+        color: white;
+        margin-top: 2px;
       }}
       .btn.disabled {{
         visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
@@ -1722,27 +1748,34 @@ def create_html_table_client(time_entries, recipient):
       @media (max-width: 768px) {{
         .container {{
             padding: 10px;
+            overflow-y: auto;
+            max-height: 80vh;
         }}
         .header-logo h1 {{
             font-size: 1.5em;
         }}
         .filters {{
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
-                        margin: 0; /* Remove margem */
-                        padding: 0; /* Remove padding */
-                    }}
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0; /* Remove margem */
+            padding: 0; /* Remove padding */
+        }}
+        .table-wrapper {{
+            overflow-x: auto;
+        }}
         .table-container {{
             font-size: 0.9em;
+            overflow-x: scroll;
         }}
         .btn-group {{
             flex-direction: column;
-            align-items: stretch;
+            align-items: center;
         }}
-        .btn-relatorio {{
-            width: 100%;
-            margin-top: 10px;
+        .btn-group .btn-relatorio {{
+            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
+            height: 40px; /* Garante que a altura do botão seja mantida */
+            margin: 0px 0;
         }}
     }}
     </style>
@@ -2082,13 +2115,15 @@ document.addEventListener('DOMContentLoaded', function() {{
                         return data;
                     }}
                 </script>
-                <style>
+               <style>
     .container {{
         display: flex;
         flex-direction: column;
         margin-top: 0; /* Remove qualquer margem superior */
-        overflow-y: auto;
-        max-height: 80vh;
+    }}
+    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+        width: 100px; /* Define uma largura menor para a coluna "Ações" */
+        text-align: center; /* Centraliza o texto e os botões na coluna */
     }}
     .filters-container {{
         display: flex;
@@ -2108,13 +2143,9 @@ document.addEventListener('DOMContentLoaded', function() {{
                         margin: 0; /* Remove margem */
                         padding: 0; /* Remove padding */
                     }}
-    .table-wrapper {{
+    .table-container {{
                         width: 100%;
-                        overflow-x: auto; /* Adiciona rolagem horizontal */
-                    }}
-                    .table-container {{
                         max-height: 450px; /* Define uma altura máxima para a tabela */
-                        width: 100%;
                     }}
                     .table-container th:nth-child(11), .table-container td:nth-child(11) {{
         width: 120px; /* Define uma largura menor para a coluna "Ações" */
@@ -2175,32 +2206,26 @@ document.addEventListener('DOMContentLoaded', function() {{
                     .btn-approve-table.disabled, .btn-reject-table.disabled {{
                         visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
                     }}
-
+					
 .btn-relatorio:hover {{
                         background-color: #63B8FF; /* Azul claro ao passar o mouse */
                     }}
     @media (max-width: 768px) {{
         .container {{
             padding: 10px;
-            overflow-y: auto;
-            max-height: 80vh;
         }}
         .header-logo h1 {{
             font-size: 1.5em;
         }}
         .filters {{
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin: 0; /* Remove margem */
-            padding: 0; /* Remove padding */
-        }}
-        .table-wrapper {{
-            overflow-x: auto;
-        }}
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        margin: 0; /* Remove margem */
+                        padding: 0; /* Remove padding */
+                    }}
         .table-container {{
             font-size: 0.9em;
-            overflow-x: scroll;
         }}
         .btn-group {{
             flex-direction: column;
@@ -2211,15 +2236,16 @@ document.addEventListener('DOMContentLoaded', function() {{
             height: 40px; /* Garante que a altura do botão seja mantida */
             margin: 0px 0;
         }}
-
+        
     }}
     .filters label, .legend-button {{
         color: black;
     }}
-
+    
     table {{
         width: 100%;
     }}
+    
 </style>
             </head>
             <body>
@@ -2233,7 +2259,7 @@ document.addEventListener('DOMContentLoaded', function() {{
                     <div class="filters-container">
                         <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
                             <fieldset class="collapsible collapsed">
-                                <legend onclick="toggleFieldset(this);">
+                                <legend class="legend-text" onclick="toggleFieldset(this);">
                                     <span class="legend-button">
                                         <span class="arrow">▶</span>
                                         Filtros
@@ -2256,21 +2282,24 @@ document.addEventListener('DOMContentLoaded', function() {{
                             </fieldset>
                         </form>
                     </div>
-                    <div class="table-wrapper">
-                        <div class="table-container">
-                            {table_html}
-                        </div>
+                    <div class="table-container">
+                        {table_html}
                         <div id="all-actions" class="btn-group">
                             <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
                             <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
                             <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
+                        
                         </div>
+                        <div id="selected-actions" class="btn-group">
+                            <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
+                            <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
+                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
+                        </div
                     </div>
-                    <div id="selected-actions" class="btn-group">
-                        <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
-                        <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
-                        <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
+                    
                     </div>
+                    
+                    
                 </div>
                 <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
             </body>
@@ -2367,14 +2396,12 @@ def create_html_table(time_entries):
       </div>
       <br>
       </div>
-
       </div>
       <div class="hours-summary">
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
         <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
         <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
-
-    </div>
+      </div>
     '''
 
     table += f'''
@@ -2386,6 +2413,10 @@ def create_html_table(time_entries):
       .table-container {{
         max-height: 450px;
         width: 100%;
+      }}
+      .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+        width: 80px; /* Define uma largura menor para a coluna "Ações" */
+        text-align: center; /* Centraliza o texto e os botões na coluna */
       }}
       .hours-summary {{
         font-size: 1.2em;
@@ -2411,7 +2442,7 @@ def create_html_table(time_entries):
         background: white;
         z-index: 10;
         box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
-        padding: 16px 8px; /* Aumenta a altura do thead */
+        padding: 8px 4px; /* Aumenta a altura do thead */
         min-height: 10px; /* Define uma altura mínima para o thead */
         text-align: center; /* Centraliza os textos do thead */
       }}
@@ -2421,6 +2452,24 @@ def create_html_table(time_entries):
       .btn {{
         display: inline-block; /* Garante que os botões fiquem lado a lado */
         margin-right: 5px; /* Espaçamento entre os botões */
+      }}
+      .btn-approve-table, .btn-reject-table {{
+        display: inline-block;
+        width: 70px;
+        margin-right: 2px; /* Adiciona espaçamento entre os botões */
+        text-align: center; /* Centraliza o texto do botão */
+        font-size: 0.8em; /* Reduz o tamanho da fonte */
+        padding: 5px; /* Ajusta o padding */
+      }}
+      .btn-approve-table {{
+        background-color: #28a745;
+        color: white;
+        margin-bottom: 2px; /* Adiciona espaçamento vertical entre os botões */
+      }}
+      .btn-reject-table {{
+        background-color: #dc3545;
+        color: white;
+        margin-top: 2px;
       }}
       .btn.disabled {{
         visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
@@ -2593,7 +2642,6 @@ document.addEventListener('DOMContentLoaded', function() {{
     '''
 
     return table
-
 
 def get_time_entry(time_entry_id):
     url = f"{REDMINE_URL}/time_entries/{time_entry_id}.json"
