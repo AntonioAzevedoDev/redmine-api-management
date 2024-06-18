@@ -1361,7 +1361,7 @@ def relatorio_horas_client(user_id):
 
                 table_html = create_html_table_client(entries, recipient)
                 # Constrói a lista de IDs das entradas
-                entry_ids = ','.join([str(entry['id']) for entry in entries])
+                entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
 
                 # Template HTML para renderizar a página com filtros
                 html_template = f'''
