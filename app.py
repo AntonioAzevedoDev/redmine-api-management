@@ -1215,7 +1215,7 @@ def relatorio_horas_geral():
                             </fieldset>
                         </form>
                     </div>
-                    <div class="table-container">
+                    <div>
                         {table_html}
                     </div>
                     <div id="all-actions" class="btn-group">
