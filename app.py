@@ -2139,7 +2139,7 @@ def relatorio_horas(user_id):
                     .btn-approve-table.disabled, .btn-reject-table.disabled {{
                         visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
                     }}
-					
+
 .btn-relatorio:hover {{
                         background-color: #63B8FF; /* Azul claro ao passar o mouse */
                     }}
@@ -2169,12 +2169,12 @@ def relatorio_horas(user_id):
             height: 40px; /* Garante que a altura do botão seja mantida */
             margin: 0px 0;
         }}
-        
+
     }}
     .filters label, .legend-button {{
         color: black;
     }}
-    
+
     table {{
         width: 100%;
     }}
@@ -2223,7 +2223,7 @@ def relatorio_horas(user_id):
                     </div>
                     </div>
 
-                    
+
 
                     <div id="selected-actions" class="btn-group">
                         <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
@@ -2231,7 +2231,7 @@ def relatorio_horas(user_id):
                         <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
                     </div>
 
-                    
+
 
                 </div>
                 <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
@@ -2254,7 +2254,7 @@ def create_html_table(time_entries):
     unapproved_hours = 0  # Variável para somar as horas não aprovadas
 
     table = '''
-    <div >
+    <div>
       <div class="filters-container">
         <!-- Coloque aqui os elementos do filtro -->
       </div>
@@ -2316,7 +2316,7 @@ def create_html_table(time_entries):
           <td>{entry['hours']}</td>
           <td>{aprovado}</td>
           <td>
-            <a href="#" onclick="approveHour({entry['id']}, '{token}', {is_client})" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
+            <a href="#" onclick="approveHour({entry['id']}, '{token}', {is_client}, {entry['hours']})" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
             <a href="#" onclick="rejectHour({entry['id']}, '{token}', {is_client})" class="btn btn-reject-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Reprovar</a>
           </td>
         </tr>
@@ -2328,7 +2328,7 @@ def create_html_table(time_entries):
       </div>
       <br>
       </div>
-      
+
       </div>
       <div class="hours-summary">
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
@@ -2413,37 +2413,26 @@ def create_html_table(time_entries):
 
     table += f'''
     <script>
-      function approveHour(entryId, token, isClient) {{
+      function approveHour(entryId, token, isClient, entryHours) {{
         fetch("{API_URL}aprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
         .then(result => {{
           const status = result.status;
           const body = result.body;
           if (status === 200) {{
-            alert(body.message);
+            updateHours(entryHours);
+            showAlert('Horas aprovadas com sucesso', 'success');
             disableRow(entryId);
           }} else {{
-            alert(body.message);
+            showAlert(body.message, 'error');
           }}
         }})
         .catch(error => {{
           console.error('Erro:', error);
-          alert('Erro ao aprovar hora.');
+          showAlert('Erro ao aprovar hora.', 'error');
         }});
       }}
-      function toggleFieldset(legend) {{
-        var fieldset = legend.parentElement;
-        fieldset.classList.toggle('collapsed');
-        var div = fieldset.querySelector('div');
-        var arrow = legend.querySelector('.arrow');
-        if (fieldset.classList.contains('collapsed')) {{
-            div.style.display = 'none';
-            arrow.innerHTML = '▼';  // Seta para a direita
-        }} else {{
-            div.style.display = 'block';
-            arrow.innerHTML = '▶';  // Seta para baixo
-        }}
-        }}
+
       function rejectHour(entryId, token, isClient) {{
         fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
@@ -2451,16 +2440,29 @@ def create_html_table(time_entries):
           const status = result.status;
           const body = result.body;
           if (status === 200) {{
-            alert(body.message);
+            showAlert('Horas reprovadas com sucesso', 'success');
             disableRow(entryId);
           }} else {{
-            alert(body.message);
+            showAlert(body.message, 'error');
           }}
         }})
         .catch(error => {{
           console.error('Erro:', error);
-          alert('Erro ao reprovar hora.');
+          showAlert('Erro ao reprovar hora.', 'error');
         }});
+      }}
+
+      function updateHours(entryHours) {{
+        const totalHoursElement = document.querySelector('.hours-total');
+        const approvedHoursElement = document.querySelector('.hours-approved');
+        const unapprovedHoursElement = document.querySelector('.hours-unapproved');
+
+        const totalHours = parseFloat(totalHoursElement.textContent);
+        const approvedHours = parseFloat(approvedHoursElement.textContent);
+        const unapprovedHours = parseFloat(unapprovedHoursElement.textContent);
+
+        approvedHoursElement.textContent = (approvedHours + entryHours).toFixed(1);
+        unapprovedHoursElement.textContent = (unapprovedHours - entryHours).toFixed(1);
       }}
 
       function disableRow(entryId) {{
@@ -2487,6 +2489,32 @@ def create_html_table(time_entries):
             checkboxes[i].checked = source.checked;
           }}
         }}
+      }}
+
+      function showAlert(message, type) {{
+        var alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type}`;
+        alertDiv.textContent = message;
+
+        // Estilização básica para o popup
+        alertDiv.style.position = 'fixed';
+        alertDiv.style.top = '20px';
+        alertDiv.style.left = '50%';
+        alertDiv.style.transform = 'translateX(-50%)';
+        alertDiv.style.padding = '10px';
+        alertDiv.style.zIndex = 1000;
+        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+        alertDiv.style.color = 'white';
+        alertDiv.style.borderRadius = '5px';
+        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
+        alertDiv.style.fontSize = '16px';
+
+        document.body.appendChild(alertDiv);
+
+        // Remover o popup após 3 segundos
+        setTimeout(() => {{
+          document.body.removeChild(alertDiv);
+        }}, 3000);
       }}
     </script>
     '''
