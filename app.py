@@ -865,10 +865,10 @@ def create_html_table_mail(time_entries):
 @app.route('/relatorio_horas', methods=['GET'])
 def relatorio_horas_geral():
     try:
-        # Define o período de 30 dias
+        # Define o período de 90 dias
         today = datetime.today() + timedelta(days=1)
-        thirty_days_ago = today - timedelta(days=90)
-        start_date = thirty_days_ago.strftime('%Y-%m-%d')
+        ninety_days_ago = today - timedelta(days=90)
+        start_date = ninety_days_ago.strftime('%Y-%m-%d')
         end_date = today.strftime('%Y-%m-%d')
 
         # Faz uma requisição para obter as entradas de tempo do Redmine
@@ -978,8 +978,6 @@ def relatorio_horas_geral():
                                 var row = checkbox.closest("tr");
                                 var td = row.getElementsByTagName("td");
 
-                                
-
                                 var entry = {{
                                     id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
                                     date: td[1] ? td[1].textContent : "N/A",
@@ -999,7 +997,6 @@ def relatorio_horas_geral():
                                 if (tr[i].style.display !== "none") {{
                                     var td = tr[i].getElementsByTagName("td");
 
-                                    
                                     var entry = {{
                                         id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
                                         date: td[1] ? td[1].textContent : "N/A",
@@ -1012,7 +1009,6 @@ def relatorio_horas_geral():
                                         hours: td[8] ? td[8].textContent : "N/A"
                                     }};
 
-                                   
                                     data.push(entry);
                                 }}
                             }}
@@ -1065,60 +1061,125 @@ def relatorio_horas_geral():
                         }}, 3000);
                     }}
                 </script>
-              <style>
-    .container {{
-        display: flex;
-        flex-direction: column;
-        margin-top: 0; /* Remove qualquer margem superior */
-    }}
-    .filters-container {{
-        display: flex;
-        justify-content: flex-start; /* Alinha os itens no início */
-        margin-bottom: 10px;
-        width: 100%; /* Garante que ocupe a largura total */
-    }}
-    fieldset {{
-        border: none;
-        margin: 0; /* Remove margem */
-        padding: 0; /* Remove padding */
-    }}
-    .filters {{
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin: 0; /* Remove margem */
-        padding: 0; /* Remove padding */
-    }}
-    .table-container {{
-        width: 100%;
-        overflow-x: auto; /* Adiciona rolagem horizontal */
-        overflow-y: auto; /* Adiciona rolagem vertical */
-        max-height: 400px; /* Define uma altura máxima para a tabela */
-    }}
-    .btn-group {{
-        display: flex;
-        justify-content: center;
-        margin-top: 20px;
-    }}
-    .filters label, .legend-button {{
-        color: black;
-    }}
-    .btn-relatorio {{
-        background-color: #1E90FF; /* Cor azul padrão */
-        color: white; /* Texto branco */
-        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
-        border-radius: 5px; /* Bordas arredondadas */
-        border: none; /* Remover borda */
-        transition: background-color 0.3s; /* Suavização da transição de cor */
-    }}
-    .btn-relatorio:hover {{
-        background-color: #63B8FF; /* Azul claro ao passar o mouse */
-    }}
-    table {{
-        width: 100%;
-    }}
-</style>
-
+                <style>
+                    .container {{
+                        display: flex;
+                        flex-direction: column;
+                        margin-top: 0;
+                    }}
+                    .filters-container {{
+                        display: flex;
+                        justify-content: center; /* Centraliza os itens */
+                        margin-bottom: 10px;
+                        width: 100%; /* Garante que ocupe a largura total */
+                    }}
+                    fieldset {{
+                        border: none;
+                        margin: 0; /* Remove margem */
+                        padding: 0; /* Remove padding */
+                    }}
+                    .filters {{
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        margin: 0; /* Remove margem */
+                        padding: 0; /* Remove padding */
+                    }}
+                    .table-container {{
+                        width: 100%;
+                        overflow-x: auto; /* Adiciona rolagem horizontal */
+                        overflow-y: auto; /* Adiciona rolagem vertical */
+                        max-height: 450px; /* Define uma altura máxima para a tabela */
+                    }}
+                    .table-container td {{
+                        padding: 4px; /* Diminui a altura dos td */
+                        text-align: left;
+                        border-bottom: 1px solid #ddd;
+                        vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
+                        white-space: nowrap; /* Impede quebra de linha em células */
+                        overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
+                        text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
+                    }}
+                    .table-container th {{
+                        background-color: #f2f2f2;
+                        position: sticky;
+                        top: 0;
+                        z-index: 1;
+                        text-align: center; /* Centraliza o texto do thead */
+                    }}
+                    .btn-group {{
+                        display: flex;
+                        justify-content: center;
+                        margin-top: 20px;
+                    }}
+                    .filters label, .legend-button {{
+                        color: black;
+                    }}
+                    .btn-relatorio {{
+                        background-color: #1E90FF; /* Cor azul padrão */
+                        color: white; /* Texto branco */
+                        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+                        border-radius: 5px; /* Bordas arredondadas */
+                        border: none; /* Remover borda */
+                        transition: background-color 0.3s; /* Suavização da transição de cor */
+                    }}
+                    .btn-relatorio:hover {{
+                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                    }}
+                    table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                    }}
+                    th, td {{
+                        padding: 8px;
+                        text-align: left;
+                        border-bottom: 1px solid #ddd;
+                    }}
+                    tr:nth-child(even) {{
+                        background-color: #f2f2f2;
+                    }}
+                    th:nth-child(11), td:nth-child(11) {{
+                        width: 120px; /* Define uma largura menor para a coluna "Ações" */
+                        text-align: center; /* Centraliza o texto e os botões na coluna */
+                    }}
+                    .btn-approve-table, .btn-reject-table {{
+                        display: inline-block;
+                        width: 90px;
+                        margin-right: 5px 0; /* Adiciona espaçamento entre os botões */
+                        text-align: center; /* Centraliza o texto do botão */
+                    }}
+                    .btn-approve-table[disabled], .btn-reject-table[disabled] {{
+                        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+                    }}
+                    .btn-approve-table {{
+                        background-color: #28a745;
+                        color: white;
+                        margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
+                    }}
+                    .btn-reject-table {{
+                        background-color: #dc3545;
+                        color: white;
+                        margin-top: 5px;
+                    }}
+                    .hours-summary {{
+                        font-size: 1.2em;
+                        font-weight: bold;
+                        color: #333;
+                        margin-top: 10px;
+                    }}
+                    .hours-summary p {{
+                        margin: 5px 0;
+                    }}
+                    .hours-total, .hours-approved, .hours-unapproved {{
+                        color: #1E90FF;
+                    }}
+                    .hours-approved {{
+                        color: #28a745;
+                    }}
+                    .hours-unapproved {{
+                        color: #dc3545;
+                    }}
+                </style>
             </head>
             <body>
                 <div id="header">
