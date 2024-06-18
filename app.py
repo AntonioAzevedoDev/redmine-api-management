@@ -1507,10 +1507,12 @@ def relatorio_horas_client(user_id):
             if not time_entries:
                 logger.warning(
                     f"Nenhuma entrada de tempo não aprovada encontrada para o usuário ID {user_id} no período de {start_date} a {end_date}")
+                return render_response("Nenhuma entrada de tempo encontrada", 404)
 
             token = request.args.get('token')
             token_email = get_email_from_token(token)  # Obtendo o e-mail associado ao token
             logger.warning(f'TOKEN_EMAIL:{token_email}')
+
             for recipient, entries in email_entries.items():
                 # Validação do e-mail do token com o recipient
                 if token_email != recipient:
@@ -1556,7 +1558,9 @@ def relatorio_horas_client(user_id):
                         function toggleAll(source) {{
                             checkboxes = document.getElementsByName('selected_entries');
                             for(var i=0, n=checkboxes.length;i<n;i++) {{
-                                checkboxes[i].checked = source.checked;
+                                if (!checkboxes[i].disabled) {{
+                                    checkboxes[i].checked = source.checked;
+                                }}
                             }}
                         }}
                     </script>
@@ -1591,6 +1595,7 @@ def relatorio_horas_client(user_id):
                 '''
 
                 return render_template_string(html_template)
+
         else:
             logger.error(f"Erro ao buscar entradas de tempo: {entries_response.status_code}")
             return render_response("Erro ao buscar entradas de tempo", 500)
