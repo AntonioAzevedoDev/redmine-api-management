@@ -1195,16 +1195,16 @@ def relatorio_horas(user_id):
                 logger.warning(
                     f"Nenhuma entrada de tempo não aprovada encontrada para o usuário ID {user_id} no período de {start_date} a {end_date}")
 
-            table_html = create_html_table(unapproved_entries)
+            table_html = create_html_table(time_entries)
             # Obtém o token da URL atual
 
             token = request.args.get('token')
             # Constrói a lista de IDs das entradas
-            entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
+            entry_ids = ','.join([str(entry['id']) for entry in time_entries])
 
             # Extrai usuários e projetos para os filtros
-            usuarios = {entry['user']['name'] for entry in unapproved_entries}
-            projetos = {entry['project']['name'] for entry in unapproved_entries}
+            usuarios = {entry['user']['name'] for entry in time_entries}
+            projetos = {entry['project']['name'] for entry in time_entries}
 
             # Template HTML para renderizar a página com filtros
             html_template = f'''
