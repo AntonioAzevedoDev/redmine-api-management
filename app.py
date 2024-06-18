@@ -395,18 +395,21 @@ def send_email_report_client_geral():
 
         time_entries = []
         for entry_id in time_entries_ids:
-            url = f'{REDMINE_URL}/time_entries/{entry_id}.json'
-            response = requests.get(url, headers={
-                'X-Redmine-API-Key': REDMINE_API_KEY,
-                'Content-Type': 'application/json'
-            }, verify=False)
+            if entry_id != 'N/A':
+                url = f'{REDMINE_URL}/time_entries/{entry_id}.json'
+                response = requests.get(url, headers={
+                    'X-Redmine-API-Key': REDMINE_API_KEY,
+                    'Content-Type': 'application/json'
+                }, verify=False)
 
-            if response.ok:
-                time_entry = response.json().get('time_entry', {})
-                time_entries.append(time_entry)
+                if response.ok:
+                    time_entry = response.json().get('time_entry', {})
+                    time_entries.append(time_entry)
+                else:
+                    logger.error(f"Erro ao buscar entrada de tempo com ID {entry_id}: {response.status_code}")
+                    return jsonify(f"Erro ao buscar entrada de tempo com ID {entry_id}", 500)
             else:
-                logger.error(f"Erro ao buscar entrada de tempo com ID {entry_id}: {response.status_code}")
-                return jsonify(f"Erro ao buscar entrada de tempo com ID {entry_id}", 500)
+                continue
 
         email_entries = defaultdict(list)
 
@@ -974,34 +977,42 @@ def relatorio_horas_geral():
                             for (var checkbox of checkboxes) {{
                                 var row = checkbox.closest("tr");
                                 var td = row.getElementsByTagName("td");
+
+                                
+
                                 var entry = {{
-                                    id: td[0].querySelector("input").value,
-                                    date: td[1].textContent,
-                                    user: td[2].textContent,
-                                    activity: td[3].textContent,
-                                    project: td[4].textContent,
-                                    comments: td[5].textContent,
-                                    start_time: td[6].textContent,
-                                    end_time: td[7].textContent,
-                                    hours: td[8].textContent
+                                    id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                    date: td[1] ? td[1].textContent : "N/A",
+                                    user: td[2] ? td[2].textContent : "N/A",
+                                    activity: td[3] ? td[3].textContent : "N/A",
+                                    project: td[4] ? td[4].textContent : "N/A",
+                                    comments: td[5] ? td[5].textContent : "N/A",
+                                    start_time: td[6] ? td[6].textContent : "N/A",
+                                    end_time: td[7] ? td[7].textContent : "N/A",
+                                    hours: td[8] ? td[8].textContent : "N/A"
                                 }};
+
                                 data.push(entry);
                             }}
                         }} else {{
                             for (var i = 1; i < tr.length; i++) {{
                                 if (tr[i].style.display !== "none") {{
                                     var td = tr[i].getElementsByTagName("td");
+
+                                    
                                     var entry = {{
-                                        id: td[0].querySelector("input").value,
-                                        date: td[1].textContent,
-                                        user: td[2].textContent,
-                                        activity: td[3].textContent,
-                                        project: td[4].textContent,
-                                        comments: td[5].textContent,
-                                        start_time: td[6].textContent,
-                                        end_time: td[7].textContent,
-                                        hours: td[8].textContent
+                                        id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                        date: td[1] ? td[1].textContent : "N/A",
+                                        user: td[2] ? td[2].textContent : "N/A",
+                                        activity: td[3] ? td[3].textContent : "N/A",
+                                        project: td[4] ? td[4].textContent : "N/A",
+                                        comments: td[5] ? td[5].textContent : "N/A",
+                                        start_time: td[6] ? td[6].textContent : "N/A",
+                                        end_time: td[7] ? td[7].textContent : "N/A",
+                                        hours: td[8] ? td[8].textContent : "N/A"
                                     }};
+
+                                   
                                     data.push(entry);
                                 }}
                             }}
@@ -1021,11 +1032,37 @@ def relatorio_horas_geral():
                         }})
                         .then(response => response.json())
                         .then(data => {{
-                            console.log('Success:', data);
+                            showAlert('Relatório enviado com sucesso', 'success');
                         }})
                         .catch((error) => {{
-                            console.error('Error:', error);
+                            showAlert('Erro ao enviar o relatório: ' + error, 'error');
                         }});
+                    }}
+
+                    function showAlert(message, type) {{
+                        var alertDiv = document.createElement('div');
+                        alertDiv.className = `alert alert-${type}`;
+                        alertDiv.textContent = message;
+
+                        // Estilização básica para o popup
+                        alertDiv.style.position = 'fixed';
+                        alertDiv.style.top = '20px';
+                        alertDiv.style.left = '50%';
+                        alertDiv.style.transform = 'translateX(-50%)';
+                        alertDiv.style.padding = '10px';
+                        alertDiv.style.zIndex = 1000;
+                        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+                        alertDiv.style.color = 'white';
+                        alertDiv.style.borderRadius = '5px';
+                        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
+                        alertDiv.style.fontSize = '16px';
+
+                        document.body.appendChild(alertDiv);
+
+                        // Remover o popup após 3 segundos
+                        setTimeout(() => {{
+                            document.body.removeChild(alertDiv);
+                        }}, 3000);
                     }}
                 </script>
               <style>
@@ -1275,7 +1312,9 @@ def relatorio_horas(user_id):
                     function toggleAll(source) {{
                         checkboxes = document.getElementsByName('selected_entries');
                         for(var i=0, n=checkboxes.length;i<n;i++) {{
-                            checkboxes[i].checked = source.checked;
+                            if (!checkboxes[i].disabled) {{
+                                checkboxes[i].checked = source.checked;
+                            }}
                         }}
                     }}
 
@@ -1289,34 +1328,42 @@ def relatorio_horas(user_id):
                             for (var checkbox of checkboxes) {{
                                 var row = checkbox.closest("tr");
                                 var td = row.getElementsByTagName("td");
+
+                                
+
                                 var entry = {{
-                                    id: td[0].querySelector("input").value,
-                                    date: td[1].textContent,
-                                    user: td[2].textContent,
-                                    activity: td[3].textContent,
-                                    project: td[4].textContent,
-                                    comments: td[5].textContent,
-                                    start_time: td[6].textContent,
-                                    end_time: td[7].textContent,
-                                    hours: td[8].textContent
+                                    id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                    date: td[1] ? td[1].textContent : "N/A",
+                                    user: td[2] ? td[2].textContent : "N/A",
+                                    activity: td[3] ? td[3].textContent : "N/A",
+                                    project: td[4] ? td[4].textContent : "N/A",
+                                    comments: td[5] ? td[5].textContent : "N/A",
+                                    start_time: td[6] ? td[6].textContent : "N/A",
+                                    end_time: td[7] ? td[7].textContent : "N/A",
+                                    hours: td[8] ? td[8].textContent : "N/A"
                                 }};
+
                                 data.push(entry);
                             }}
                         }} else {{
                             for (var i = 1; i < tr.length; i++) {{
                                 if (tr[i].style.display !== "none") {{
                                     var td = tr[i].getElementsByTagName("td");
+
+                                    
                                     var entry = {{
-                                        id: td[0].querySelector("input").value,
-                                        date: td[1].textContent,
-                                        user: td[2].textContent,
-                                        activity: td[3].textContent,
-                                        project: td[4].textContent,
-                                        comments: td[5].textContent,
-                                        start_time: td[6].textContent,
-                                        end_time: td[7].textContent,
-                                        hours: td[8].textContent
+                                        id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                        date: td[1] ? td[1].textContent : "N/A",
+                                        user: td[2] ? td[2].textContent : "N/A",
+                                        activity: td[3] ? td[3].textContent : "N/A",
+                                        project: td[4] ? td[4].textContent : "N/A",
+                                        comments: td[5] ? td[5].textContent : "N/A",
+                                        start_time: td[6] ? td[6].textContent : "N/A",
+                                        end_time: td[7] ? td[7].textContent : "N/A",
+                                        hours: td[8] ? td[8].textContent : "N/A"
                                     }};
+
+                                   
                                     data.push(entry);
                                 }}
                             }}
@@ -1336,63 +1383,115 @@ def relatorio_horas(user_id):
                         }})
                         .then(response => response.json())
                         .then(data => {{
-                            console.log('Success:', data);
+                            showAlert('Relatório enviado com sucesso', 'success');
                         }})
                         .catch((error) => {{
-                            console.error('Error:', error);
+                            showAlert('Erro ao enviar o relatório: ' + error, 'error');
                         }});
+                    }}
+
+                    function showAlert(message, type) {{
+                        var alertDiv = document.createElement('div');
+                        alertDiv.className = `alert alert-${type}`;
+                        alertDiv.textContent = message;
+
+                        // Estilização básica para o popup
+                        alertDiv.style.position = 'fixed';
+                        alertDiv.style.top = '20px';
+                        alertDiv.style.left = '50%';
+                        alertDiv.style.transform = 'translateX(-50%)';
+                        alertDiv.style.padding = '10px';
+                        alertDiv.style.zIndex = 1000;
+                        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+                        alertDiv.style.color = 'white';
+                        alertDiv.style.borderRadius = '5px';
+                        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
+                        alertDiv.style.fontSize = '16px';
+
+                        document.body.appendChild(alertDiv);
+
+                        // Remover o popup após 3 segundos
+                        setTimeout(() => {{
+                            document.body.removeChild(alertDiv);
+                        }}, 3000);
                     }}
                 </script>
                 <style>
-    .container {{
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }}
-    .filters-container {{
-        display: flex;
-        justify-content: center;
-        margin-bottom: 10px;
-    }}
-    fieldset {{
-        border: none;
-        margin-top: -510px;
-        margin-right: 1110px;
-    }}
-    .filters {{
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }}
-    .table-container {{
-        margin-top: -480px;
-        width: 100%;
-    }}
-    .btn-group {{
-        display: flex;
-        justify-content: center;
-        margin-top: 20px;
-    }}
-    .filters label, .legend-button {{
-        color: black;
-    }}
-    .btn-relatorio {{
-        background-color: #1E90FF; /* Cor azul padrão */
-        color: white; /* Texto branco */
-        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
-        border-radius: 5px; /* Bordas arredondadas */
-        border: none; /* Remover borda */
-        transition: background-color 0.3s; /* Suavização da transição de cor */
-    }}
-    .btn-relatorio:hover {{
-        background-color: #63B8FF; /* Azul claro ao passar o mouse */
-    }}
-</style>
+                    .container {{
+                        display: flex;
+                        flex-direction: column;
+                        margin-top: 0;
+                    }}
+                    .filters-container {{
+                        display: flex;
+                        justify-content: flex-start; /* Alinha os itens no início */
+                        margin-bottom: 10px;
+                        width: 100%; /* Garante que ocupe a largura total */
+                    }}
+                    fieldset {{
+                        border: none;
+                        margin: 0; /* Remove margem */
+                        padding: 0; /* Remove padding */
+                    }}
+                    .filters {{
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        margin: 0; /* Remove margem */
+                        padding: 0; /* Remove padding */
+                    }}
+                    .table-container {{
+                        width: 100%;
+                        overflow-x: auto; /* Adiciona rolagem horizontal */
+                        overflow-y: auto; /* Adiciona rolagem vertical */
+                        max-height: 400px; /* Define uma altura máxima para a tabela */
+                    }}
+                    .table-container th, .table-container td {{
+                        padding: 8px;
+                        text-align: left;
+                        border-bottom: 1px solid #ddd;
+                    }}
+                    .table-container th {{
+                        background-color: #f2f2f2;
+                        position: sticky;
+                        top: 0;
+                        z-index: 1;
+                    }}
+                    .btn-group {{
+                        display: flex;
+                        justify-content: center;
+                        margin-top: 20px;
+                    }}
+                    .filters label, .legend-button {{
+                        color: black;
+                    }}
+                    .btn-relatorio {{
+                        background-color: #1E90FF; /* Cor azul padrão */
+                        color: white; /* Texto branco */
+                        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+                        border-radius: 5px; /* Bordas arredondadas */
+                        border: none; /* Remover borda */
+                        transition: background-color 0.3s; /* Suavização da transição de cor */
+                    }}
+                    .btn-relatorio:hover {{
+                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                    }}
+                    table {{
+                        width: 100%;
+                    }}
+                    thead th {{
+                        position: sticky;
+                        top: 0;
+                        background: white;
+                        z-index: 10;
+                        box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
+                    }}
+                </style>
             </head>
             <body>
                 <div id="header">
                     <div class="header-logo">
-                        <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
+                        <img src="{{ url_for('static', filename='transparent_evt_logo.png') }}" alt="EVT">
                         <h1>EVT - Aprovação de Horas - {user_name}</h1>
                     </div>
                 </div>
@@ -1437,10 +1536,12 @@ def relatorio_horas(user_id):
                         <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
                     </div>
                 </div>
-                <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
+                <script src="{{ url_for('static', filename='script.js') }}"></script>
             </body>
             </html>
             '''
+
+            # Código atualizado com logs adicionais
 
             return render_template_string(html_template)
         else:
@@ -1494,8 +1595,8 @@ def relatorio_horas_client(user_id):
             time_entries = entries_response.json().get('time_entries', [])
             unapproved_entries = [entry for entry in time_entries if any(
                 field['name'] == 'TS - Aprovado - CLI' and field['value'] == '0' for field in entry.get('custom_fields', []))
-                and any(field['name'] == 'TS - Aprovador - CLI' for field in entry.get('custom_fields', []))
-            ]
+                                  and any(field['name'] == 'TS - Aprovador - CLI' for field in entry.get('custom_fields', []))
+                                  ]
 
             # Agrupar entradas por destinatário
             email_entries = defaultdict(list)
