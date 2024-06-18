@@ -897,14 +897,18 @@ def relatorio_horas_geral():
         if entries_response.ok:
             # Filtra as entradas de tempo para incluir apenas aquelas que não foram aprovadas
             time_entries = entries_response.json().get('time_entries', [])
-
+            unapproved_entries = [entry for entry in time_entries if any(
+                field['name'] == 'TS - Aprovado - CLI' and field['value'] == '0' for field in
+                entry.get('custom_fields', []))
+                                  ]
+            entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
             table_html = create_html_table(time_entries)
             # Obtém o token da URL atual
             user = get_current_user()
             user_id = user['user']['id']
             token = get_or_create_token(user_id, user['user']['mail'])
             # Constrói a lista de IDs das entradas
-            entry_ids = ','.join([str(entry['id']) for entry in time_entries])
+
             is_client = 1 if 'client' in request.full_path else 0
             # Extrai usuários e projetos para os filtros
             usuarios = {entry['user']['name'] for entry in time_entries}
@@ -1325,6 +1329,7 @@ def relatorio_horas_client(user_id):
                                   and any(
                 field['name'] == 'TS - Aprovador - CLI' for field in entry.get('custom_fields', []))
                                   ]
+
 
             # Agrupar entradas por destinatário
             email_entries = defaultdict(list)
@@ -1868,7 +1873,7 @@ def relatorio_horas(user_id):
 
             token = request.args.get('token')
             # Constrói a lista de IDs das entradas
-            entry_ids = ','.join([str(entry['id']) for entry in time_entries])
+            entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
 
             # Extrai usuários e projetos para os filtros
             usuarios = {entry['user']['name'] for entry in time_entries}
