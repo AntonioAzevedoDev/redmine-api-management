@@ -36,12 +36,14 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+
 class AccessToken(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     token = db.Column(db.String(128), unique=True, nullable=False)
     user_id = db.Column(db.Integer, nullable=False)
     recipient_email = db.Column(db.String(120), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 class ApprovalRejectionLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -52,9 +54,11 @@ class ApprovalRejectionLog(db.Model):
     hours = db.Column(db.Float, nullable=False)
     log_date = db.Column(db.String(50), default=datetime.utcnow, nullable=False)
 
+
 def create_database():
     with app.app_context():
         db.create_all()
+
 
 create_database()
 
@@ -168,6 +172,7 @@ def login_required(f):
 
     return decorated_function
 
+
 def token_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -180,8 +185,8 @@ def token_required(f):
 
     return decorated_function
 
-@app.route('/')
 
+@app.route('/')
 def index():
     user = get_current_user()
     user_id = user['user']['id']
@@ -204,11 +209,13 @@ def login():
 
     return render_template('login.html')
 
+
 @app.route('/logout')
 def logout():
     session.pop('logged_in', None)
     session.pop('username', None)
     return redirect(url_for('login'))
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -224,6 +231,7 @@ def register():
         return redirect(url_for('login'))
     return render_template('register.html')
 
+
 @app.route('/aprovar_hora', methods=['GET'])
 def aprovar_hora():
     data_id = request.args.get('id')
@@ -234,6 +242,7 @@ def aprovar_hora():
         return jsonify({'message': result['error']}), 400
     else:
         return jsonify({'message': result['message']}), 200
+
 
 @app.route('/reprovar_hora', methods=['GET'])
 def reprovar_hora():
@@ -338,6 +347,7 @@ def get_current_user():
         logger.error('Erro ao obter o usuário logado. Redirecionando para login.')
         return redirect(f'{REDMINE_URL}/login')
 
+
 @app.route('/send_email_report_client', methods=['POST'])
 def send_email_report_client():
     user_id = request.headers.get('user_id', '')
@@ -360,7 +370,8 @@ def send_email_report_client():
         email_entries = defaultdict(list)
 
         for entry in time_entries:
-            approver_field = next((f for f in entry.get('custom_fields', []) if f['name'] == 'TS - Aprovador - CLI' and f['value']), None)
+            approver_field = next(
+                (f for f in entry.get('custom_fields', []) if f['name'] == 'TS - Aprovador - CLI' and f['value']), None)
             if approver_field:
                 email_entries[approver_field['value']].append(entry)
 
@@ -370,7 +381,8 @@ def send_email_report_client():
 
         for email, entries in email_entries.items():
             unapproved_entries = [entry for entry in entries if any(
-                field['name'] == 'TS - Aprovado - CLI' and field['value'] == '0' for field in entry.get('custom_fields', []))]
+                field['name'] == 'TS - Aprovado - CLI' and field['value'] == '0' for field in
+                entry.get('custom_fields', []))]
 
             if unapproved_entries:
                 table_html = create_html_table_mail_client(unapproved_entries, email)
@@ -384,7 +396,6 @@ def send_email_report_client():
     else:
         logger.error('Erro ao buscar entradas de tempo.')
         return jsonify('Erro ao buscar entradas de tempo.'), 500
-
 
 
 @app.route('/send_email_report_client_geral', methods=['POST'])
@@ -453,7 +464,7 @@ def send_email_report():
     start_date = seven_days_ago.strftime('%Y-%m-%d')
     end_date = today.strftime('%Y-%m-%d')
 
-    #url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
+    # url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
     url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}'
     entries_response = requests.get(url, headers={
         'X-Redmine-API-Key': REDMINE_API_KEY,
@@ -517,6 +528,7 @@ def send_unitary_report():
         logger.error(f"Erro ao processar a solicitação: {e}")
         return jsonify('Erro ao processar a solicitação.'), 500
 
+
 @app.route('/send_unitary_report_new', methods=['POST'])
 def send_unitary_report_new():
     entry_id = request.headers.get('id', '')
@@ -561,6 +573,7 @@ def aprovar_todos():
     is_client = request.args.get('client')
     entry_ids = entries.split(',') if entries else []
     return atualizar_todas_entradas(aprovacao=True, entry_ids=entry_ids, token=token, is_client=is_client)
+
 
 @app.route('/reprovar_todos', methods=['GET'])
 def reprovar_todos():
@@ -739,6 +752,7 @@ def create_html_unitary_table(entry):
 
     return table
 
+
 def create_html_table_mail_client(time_entries, recipient):
     table = '''
     <form id="time_entries_form" method="post" action="">
@@ -766,8 +780,9 @@ def create_html_table_mail_client(time_entries, recipient):
         if approver_cli == recipient:
             hora_inicial = next(
                 (field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora inicial (HH:MM)'), '')
-            hora_final = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora final (HH:MM)'),
-                              '')
+            hora_final = next(
+                (field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora final (HH:MM)'),
+                '')
             identificacao_cliente = next(
                 (field['value'] for field in entry['custom_fields'] if field['name'] == 'Identificação do Cliente'), '')
             local_trabalho = next(
@@ -862,13 +877,14 @@ def create_html_table_mail(time_entries):
 
     return table
 
+
 @app.route('/relatorio_horas', methods=['GET'])
 def relatorio_horas_geral():
     try:
-        # Define o período de 90 dias
+        # Define o período de 30 dias
         today = datetime.today() + timedelta(days=1)
-        ninety_days_ago = today - timedelta(days=90)
-        start_date = ninety_days_ago.strftime('%Y-%m-%d')
+        thirty_days_ago = today - timedelta(days=90)
+        start_date = thirty_days_ago.strftime('%Y-%m-%d')
         end_date = today.strftime('%Y-%m-%d')
 
         # Faz uma requisição para obter as entradas de tempo do Redmine
@@ -978,6 +994,8 @@ def relatorio_horas_geral():
                                 var row = checkbox.closest("tr");
                                 var td = row.getElementsByTagName("td");
 
+
+
                                 var entry = {{
                                     id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
                                     date: td[1] ? td[1].textContent : "N/A",
@@ -997,6 +1015,7 @@ def relatorio_horas_geral():
                                 if (tr[i].style.display !== "none") {{
                                     var td = tr[i].getElementsByTagName("td");
 
+
                                     var entry = {{
                                         id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
                                         date: td[1] ? td[1].textContent : "N/A",
@@ -1008,6 +1027,7 @@ def relatorio_horas_geral():
                                         end_time: td[7] ? td[7].textContent : "N/A",
                                         hours: td[8] ? td[8].textContent : "N/A"
                                     }};
+
 
                                     data.push(entry);
                                 }}
@@ -1061,37 +1081,39 @@ def relatorio_horas_geral():
                         }}, 3000);
                     }}
                 </script>
-                <style>
-                    .container {{
-                        display: flex;
-                        flex-direction: column;
-                        margin-top: 0;
-                    }}
-                    .filters-container {{
-                        display: flex;
-                        justify-content: center; /* Centraliza os itens */
-                        margin-bottom: 10px;
-                        width: 100%; /* Garante que ocupe a largura total */
-                    }}
-                    fieldset {{
-                        border: none;
-                        margin: 0; /* Remove margem */
-                        padding: 0; /* Remove padding */
-                    }}
-                    .filters {{
+              <style>
+    .container {{
+        display: flex;
+        flex-direction: column;
+        margin-top: 0; /* Remove qualquer margem superior */
+    }}
+    .filters-container {{
+        display: flex;
+        justify-content: center; /* Alinha os itens no início */
+        margin-bottom: 10px;
+        width: 100%; /* Garante que ocupe a largura total */
+    }}
+    fieldset {{
+        border: none;
+        margin: 0; /* Remove margem */
+        padding: 0; /* Remove padding */
+    }}
+    .filters {{
                         display: flex;
                         align-items: center;
                         gap: 10px;
                         margin: 0; /* Remove margem */
                         padding: 0; /* Remove padding */
                     }}
-                    .table-container {{
+    .table-container {{
                         width: 100%;
-                        overflow-x: auto; /* Adiciona rolagem horizontal */
-                        overflow-y: auto; /* Adiciona rolagem vertical */
                         max-height: 450px; /* Define uma altura máxima para a tabela */
                     }}
-                    .table-container td {{
+                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+        width: 120px; /* Define uma largura menor para a coluna "Ações" */
+        text-align: center; /* Centraliza o texto e os botões na coluna */
+    }}
+					.table-container td {{
                         padding: 4px; /* Diminui a altura dos td */
                         text-align: left;
                         border-bottom: 1px solid #ddd;
@@ -1107,79 +1129,86 @@ def relatorio_horas_geral():
                         z-index: 1;
                         text-align: center; /* Centraliza o texto do thead */
                     }}
-                    .btn-group {{
-                        display: flex;
-                        justify-content: center;
-                        margin-top: 20px;
-                    }}
-                    .filters label, .legend-button {{
-                        color: black;
-                    }}
-                    .btn-relatorio {{
-                        background-color: #1E90FF; /* Cor azul padrão */
-                        color: white; /* Texto branco */
-                        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
-                        border-radius: 5px; /* Bordas arredondadas */
-                        border: none; /* Remover borda */
-                        transition: background-color 0.3s; /* Suavização da transição de cor */
-                    }}
-                    .btn-relatorio:hover {{
-                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
-                    }}
-                    table {{
-                        width: 100%;
-                        border-collapse: collapse;
-                    }}
-                    th, td {{
-                        padding: 8px;
-                        text-align: left;
-                        border-bottom: 1px solid #ddd;
-                    }}
-                    tr:nth-child(even) {{
-                        background-color: #f2f2f2;
-                    }}
-                    th:nth-child(11), td:nth-child(11) {{
-                        width: 120px; /* Define uma largura menor para a coluna "Ações" */
-                        text-align: center; /* Centraliza o texto e os botões na coluna */
-                    }}
-                    .btn-approve-table, .btn-reject-table {{
+					.table-container {{
+                            font-size: 0.9em;
+                        }}
+    .btn-relatorio {{
+        background-color: #1E90FF; /* Cor azul padrão */
+        color: white; /* Texto branco */
+        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+        border-radius: 5px; /* Bordas arredondadas */
+        border: none; /* Remover borda */
+        transition: background-color 0.3s; /* Suavização da transição de cor */
+    }}
+    .btn-relatorio:hover {{
+        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+    }}
+    .btn-group {{
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+    }}
+    .btn-approve-table, .btn-reject-table {{
                         display: inline-block;
                         width: 90px;
-                        margin-right: 5px 0; /* Adiciona espaçamento entre os botões */
+                        margin-right: 5px; /* Adiciona espaçamento entre os botões */
                         text-align: center; /* Centraliza o texto do botão */
-                    }}
-                    .btn-approve-table[disabled], .btn-reject-table[disabled] {{
-                        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
                     }}
                     .btn-approve-table {{
                         background-color: #28a745;
                         color: white;
                         margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
                     }}
+
                     .btn-reject-table {{
                         background-color: #dc3545;
                         color: white;
                         margin-top: 5px;
                     }}
-                    .hours-summary {{
-                        font-size: 1.2em;
-                        font-weight: bold;
-                        color: #333;
-                        margin-top: 10px;
+                    .btn-approve-table.disabled, .btn-reject-table.disabled {{
+                        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
                     }}
-                    .hours-summary p {{
-                        margin: 5px 0;
+					
+.btn-relatorio:hover {{
+                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
                     }}
-                    .hours-total, .hours-approved, .hours-unapproved {{
-                        color: #1E90FF;
+    @media (max-width: 768px) {{
+        .container {{
+            padding: 10px;
+        }}
+        .header-logo h1 {{
+            font-size: 1.5em;
+        }}
+        .filters {{
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        margin: 0; /* Remove margem */
+                        padding: 0; /* Remove padding */
                     }}
-                    .hours-approved {{
-                        color: #28a745;
-                    }}
-                    .hours-unapproved {{
-                        color: #dc3545;
-                    }}
-                </style>
+        .table-container {{
+            font-size: 0.9em;
+        }}
+        .btn-group {{
+            flex-direction: column;
+            align-items: center;
+        }}
+        .btn-group .btn-relatorio {{
+            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
+            height: 40px; /* Garante que a altura do botão seja mantida */
+            margin: 0px 0;
+        }}
+        
+    }}
+    .filters label, .legend-button {{
+        color: black;
+    }}
+    
+    table {{
+        width: 100%;
+    }}
+</style>
+
             </head>
             <body>
                 <div id="header">
@@ -1215,19 +1244,24 @@ def relatorio_horas_geral():
                             </fieldset>
                         </form>
                     </div>
-                    <div>
+                    <div class="table-container">
                         {table_html}
+                        <div id="all-actions" class="btn-group">
+                            <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
+                            <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
+                        
+                        </div>
+                        <div id="selected-actions" class="btn-group">
+                            <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
+                            <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
+                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
+                        </div
                     </div>
-                    <div id="all-actions" class="btn-group">
-                        <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                        <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
-                        <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
+                    
                     </div>
-                    <div id="selected-actions" class="btn-group">
-                        <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
-                        <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
-                        <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
-                    </div>
+                    
+                    
                 </div>
                 <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
             </body>
@@ -1241,8 +1275,6 @@ def relatorio_horas_geral():
     except Exception as e:
         logger.error(f"Erro ao gerar a página HTML: {e}")
         return render_response("Erro ao gerar a página HTML", 500)
-
-
 
 
 @app.route('/relatorio_horas_client/<int:user_id>', methods=['GET'])
@@ -1288,14 +1320,18 @@ def relatorio_horas_client(user_id):
             # Filtra as entradas de tempo para incluir apenas aquelas que não foram aprovadas e têm o destinatário correto
             time_entries = entries_response.json().get('time_entries', [])
             unapproved_entries = [entry for entry in time_entries if any(
-                field['name'] == 'TS - Aprovado - CLI' and field['value'] == '0' for field in entry.get('custom_fields', []))
-                                  and any(field['name'] == 'TS - Aprovador - CLI' for field in entry.get('custom_fields', []))
+                field['name'] == 'TS - Aprovado - CLI' and field['value'] == '0' for field in
+                entry.get('custom_fields', []))
+                                  and any(
+                field['name'] == 'TS - Aprovador - CLI' for field in entry.get('custom_fields', []))
                                   ]
 
             # Agrupar entradas por destinatário
             email_entries = defaultdict(list)
             for entry in time_entries:
-                recipient = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Aprovador - CLI'), None)
+                recipient = next(
+                    (field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Aprovador - CLI'),
+                    None)
                 if recipient:
                     email_entries[recipient].append(entry)
 
@@ -1359,30 +1395,139 @@ def relatorio_horas_client(user_id):
                             }}
                         }}
                         function showAlert(message, type) {{
-                        var alertDiv = document.createElement('div');
-                        alertDiv.className = `alert alert-${type}`;
-                        alertDiv.textContent = message;
+                            var alertDiv = document.createElement('div');
+                            alertDiv.className = `alert alert-${type}`;
+                            alertDiv.textContent = message;
 
-                        // Estilização básica para o popup
-                        alertDiv.style.position = 'fixed';
-                        alertDiv.style.top = '20px';
-                        alertDiv.style.left = '50%';
-                        alertDiv.style.transform = 'translateX(-50%)';
-                        alertDiv.style.padding = '10px';
-                        alertDiv.style.zIndex = 1000;
-                        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
-                        alertDiv.style.color = 'white';
-                        alertDiv.style.borderRadius = '5px';
-                        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
-                        alertDiv.style.fontSize = '16px';
+                            // Estilização básica para o popup
+                            alertDiv.style.position = 'fixed';
+                            alertDiv.style.top = '20px';
+                            alertDiv.style.left = '50%';
+                            alertDiv.style.transform = 'translateX(-50%)';
+                            alertDiv.style.padding = '10px';
+                            alertDiv.style.zIndex = 1000;
+                            alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+                            alertDiv.style.color = 'white';
+                            alertDiv.style.borderRadius = '5px';
+                            alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
+                            alertDiv.style.fontSize = '16px';
 
-                        document.body.appendChild(alertDiv);
+                            document.body.appendChild(alertDiv);
 
-                        // Remover o popup após 3 segundos
-                        setTimeout(() => {{
-                            document.body.removeChild(alertDiv);
-                        }}, 3000);
+                            // Remover o popup após 3 segundos
+                            setTimeout(() => {{
+                                document.body.removeChild(alertDiv);
+                            }}, 3000);
+                        }}
                     </script>
+                    <style>
+                        .container {{
+                            display: flex;
+                            flex-direction: column;
+                            margin-top: 10px; /* Ajuste a margem superior para aproximar do topo */
+                        }}
+                        .filters-container {{
+                            display: flex;
+                            justify-content: center; /* Alinha os itens no início */
+                            margin-bottom: 10px;
+                            width: 100%; /* Garante que ocupe a largura total */
+                        }}
+                        fieldset {{
+                            border: none;
+                            margin: 0; /* Remove margem */
+                            padding: 0; /* Remove padding */
+                        }}
+                        .filters {{
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                            margin: 0; /* Remove margem */
+                            padding: 0; /* Remove padding */
+                        }}
+                        .table-container {{
+                            width: 100%;
+                            overflow-x: auto; /* Adiciona rolagem horizontal */
+                            max-height: 450px; /* Define uma altura máxima para a tabela */
+                        }}
+                        .table-container table {{
+                            width: 100%;
+                            border-collapse: collapse;
+                        }}
+                        .table-container th, .table-container td {{
+                            padding: 8px;
+                            text-align: left;
+                            border-bottom: 1px solid #ddd;
+                            white-space: nowrap; /* Impede quebra de linha em células */
+                        }}
+                        .table-container th {{
+                            background-color: #f2f2f2;
+                            position: sticky;
+                            top: 0;
+                            z-index: 1;
+                            text-align: center; /* Centraliza o texto do thead */
+                        }}
+                        .btn-relatorio {{
+                            background-color: #1E90FF; /* Cor azul padrão */
+                            color: white; /* Texto branco */
+                            width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+                            border-radius: 5px; /* Bordas arredondadas */
+                            border: none; /* Remover borda */
+                            transition: background-color 0.3s; /* Suavização da transição de cor */
+                        }}
+                        .btn-relatorio:hover {{
+                            background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                        }}
+                        .btn-group {{
+                            display: flex;
+                            justify-content: center;
+                            margin-top: 20px;
+                        }}
+                        .btn-approve-table, .btn-reject-table {{
+                            display: inline-block;
+                            width: 90px;
+                            margin-right: 5px; /* Adiciona espaçamento entre os botões */
+                            text-align: center; /* Centraliza o texto do botão */
+                        }}
+                        .btn-approve-table {{
+                            background-color: #28a745;
+                            color: white;
+                            margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
+                        }}
+                        .btn-reject-table {{
+                            background-color: #dc3545;
+                            color: white;
+                            margin-top: 5px;
+                        }}
+                        .btn-approve-table.disabled, .btn-reject-table.disabled {{
+                            visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+                        }}
+                        @media (max-width: 768px) {{
+                            .container {{
+                                padding: 10px;
+                            }}
+                            .header-logo h1 {{
+                                font-size: 1.5em;
+                            }}
+                            .filters {{
+                                flex-direction: column;
+                                align-items: flex-start;
+                            }}
+                            .table-container {{
+                                font-size: 0.9em;
+                            }}
+                            .btn-group {{
+                                flex-direction: column;
+                                align-items: stretch;
+                            }}
+                            .btn-relatorio {{
+                                width: 100%;
+                                margin-top: 10px;
+                            }}
+                        }}
+                        .filters label, .legend-button {{
+                            color: black;
+                        }}
+                    </style>
                 </head>
                 <body>
                     <div id="header">
@@ -1397,16 +1542,18 @@ def relatorio_horas_client(user_id):
                                 <label for="filterInput">Buscar:</label>
                                 <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
                             </div>
-                            {table_html}
-                            <div id="all-actions" class="btn-group">
-                                <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                                <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
-                            </div>
-                            <div id="selected-actions" class="btn-group">
-                                <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
-                                <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
-                            </div>
                         </form>
+                        <div class="table-container">
+                            {table_html}
+                        </div>
+                        <div id="all-actions" class="btn-group">
+                            <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
+                            <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                        </div>
+                        <div id="selected-actions" class="btn-group">
+                            <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
+                            <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
+                        </div>
                     </div>
                     <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
                 </body>
@@ -1488,8 +1635,8 @@ def create_html_table_client(time_entries, recipient):
               <td>{entry['hours']}</td>
               <td>{aprovado}</td>
               <td>
-                <a href="#" onclick="approveHour({entry['id']}, '{request.args.get('token')}', {is_client})" class="btn btn-approve-table { 'disabled' if approved else '' }" style="opacity:{'0' if approved else '1'};">Aprovar</a>
-                <a href="#" onclick="rejectHour({entry['id']}, '{request.args.get('token')}', {is_client})" class="btn btn-reject-table { 'disabled' if approved else '' }" style="opacity:{'0' if approved else '1'};">Reprovar</a>
+                <a href="#" onclick="approveHour({entry['id']}, '{request.args.get('token')}', {is_client})" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
+                <a href="#" onclick="rejectHour({entry['id']}, '{request.args.get('token')}', {is_client})" class="btn btn-reject-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Reprovar</a>
               </td>
             </tr>
             '''
@@ -1513,8 +1660,6 @@ def create_html_table_client(time_entries, recipient):
     <style>
       .table-container {{
         width: 100%;
-        overflow-x: auto;
-        overflow-y: auto;
         max-height: 400px;
       }}
       .hours-summary {{
@@ -1555,6 +1700,32 @@ def create_html_table_client(time_entries, recipient):
       .btn.disabled {{
         visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
       }}
+      @media (max-width: 768px) {{
+        .container {{
+            padding: 10px;
+        }}
+        .header-logo h1 {{
+            font-size: 1.5em;
+        }}
+        .filters {{
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        margin: 0; /* Remove margem */
+                        padding: 0; /* Remove padding */
+                    }}
+        .table-container {{
+            font-size: 0.9em;
+        }}
+        .btn-group {{
+            flex-direction: column;
+            align-items: stretch;
+        }}
+        .btn-relatorio {{
+            width: 100%;
+            margin-top: 10px;
+        }}
+    }}
     </style>
     '''
 
@@ -1578,7 +1749,19 @@ def create_html_table_client(time_entries, recipient):
           alert('Erro ao aprovar hora.');
         }});
       }}
-
+      function toggleFieldset(legend) {{
+        var fieldset = legend.parentElement;
+        fieldset.classList.toggle('collapsed');
+        var div = fieldset.querySelector('div');
+        var arrow = legend.querySelector('.arrow');
+        if (fieldset.classList.contains('collapsed')) {{
+            div.style.display = 'none';
+            arrow.innerHTML = '▼';  // Seta para a direita
+        }} else {{
+            div.style.display = 'block';
+            arrow.innerHTML = '▶';  // Seta para baixo
+        }}
+        }}
       function rejectHour(entryId, token, isClient) {{
         fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
@@ -1601,14 +1784,18 @@ def create_html_table_client(time_entries, recipient):
       function disableRow(entryId) {{
         var row = document.getElementById("entry-row-" + entryId);
         var checkBox = row.querySelector('input[type="checkbox"]');
-        var buttons = row.querySelectorAll('a');
+        var approveButton = row.querySelector('.btn-approve-table');
+        var rejectButton = row.querySelector('.btn-reject-table');
 
         if (checkBox) {{
           checkBox.disabled = true;
         }}
-        buttons.forEach(button => {{
-          button.classList.add('disabled');
-        }});
+        if (approveButton) {{
+          approveButton.classList.add('disabled');
+        }}
+        if (rejectButton) {{
+          rejectButton.classList.add('disabled');
+        }}
       }}
 
       function toggleAll(source) {{
@@ -1857,36 +2044,38 @@ def relatorio_horas(user_id):
                     }}
                 </script>
                 <style>
-                    .container {{
-                        display: flex;
-                        flex-direction: column;
-                        margin-top: 0;
-                    }}
-                    .filters-container {{
-                        display: flex;
-                        justify-content: center; /* Centraliza os itens */
-                        margin-bottom: 10px;
-                        width: 100%; /* Garante que ocupe a largura total */
-                    }}
-                    fieldset {{
-                        border: none;
-                        margin: 0; /* Remove margem */
-                        padding: 0; /* Remove padding */
-                    }}
-                    .filters {{
+    .container {{
+        display: flex;
+        flex-direction: column;
+        margin-top: 0; /* Remove qualquer margem superior */
+    }}
+    .filters-container {{
+        display: flex;
+        justify-content: center; /* Alinha os itens no início */
+        margin-bottom: 10px;
+        width: 100%; /* Garante que ocupe a largura total */
+    }}
+    fieldset {{
+        border: none;
+        margin: 0; /* Remove margem */
+        padding: 0; /* Remove padding */
+    }}
+    .filters {{
                         display: flex;
                         align-items: center;
                         gap: 10px;
                         margin: 0; /* Remove margem */
                         padding: 0; /* Remove padding */
                     }}
-                    .table-container {{
+    .table-container {{
                         width: 100%;
-                        overflow-x: auto; /* Adiciona rolagem horizontal */
-                        overflow-y: auto; /* Adiciona rolagem vertical */
                         max-height: 450px; /* Define uma altura máxima para a tabela */
                     }}
-                    .table-container td {{
+                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+        width: 120px; /* Define uma largura menor para a coluna "Ações" */
+        text-align: center; /* Centraliza o texto e os botões na coluna */
+    }}
+					.table-container td {{
                         padding: 4px; /* Diminui a altura dos td */
                         text-align: left;
                         border-bottom: 1px solid #ddd;
@@ -1902,42 +2091,26 @@ def relatorio_horas(user_id):
                         z-index: 1;
                         text-align: center; /* Centraliza o texto do thead */
                     }}
-                    .btn-group {{
-                        display: flex;
-                        justify-content: center;
-                        margin-top: 20px;
-                    }}
-                    .filters label, .legend-button {{
-                        color: black;
-                    }}
-                    .btn-relatorio {{
-                        background-color: #1E90FF; /* Cor azul padrão */
-                        color: white; /* Texto branco */
-                        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
-                        border-radius: 5px; /* Bordas arredondadas */
-                        border: none; /* Remover borda */
-                        transition: background-color 0.3s; /* Suavização da transição de cor */
-                    }}
-                    .btn-relatorio:hover {{
-                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
-                    }}
-                    table {{
-                        width: 100%;
-                        border-collapse: collapse;
-                    }}
-                    th, td {{
-                        padding: 8px;
-                        text-align: left;
-                        border-bottom: 1px solid #ddd;
-                    }}
-                    tr:nth-child(even) {{
-                        background-color: #f2f2f2;
-                    }}
-                    th:nth-child(11), td:nth-child(11) {{
-                        width: 120px; /* Define uma largura menor para a coluna "Ações" */
-                        text-align: center; /* Centraliza o texto e os botões na coluna */
-                    }}
-                    .btn-approve-table, .btn-reject-table {{
+					.table-container {{
+                            font-size: 0.9em;
+                        }}
+    .btn-relatorio {{
+        background-color: #1E90FF; /* Cor azul padrão */
+        color: white; /* Texto branco */
+        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+        border-radius: 5px; /* Bordas arredondadas */
+        border: none; /* Remover borda */
+        transition: background-color 0.3s; /* Suavização da transição de cor */
+    }}
+    .btn-relatorio:hover {{
+        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+    }}
+    .btn-group {{
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+    }}
+    .btn-approve-table, .btn-reject-table {{
                         display: inline-block;
                         width: 90px;
                         margin-right: 5px; /* Adiciona espaçamento entre os botões */
@@ -1957,25 +2130,46 @@ def relatorio_horas(user_id):
                     .btn-approve-table.disabled, .btn-reject-table.disabled {{
                         visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
                     }}
-                    .hours-summary {{
-                        font-size: 1.2em;
-                        font-weight: bold;
-                        color: #333;
-                        margin-top: 10px;
+					
+.btn-relatorio:hover {{
+                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
                     }}
-                    .hours-summary p {{
-                        margin: 5px 0;
+    @media (max-width: 768px) {{
+        .container {{
+            padding: 10px;
+        }}
+        .header-logo h1 {{
+            font-size: 1.5em;
+        }}
+        .filters {{
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        margin: 0; /* Remove margem */
+                        padding: 0; /* Remove padding */
                     }}
-                    .hours-total, .hours-approved, .hours-unapproved {{
-                        color: #1E90FF;
-                    }}
-                    .hours-approved {{
-                        color: #28a745;
-                    }}
-                    .hours-unapproved {{
-                        color: #dc3545;
-                    }}
-                </style>
+        .table-container {{
+            font-size: 0.9em;
+        }}
+        .btn-group {{
+            flex-direction: column;
+            align-items: center;
+        }}
+        .btn-group .btn-relatorio {{
+            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
+            height: 40px; /* Garante que a altura do botão seja mantida */
+            margin: 0px 0;
+        }}
+        
+    }}
+    .filters label, .legend-button {{
+        color: black;
+    }}
+    
+    table {{
+        width: 100%;
+    }}
+</style>
             </head>
             <body>
                 <div id="header">
@@ -2011,19 +2205,25 @@ def relatorio_horas(user_id):
                             </fieldset>
                         </form>
                     </div>
-                    <div>
+                    <div class="table-container">
                         {table_html}
-                    </div>
-                    <div id="all-actions" class="btn-group">
+                        <div id="all-actions" class="btn-group">
                         <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
                         <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
                         <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
                     </div>
+                    </div>
+
+                    
+
                     <div id="selected-actions" class="btn-group">
                         <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
                         <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
                         <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
                     </div>
+
+                    
+
                 </div>
                 <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
             </body>
@@ -2045,7 +2245,7 @@ def create_html_table(time_entries):
     unapproved_hours = 0  # Variável para somar as horas não aprovadas
 
     table = '''
-    <div class="container">
+    <div >
       <div class="filters-container">
         <!-- Coloque aqui os elementos do filtro -->
       </div>
@@ -2118,21 +2318,21 @@ def create_html_table(time_entries):
         </table>
       </div>
       <br>
+      </div>
+      
+      </div>
       <div class="hours-summary">
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
         <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
         <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
 
-      </div>
-    <br>
+    </div>
     '''
 
     table += f'''
     <style>
       .table-container {{
         width: 100%;
-        overflow-x: auto;
-        overflow-y: auto;
         max-height: 450px;
       }}
       .hours-summary {{
@@ -2173,6 +2373,32 @@ def create_html_table(time_entries):
       .btn.disabled {{
         visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
       }}
+      @media (max-width: 768px) {{
+        .container {{
+            padding: 10px;
+        }}
+        .header-logo h1 {{
+            font-size: 1.5em;
+        }}
+        .filters {{
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        margin: 0; /* Remove margem */
+                        padding: 0; /* Remove padding */
+                    }}
+        .table-container {{
+            font-size: 0.9em;
+        }}
+        .btn-group {{
+            flex-direction: column;
+            align-items: stretch;
+        }}
+        .btn-relatorio {{
+            width: 100%;
+            margin-top: 10px;
+        }}
+    }}
     </style>
     '''
 
@@ -2269,6 +2495,7 @@ def get_time_entry(time_entry_id):
     except ValueError:
         return response.status_code, {"error": "Invalid JSON response"}
 
+
 def update_time_entry(time_entry_id, custom_fields):
     url = f"{REDMINE_URL}/time_entries/{time_entry_id}.json"
     headers = {
@@ -2278,6 +2505,7 @@ def update_time_entry(time_entry_id, custom_fields):
     payload = {'time_entry': {'custom_fields': custom_fields}}
     response = requests.put(url, json=payload, headers=headers, verify=False)
     return response.status_code, response.text
+
 
 def alterar_data_temporariamente(entry_id, nova_data):
     for _ in range(10):
@@ -2297,13 +2525,16 @@ def alterar_data_temporariamente(entry_id, nova_data):
                 return response.status_code, response.text
             else:
                 error_message = response.json().get('errors', [])
-                if any("Apontamento retroativo" in error for error in error_message) or any("Foi detectado um apontamento" in error for error in error_message) or any("semana" in error for error in error_message):
+                if any("Apontamento retroativo" in error for error in error_message) or any(
+                        "Foi detectado um apontamento" in error for error in error_message) or any(
+                    "semana" in error for error in error_message):
                     nova_data = (datetime.strptime(nova_data, '%Y-%m-%d') + timedelta(days=5)).strftime('%Y-%m-%d')
                 else:
                     return response.status_code, response.text
         else:
             return status_code, response
     return 400, {"errors": ["Não foi possível alterar a data após 10 tentativas"]}
+
 
 def restaurar_data_original(entry_id, data_original):
     status_code, response = get_time_entry(entry_id)
@@ -2339,7 +2570,8 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token, is_client):
                 if field.get('name') == 'TS - Aprovado - EVT':
                     field['value'] = '1' if tipo in ['aprovar', 'aprovar_selecionados'] else '0'
                 if field.get('name') == 'TS - Aprovador - EVT':
-                    field['value'] = get_recipient_by_token(token) if tipo in ['aprovar', 'aprovar_selecionados'] else ''
+                    field['value'] = get_recipient_by_token(token) if tipo in ['aprovar',
+                                                                               'aprovar_selecionados'] else ''
                 if field.get('name') == 'TS - Dt. Aprovação - EVT':
                     field['value'] = data_atual if tipo in ['aprovar', 'aprovar_selecionados'] else ''
 
@@ -2347,7 +2579,8 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token, is_client):
             if update_status == 200 or 204:
                 restaurar_data_original(entry_id, data_original)
                 log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'], tipo, token)
-                return {"message": f"Hora {'aprovada' if tipo in ['aprovar', 'aprovar_selecionados'] else 'reprovada'} para ID: {entry_id}"}
+                return {
+                    "message": f"Hora {'aprovada' if tipo in ['aprovar', 'aprovar_selecionados'] else 'reprovada'} para ID: {entry_id}"}
             else:
                 restaurar_data_original(entry_id, data_original)
                 return {"error": "Failed to update in Redmine", "details": update_response}
@@ -2363,7 +2596,8 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token, is_client):
             if update_status == 200 or 204:
                 restaurar_data_original(entry_id, data_original)
                 log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'], tipo, token)
-                return {"message": f"Hora {'aprovada' if tipo in ['aprovar', 'aprovar_selecionados'] else 'reprovada'} para ID: {entry_id}"}
+                return {
+                    "message": f"Hora {'aprovada' if tipo in ['aprovar', 'aprovar_selecionados'] else 'reprovada'} para ID: {entry_id}"}
             else:
                 restaurar_data_original(entry_id, data_original)
                 return {"error": "Failed to update in Redmine", "details": update_response}
@@ -2372,7 +2606,6 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token, is_client):
 
 
 @app.route('/api/horas_nao_aprovadas', methods=['GET'])
-
 def horas_nao_aprovadas():
     try:
         url = f'{REDMINE_URL}/time_entries.json?limit=1000'
@@ -2395,6 +2628,7 @@ def horas_nao_aprovadas():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route('/api/recipients_tokens', methods=['GET'])
 #
 def get_recipients_tokens():
@@ -2416,6 +2650,7 @@ def get_recipients_tokens():
     except Exception as e:
         logger.error(f"Erro ao buscar tokens: {e}")
         return jsonify({"error": "Erro ao buscar tokens"}), 500
+
 
 @app.route('/clean_tokens', methods=['POST'])
 def clean_tokens():
@@ -2505,6 +2740,7 @@ def get_logs():
     except Exception as e:
         logger.error(f"Erro ao buscar logs: {e}")
         return jsonify({"error": "Erro ao buscar logs"}), 500
+
 
 with app.app_context():
     db.create_all()
