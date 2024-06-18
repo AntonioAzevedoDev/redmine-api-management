@@ -1729,7 +1729,7 @@ def relatorio_horas_client(user_id):
 
 def create_html_table(time_entries):
     table = '''
-    <div style="overflow-x:auto;">
+    <div style="overflow-x:auto;" class="table-container">
     <table id="time_entries_table">
     <thead>
       <tr>
@@ -1805,7 +1805,7 @@ def create_html_table(time_entries):
     <br>
     '''
 
-    # Adiciona as contagens de horas abaixo da tabela
+    # Adiciona as contagens de horas em uma nova div
     table += f'''
     <div class="hours-summary">
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
@@ -1817,6 +1817,12 @@ def create_html_table(time_entries):
 
     table += f'''
     <style>
+      .table-container {{
+        width: 100%;
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 400px;
+      }}
       .hours-summary {{
         font-size: 1.2em;
         font-weight: bold;
@@ -1838,68 +1844,68 @@ def create_html_table(time_entries):
     </style>
     '''
 
-    table += '''
+    table += f'''
     <script>
-      function approveHour(entryId, token, isClient) {
+      function approveHour(entryId, token, isClient) {{
         fetch("{API_URL}aprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
-        .then(response => response.json().then(body => { return { status: response.status, body: body }; }))
-        .then(result => {
+        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+        .then(result => {{
           const status = result.status;
           const body = result.body;
-          if (status === 200) {
+          if (status === 200) {{
             alert(body.message);
             disableRow(entryId);
-          } else {
+          }} else {{
             alert(body.message);
-          }
-        })
-        .catch(error => {
+          }}
+        }})
+        .catch(error => {{
           console.error('Erro:', error);
           alert('Erro ao aprovar hora.');
-        });
-      }
+        }});
+      }}
 
-      function rejectHour(entryId, token, isClient) {
+      function rejectHour(entryId, token, isClient) {{
         fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
-        .then(response => response.json().then(body => { return { status: response.status, body: body }; }))
-        .then(result => {
+        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+        .then(result => {{
           const status = result.status;
           const body = result.body;
-          if (status === 200) {
+          if (status === 200) {{
             alert(body.message);
             disableRow(entryId);
-          } else {
+          }} else {{
             alert(body.message);
-          }
-        })
-        .catch(error => {
+          }}
+        }})
+        .catch(error => {{
           console.error('Erro:', error);
           alert('Erro ao reprovar hora.');
-        });
-      }
+        }});
+      }}
 
-      function disableRow(entryId) {
+      function disableRow(entryId) {{
         var row = document.getElementById("entry-row-" + entryId);
         var checkBox = row.querySelector('input[type="checkbox"]');
         var buttons = row.querySelectorAll('a');
 
-        if (checkBox) {
+        if (checkBox) {{
           checkBox.disabled = true;
-        }
-        buttons.forEach(button => {
+        }}
+        buttons.forEach(button => {{
           button.style.pointerEvents = 'none';
           button.style.opacity = '0.5';
-        });
-      }
+        }});
+      }}
 
-      function toggleAll(source) {
+      function toggleAll(source) {{
         var checkboxes = document.getElementsByName('selected_entries');
-        for (var i = 0, n = checkboxes.length; i < n; i++) {
-          if (!checkboxes[i].disabled) {
+        for (var i = 0, n = checkboxes.length; i < n; i++) {{
+          if (!checkboxes[i].disabled) {{
             checkboxes[i].checked = source.checked;
-          }
-        }
-      }
+          }}
+        }}
+      }}
     </script>
     '''
 
@@ -1908,7 +1914,7 @@ def create_html_table(time_entries):
 
 def create_html_table_client(time_entries, recipient):
     table = '''
-    <div style="overflow-x:auto;">
+    <div style="overflow-x:auto;" class="table-container">
     <table id="time_entries_table">
     <thead>
       <tr>
@@ -1980,7 +1986,7 @@ def create_html_table_client(time_entries, recipient):
     <br>
     '''
 
-    # Adiciona as contagens de horas abaixo da tabela
+    # Adiciona as contagens de horas em uma nova div
     table += f'''
     <div class="hours-summary">
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
@@ -1992,6 +1998,12 @@ def create_html_table_client(time_entries, recipient):
 
     table += f'''
     <style>
+      .table-container {{
+        width: 100%;
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 400px;
+      }}
       .hours-summary {{
         font-size: 1.2em;
         font-weight: bold;
