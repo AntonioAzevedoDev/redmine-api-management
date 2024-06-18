@@ -571,57 +571,106 @@ def reprovar_todos():
 def atualizar_todas_entradas(aprovacao, entry_ids, token, is_client):
     user = get_current_user()
     errors = []
+    if is_client == 0:
+        for entry_id in entry_ids:
+            status_code, response = get_time_entry(entry_id)
+            if status_code == 200:
+                time_entry = response.get('time_entry', {})
+                custom_fields = time_entry.get('custom_fields', [])
 
-    for entry_id in entry_ids:
-        status_code, response = get_time_entry(entry_id)
-        if status_code == 200:
-            time_entry = response.get('time_entry', {})
-            custom_fields = time_entry.get('custom_fields', [])
+                data_original = time_entry.get('spent_on')
+                nova_data = (datetime.now() - timedelta(days=4)).strftime('%Y-%m-%d')
+                data_atual = datetime.now().strftime('%Y-%m-%d')
 
-            data_original = time_entry.get('spent_on')
-            nova_data = (datetime.now() - timedelta(days=4)).strftime('%Y-%m-%d')
-            data_atual = datetime.now().strftime('%Y-%m-%d')
+                alterar_status, alterar_response = alterar_data_temporariamente(entry_id, nova_data)
+                if alterar_status not in [200, 204]:
+                    errors.append({
+                        'id': entry_id,
+                        'status': alterar_status,
+                        'response': alterar_response
+                    })
+                    continue
 
-            alterar_status, alterar_response = alterar_data_temporariamente(entry_id, nova_data)
-            if alterar_status not in [200, 204]:
-                errors.append({
-                    'id': entry_id,
-                    'status': alterar_status,
-                    'response': alterar_response
-                })
-                continue
+                for field in custom_fields:
+                    if field.get('name') == 'TS - Aprovado - EVT':
+                        field['value'] = '1' if aprovacao else '0'
+                    if field.get('name') == 'TS - Dt. Aprovação - EVT':
+                        field['value'] = data_atual if aprovacao else ''
+                    if field.get('name') == 'TS - Aprovador - EVT':
+                        field['value'] = get_recipient_by_token(token) if aprovacao else ''
 
-            for field in custom_fields:
-                if field.get('name') == 'TS - Aprovado - EVT':
-                    field['value'] = '1' if aprovacao else '0'
-                if field.get('name') == 'TS - Dt. Aprovação - EVT':
-                    field['value'] = data_atual if aprovacao else ''
-                if field.get('name') == 'TS - Aprovador - EVT':
-                    field['value'] = get_recipient_by_token(token) if aprovacao else ''
-
-            update_status, update_response = update_time_entry(entry_id, custom_fields)
-            if update_status in [200, 204]:
-                restaurar_data_original(entry_id, data_original)
-                log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'],
-                                       'aprovar' if aprovacao else 'reprovar', token)
+                update_status, update_response = update_time_entry(entry_id, custom_fields)
+                if update_status in [200, 204]:
+                    restaurar_data_original(entry_id, data_original)
+                    log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'],
+                                           'aprovar' if aprovacao else 'reprovar', token)
+                else:
+                    restaurar_data_original(entry_id, data_original)
+                    errors.append({
+                        'id': entry_id,
+                        'status': update_status,
+                        'response': update_response
+                    })
             else:
-                restaurar_data_original(entry_id, data_original)
                 errors.append({
                     'id': entry_id,
-                    'status': update_status,
-                    'response': update_response
+                    'status': status_code,
+                    'response': response
                 })
-        else:
-            errors.append({
-                'id': entry_id,
-                'status': status_code,
-                'response': response
-            })
 
-    if errors:
-        return render_response("Some entries failed to update", 207, details=errors)
+        if errors:
+            return render_response("Some entries failed to update", 207, details=errors)
 
-    return render_response(f"Todas as horas foram {'aprovadas' if aprovacao else 'reprovadas'}!", 200)
+        return render_response(f"Todas as horas foram {'aprovadas' if aprovacao else 'reprovadas'}!", 200)
+    else:
+        for entry_id in entry_ids:
+            status_code, response = get_time_entry(entry_id)
+            if status_code == 200:
+                time_entry = response.get('time_entry', {})
+                custom_fields = time_entry.get('custom_fields', [])
+
+                data_original = time_entry.get('spent_on')
+                nova_data = (datetime.now() - timedelta(days=4)).strftime('%Y-%m-%d')
+                data_atual = datetime.now().strftime('%Y-%m-%d')
+
+                alterar_status, alterar_response = alterar_data_temporariamente(entry_id, nova_data)
+                if alterar_status not in [200, 204]:
+                    errors.append({
+                        'id': entry_id,
+                        'status': alterar_status,
+                        'response': alterar_response
+                    })
+                    continue
+
+                for field in custom_fields:
+                    if field.get('name') == 'TS - Aprovado - CLI':
+                        field['value'] = '1' if aprovacao else '0'
+                    if field.get('name') == 'TS - Dt. Aprovação - CLI':
+                        field['value'] = data_atual if aprovacao else ''
+
+                update_status, update_response = update_time_entry(entry_id, custom_fields)
+                if update_status in [200, 204]:
+                    restaurar_data_original(entry_id, data_original)
+                    log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'],
+                                           'aprovar' if aprovacao else 'reprovar', token)
+                else:
+                    restaurar_data_original(entry_id, data_original)
+                    errors.append({
+                        'id': entry_id,
+                        'status': update_status,
+                        'response': update_response
+                    })
+            else:
+                errors.append({
+                    'id': entry_id,
+                    'status': status_code,
+                    'response': response
+                })
+
+        if errors:
+            return render_response("Some entries failed to update", 207, details=errors)
+
+        return render_response(f"Todas as horas foram {'aprovadas' if aprovacao else 'reprovadas'}!", 200)
 
 
 def get_recipient_by_token(token):
@@ -1748,7 +1797,6 @@ def create_html_table_client(time_entries, recipient):
                 '')
             project_name = entry['project']['name'] if 'project' in entry else 'N/A'
             is_client = 1 if 'client' in request.full_path else 0
-            total_hours += entry['hours']  # Soma as horas da entrada atual
             approved = any(
                 field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '1') for field
                 in entry['custom_fields'])
