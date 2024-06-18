@@ -1798,22 +1798,6 @@ def create_html_table(time_entries):
         </tr>
         '''
 
-    # Adiciona a linha com o total de horas no final da tabela
-    table += f'''
-    <tr>
-      <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas:</td>
-      <td colspan="2" style="font-weight: bold;">{total_hours}</td>
-    </tr>
-    <tr>
-      <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas Aprovadas:</td>
-      <td colspan="2" style="font-weight: bold;">{approved_hours}</td>
-    </tr>
-    <tr>
-      <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas Não Aprovadas:</td>
-      <td colspan="2" style="font-weight: bold;">{unapproved_hours}</td>
-    </tr>
-    '''
-
     table += '''
     </tbody>
     </table>
@@ -1821,68 +1805,101 @@ def create_html_table(time_entries):
     <br>
     '''
 
+    # Adiciona as contagens de horas abaixo da tabela
     table += f'''
+    <div class="hours-summary">
+        <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
+        <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
+        <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
+    </div>
+    <br>
+    '''
+
+    table += f'''
+    <style>
+      .hours-summary {{
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #333;
+        margin-top: 10px;
+      }}
+      .hours-summary p {{
+        margin: 5px 0;
+      }}
+      .hours-total, .hours-approved, .hours-unapproved {{
+        color: #1E90FF;
+      }}
+      .hours-approved {{
+        color: #28a745;
+      }}
+      .hours-unapproved {{
+        color: #dc3545;
+      }}
+    </style>
+    '''
+
+    table += '''
     <script>
-      function approveHour(entryId, token, isClient) {{
+      function approveHour(entryId, token, isClient) {
         fetch("{API_URL}aprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
-        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
-        .then(result => {{
+        .then(response => response.json().then(body => { return { status: response.status, body: body }; }))
+        .then(result => {
           const status = result.status;
           const body = result.body;
-          if (status === 200) {{
+          if (status === 200) {
             alert(body.message);
             disableRow(entryId);
-          }} else {{
+          } else {
             alert(body.message);
-          }}
-        }})
-        .catch(error => {{
+          }
+        })
+        .catch(error => {
           console.error('Erro:', error);
           alert('Erro ao aprovar hora.');
-        }});
-      }}
+        });
+      }
 
-      function rejectHour(entryId, token, isClient) {{
+      function rejectHour(entryId, token, isClient) {
         fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
-        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
-        .then(result => {{
+        .then(response => response.json().then(body => { return { status: response.status, body: body }; }))
+        .then(result => {
           const status = result.status;
           const body = result.body;
-          if (status === 200) {{
+          if (status === 200) {
             alert(body.message);
             disableRow(entryId);
-          }} else {{
+          } else {
             alert(body.message);
-          }}
-        }})
-        .catch(error => {{
+          }
+        })
+        .catch(error => {
           console.error('Erro:', error);
           alert('Erro ao reprovar hora.');
-        }});
-      }}
+        });
+      }
 
-      function disableRow(entryId) {{
+      function disableRow(entryId) {
         var row = document.getElementById("entry-row-" + entryId);
         var checkBox = row.querySelector('input[type="checkbox"]');
         var buttons = row.querySelectorAll('a');
 
-        if (checkBox) {{
+        if (checkBox) {
           checkBox.disabled = true;
-        }}
-        buttons.forEach(button => {{
+        }
+        buttons.forEach(button => {
           button.style.pointerEvents = 'none';
           button.style.opacity = '0.5';
-        }});
-      }}
+        });
+      }
 
-      function toggleAll(source) {{
+      function toggleAll(source) {
         var checkboxes = document.getElementsByName('selected_entries');
-        for (var i = 0, n = checkboxes.length; i < n; i++) {{
-          if (!checkboxes[i].disabled) {{
+        for (var i = 0, n = checkboxes.length; i < n; i++) {
+          if (!checkboxes[i].disabled) {
             checkboxes[i].checked = source.checked;
-          }}
-        }}
-      }}
+          }
+        }
+      }
     </script>
     '''
 
@@ -1956,27 +1973,44 @@ def create_html_table_client(time_entries, recipient):
             </tr>
             '''
 
-        # Adiciona a linha com o total de horas no final da tabela
-    table += f'''
-        <tr>
-            <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas:</td>
-            <td colspan="2" style="font-weight: bold;">{total_hours}</td>
-        </tr>
-        <tr>
-            <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas Aprovadas:</td>
-            <td colspan="2" style="font-weight: bold;">{approved_hours}</td>
-        </tr>
-        <tr>
-            <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas Não Aprovadas:</td>
-            <td colspan="2" style="font-weight: bold;">{unapproved_hours}</td>
-        </tr>
-        '''
-
     table += '''
     </tbody>
     </table>
     </div>
     <br>
+    '''
+
+    # Adiciona as contagens de horas abaixo da tabela
+    table += f'''
+    <div class="hours-summary">
+        <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
+        <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
+        <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
+    </div>
+    <br>
+    '''
+
+    table += f'''
+    <style>
+      .hours-summary {{
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #333;
+        margin-top: 10px;
+      }}
+      .hours-summary p {{
+        margin: 5px 0;
+      }}
+      .hours-total, .hours-approved, .hours-unapproved {{
+        color: #1E90FF;
+      }}
+      .hours-approved {{
+        color: #28a745;
+      }}
+      .hours-unapproved {{
+        color: #dc3545;
+      }}
+    </style>
     '''
 
     table += f'''
@@ -2031,6 +2065,15 @@ def create_html_table_client(time_entries, recipient):
           button.style.pointerEvents = 'none';
           button.style.opacity = '0.5';
         }});
+      }}
+
+      function toggleAll(source) {{
+        var checkboxes = document.getElementsByName('selected_entries');
+        for (var i = 0, n = checkboxes.length; i < n; i++) {{
+          if (!checkboxes[i].disabled) {{
+            checkboxes[i].checked = source.checked;
+          }}
+        }}
       }}
     </script>
     '''
