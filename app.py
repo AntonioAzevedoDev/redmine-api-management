@@ -1182,6 +1182,388 @@ def relatorio_horas_geral():
         return render_response("Erro ao gerar a página HTML", 500)
 
 
+
+
+@app.route('/relatorio_horas_client/<int:user_id>', methods=['GET'])
+def relatorio_horas_client(user_id):
+    try:
+        # Faz uma requisição para obter o usuário pelo ID fornecido na URL
+        user_url = f'{REDMINE_URL}/users/{user_id}.json'
+        user_response = requests.get(user_url, headers={
+            'X-Redmine-API-Key': REDMINE_API_KEY,
+            'Content-Type': 'application/json'
+        }, verify=False)
+
+        if not user_response.ok:
+            logger.error(f"Erro ao buscar usuário com ID {user_id}: {user_response.status_code}")
+            return render_response("Usuário não encontrado", 404)
+
+        user = user_response.json()
+        user_name = user['user']['firstname'] + ' ' + user['user']['lastname']
+
+        # Obter parâmetros de filtro
+        project_id = request.args.get('project_id')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        is_client = 1 if 'client' in request.full_path else 0
+        # Definir datas padrão (últimos 30 dias) se não fornecidas
+        if not start_date or not end_date:
+            today = datetime.today()
+            thirty_days_ago = today - timedelta(days=30)
+            start_date = thirty_days_ago.strftime('%Y-%m-%d')
+            end_date = today.strftime('%Y-%m-%d')
+
+        # Construir URL de requisição com filtros
+        url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
+        if project_id:
+            url += f'&project_id={project_id}'
+
+        entries_response = requests.get(url, headers={
+            'X-Redmine-API-Key': REDMINE_API_KEY,
+            'Content-Type': 'application/json'
+        }, verify=False)
+
+        if entries_response.ok:
+            # Filtra as entradas de tempo para incluir apenas aquelas que não foram aprovadas e têm o destinatário correto
+            time_entries = entries_response.json().get('time_entries', [])
+            unapproved_entries = [entry for entry in time_entries if any(
+                field['name'] == 'TS - Aprovado - CLI' and field['value'] == '0' for field in entry.get('custom_fields', []))
+                                  and any(field['name'] == 'TS - Aprovador - CLI' for field in entry.get('custom_fields', []))
+                                  ]
+
+            # Agrupar entradas por destinatário
+            email_entries = defaultdict(list)
+            for entry in time_entries:
+                recipient = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Aprovador - CLI'), None)
+                if recipient:
+                    email_entries[recipient].append(entry)
+
+            if not time_entries:
+                logger.warning(
+                    f"Nenhuma entrada de tempo não aprovada encontrada para o usuário ID {user_id} no período de {start_date} a {end_date}")
+                return render_response("Nenhuma entrada de tempo encontrada", 404)
+
+            token = request.args.get('token')
+            token_email = get_email_from_token(token)  # Obtendo o e-mail associado ao token
+            logger.warning(f'TOKEN_EMAIL:{token_email}')
+
+            for recipient, entries in email_entries.items():
+                # Validação do e-mail do token com o recipient
+                if token_email != recipient:
+                    logger.warning(f'Token não autorizado para o e-mail: {recipient} ')
+                    continue
+
+                table_html = create_html_table_client(entries, recipient)
+                # Constrói a lista de IDs das entradas
+                entry_ids = ','.join([str(entry['id']) for entry in entries])
+
+                # Template HTML para renderizar a página com filtros
+                html_template = f'''
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Tempo gasto</title>
+                    <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
+                    <script>
+                        function filterTable() {{
+                            var input, filter, table, tr, td, i, j, txtValue;
+                            input = document.getElementById("filterInput");
+                            filter = input.value.toUpperCase();
+                            table = document.getElementById("time_entries_table");
+                            tr = table.getElementsByTagName("tr");
+
+                            for (i = 1; i < tr.length; i++) {{
+                                tr[i].style.display = "none";
+                                td = tr[i].getElementsByTagName("td");
+                                for (j = 0; j < td.length; j++) {{
+                                    if (td[j]) {{
+                                        txtValue = td[j].textContent || td[j].innerText;
+                                        if (txtValue.toUpperCase().indexOf(filter) > -1) {{
+                                            tr[i].style.display = "";
+                                            break;
+                                        }}
+                                    }}
+                                }}
+                            }}
+                        }}
+
+                        function toggleAll(source) {{
+                            checkboxes = document.getElementsByName('selected_entries');
+                            for(var i=0, n=checkboxes.length;i<n;i++) {{
+                                if (!checkboxes[i].disabled) {{
+                                    checkboxes[i].checked = source.checked;
+                                }}
+                            }}
+                        }}
+                        function showAlert(message, type) {{
+                        var alertDiv = document.createElement('div');
+                        alertDiv.className = `alert alert-${type}`;
+                        alertDiv.textContent = message;
+
+                        // Estilização básica para o popup
+                        alertDiv.style.position = 'fixed';
+                        alertDiv.style.top = '20px';
+                        alertDiv.style.left = '50%';
+                        alertDiv.style.transform = 'translateX(-50%)';
+                        alertDiv.style.padding = '10px';
+                        alertDiv.style.zIndex = 1000;
+                        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+                        alertDiv.style.color = 'white';
+                        alertDiv.style.borderRadius = '5px';
+                        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
+                        alertDiv.style.fontSize = '16px';
+
+                        document.body.appendChild(alertDiv);
+
+                        // Remover o popup após 3 segundos
+                        setTimeout(() => {{
+                            document.body.removeChild(alertDiv);
+                        }}, 3000);
+                    </script>
+                </head>
+                <body>
+                    <div id="header">
+                        <div class="header-logo">
+                            <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
+                            <h1>EVT - Aprovação de Horas - {user_name}</h1>
+                        </div>
+                    </div>
+                    <div class="container">
+                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
+                            <div class="filters">
+                                <label for="filterInput">Buscar:</label>
+                                <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
+                            </div>
+                            {table_html}
+                            <div id="all-actions" class="btn-group">
+                                <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
+                                <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                            </div>
+                            <div id="selected-actions" class="btn-group">
+                                <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
+                                <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
+                            </div>
+                        </form>
+                    </div>
+                    <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
+                </body>
+                </html>
+                '''
+
+                return render_template_string(html_template)
+
+        else:
+            logger.error(f"Erro ao buscar entradas de tempo: {entries_response.status_code}")
+            return render_response("Erro ao buscar entradas de tempo", 500)
+    except Exception as e:
+        logger.error(f"Erro ao gerar a página HTML: {e}")
+        return render_response("Erro ao gerar a página HTML", 500)
+
+
+def create_html_table_client(time_entries, recipient):
+    total_hours = 0  # Variável para somar as horas
+    approved_hours = 0  # Variável para somar as horas aprovadas
+    unapproved_hours = 0  # Variável para somar as horas não aprovadas
+
+    table = '''
+    <div class="container">
+      <div class="filters-container">
+        <!-- Coloque aqui os elementos do filtro -->
+      </div>
+      <div style="overflow-x:auto;" class="table-container">
+        <table id="time_entries_table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th>
+              <th>Data</th>
+              <th>Usuário</th>
+              <th>Atividade</th>
+              <th>Projeto</th>
+              <th>Comentário</th>
+              <th>Hora inicial (HH:MM)</th>
+              <th>Hora final (HH:MM)</th>
+              <th>Horas</th>
+              <th>Aprovado</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+    '''
+
+    for entry in time_entries:
+        approver_cli = next(
+            (field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Aprovador - CLI'), '')
+
+        if approver_cli == recipient:
+            hora_inicial = next(
+                (field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora inicial (HH:MM)'), '')
+            hora_final = next(
+                (field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora final (HH:MM)'), '')
+            project_name = entry['project']['name'] if 'project' in entry else 'N/A'
+            is_client = 1 if 'client' in request.full_path else 0
+
+            total_hours += entry['hours']
+            approved = any(
+                field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '1') for field in entry['custom_fields'])
+            if approved:
+                approved_hours += entry['hours']
+            else:
+                unapproved_hours += entry['hours']
+            disable_attr = 'disabled' if approved else ''
+            aprovado = 'Sim' if approved else 'Não'
+
+            table += f'''
+            <tr id="entry-row-{entry['id']}">
+              <td><input type="checkbox" name="selected_entries" value="{entry['id']}" {disable_attr}></td>
+              <td>{entry['spent_on']}</td>
+              <td>{entry['user']['name']}</td>
+              <td>{entry['activity']['name']}</td>
+              <td>{project_name}</td>
+              <td>{entry['comments']}</td>
+              <td>{hora_inicial}</td>
+              <td>{hora_final}</td>
+              <td>{entry['hours']}</td>
+              <td>{aprovado}</td>
+              <td>
+                <a href="#" onclick="approveHour({entry['id']}, '{request.args.get('token')}', {is_client})" class="btn btn-approve-table { 'disabled' if approved else '' }" style="opacity:{'0' if approved else '1'};">Aprovar</a>
+                <a href="#" onclick="rejectHour({entry['id']}, '{request.args.get('token')}', {is_client})" class="btn btn-reject-table { 'disabled' if approved else '' }" style="opacity:{'0' if approved else '1'};">Reprovar</a>
+              </td>
+            </tr>
+            '''
+
+    table += f'''
+          </tbody>
+        </table>
+      </div>
+      <br>
+      </div>
+      <div class="hours-summary">
+        <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
+        <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
+        <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
+
+    </div>
+    <br>
+    '''
+
+    table += f'''
+    <style>
+      .table-container {{
+        width: 100%;
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 400px;
+      }}
+      .hours-summary {{
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #333;
+        margin-top: 10px;
+      }}
+      .hours-summary p {{
+        margin: 5px 0;
+      }}
+      .hours-total, .hours-approved, .hours-unapproved {{
+        color: #1E90FF;
+      }}
+      .hours-approved {{
+        color: #28a745;
+      }}
+      .hours-unapproved {{
+        color: #dc3545;
+      }}
+      thead th {{
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 10;
+        box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
+        padding: 16px 8px; /* Aumenta a altura do thead */
+        min-height: 10px; /* Define uma altura mínima para o thead */
+        text-align: center; /* Centraliza os textos do thead */
+      }}
+      .table-container td {{
+        white-space: normal; /* Permite quebra de linha */
+      }}
+      .btn {{
+        display: inline-block; /* Garante que os botões fiquem lado a lado */
+        margin-right: 5px; /* Espaçamento entre os botões */
+      }}
+      .btn.disabled {{
+        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+      }}
+    </style>
+    '''
+
+    table += f'''
+    <script>
+      function approveHour(entryId, token, isClient) {{
+        fetch("{API_URL}aprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
+        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+        .then(result => {{
+          const status = result.status;
+          const body = result.body;
+          if (status === 200) {{
+            alert(body.message);
+            disableRow(entryId);
+          }} else {{
+            alert(body.message);
+          }}
+        }})
+        .catch(error => {{
+          console.error('Erro:', error);
+          alert('Erro ao aprovar hora.');
+        }});
+      }}
+
+      function rejectHour(entryId, token, isClient) {{
+        fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
+        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+        .then(result => {{
+          const status = result.status;
+          const body = result.body;
+          if (status === 200) {{
+            alert(body.message);
+            disableRow(entryId);
+          }} else {{
+            alert(body.message);
+          }}
+        }})
+        .catch(error => {{
+          console.error('Erro:', error);
+          alert('Erro ao reprovar hora.');
+        }});
+      }}
+
+      function disableRow(entryId) {{
+        var row = document.getElementById("entry-row-" + entryId);
+        var checkBox = row.querySelector('input[type="checkbox"]');
+        var buttons = row.querySelectorAll('a');
+
+        if (checkBox) {{
+          checkBox.disabled = true;
+        }}
+        buttons.forEach(button => {{
+          button.classList.add('disabled');
+        }});
+      }}
+
+      function toggleAll(source) {{
+        var checkboxes = document.getElementsByName('selected_entries');
+        for (var i = 0, n = checkboxes.length; i < n; i++) {{
+          if (!checkboxes[i].disabled) {{
+            checkboxes[i].checked = source.checked;
+          }}
+        }}
+      }}
+    </script>
+    '''
+
+    return table
+
+
 @app.route('/relatorio_horas/<int:user_id>', methods=['GET'])
 def relatorio_horas(user_id):
     try:
@@ -1374,7 +1756,6 @@ def relatorio_horas(user_id):
                                 var row = checkbox.closest("tr");
                                 var td = row.getElementsByTagName("td");
 
-
                                 var entry = {{
                                     id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
                                     date: td[1] ? td[1].textContent : "N/A",
@@ -1393,7 +1774,6 @@ def relatorio_horas(user_id):
                             for (var i = 1; i < tr.length; i++) {{
                                 if (tr[i].style.display !== "none") {{
                                     var td = tr[i].getElementsByTagName("td");
-
 
                                     var entry = {{
                                         id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
@@ -1423,7 +1803,7 @@ def relatorio_horas(user_id):
                     }}
                     .filters-container {{
                         display: flex;
-                        justify-content: flex-start; /* Alinha os itens no início */
+                        justify-content: center; /* Centraliza os itens */
                         margin-bottom: 10px;
                         width: 100%; /* Garante que ocupe a largura total */
                     }}
@@ -1443,18 +1823,23 @@ def relatorio_horas(user_id):
                         width: 100%;
                         overflow-x: auto; /* Adiciona rolagem horizontal */
                         overflow-y: auto; /* Adiciona rolagem vertical */
-                        max-height: 400px; /* Define uma altura máxima para a tabela */
+                        max-height: 450px; /* Define uma altura máxima para a tabela */
                     }}
-                    .table-container th, .table-container td {{
-                        padding: 8px;
+                    .table-container td {{
+                        padding: 4px; /* Diminui a altura dos td */
                         text-align: left;
                         border-bottom: 1px solid #ddd;
+                        vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
+                        white-space: nowrap; /* Impede quebra de linha em células */
+                        overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
+                        text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
                     }}
                     .table-container th {{
                         background-color: #f2f2f2;
                         position: sticky;
                         top: 0;
                         z-index: 1;
+                        text-align: center; /* Centraliza o texto do thead */
                     }}
                     .btn-group {{
                         display: flex;
@@ -1477,20 +1862,64 @@ def relatorio_horas(user_id):
                     }}
                     table {{
                         width: 100%;
+                        border-collapse: collapse;
                     }}
-                    thead th {{
-                        position: sticky;
-                        top: 0;
-                        background: white;
-                        z-index: 10;
-                        box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
+                    th, td {{
+                        padding: 8px;
+                        text-align: left;
+                        border-bottom: 1px solid #ddd;
+                    }}
+                    tr:nth-child(even) {{
+                        background-color: #f2f2f2;
+                    }}
+                    th:nth-child(11), td:nth-child(11) {{
+                        width: 120px; /* Define uma largura menor para a coluna "Ações" */
+                        text-align: center; /* Centraliza o texto e os botões na coluna */
+                    }}
+                    .btn-approve-table, .btn-reject-table {{
+                        display: inline-block;
+                        width: 90px;
+                        margin-right: 5px; /* Adiciona espaçamento entre os botões */
+                        text-align: center; /* Centraliza o texto do botão */
+                    }}
+                    .btn-approve-table {{
+                        background-color: #28a745;
+                        color: white;
+                        margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
+                    }}
+
+                    .btn-reject-table {{
+                        background-color: #dc3545;
+                        color: white;
+                        margin-top: 5px;
+                    }}
+                    .btn-approve-table.disabled, .btn-reject-table.disabled {{
+                        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+                    }}
+                    .hours-summary {{
+                        font-size: 1.2em;
+                        font-weight: bold;
+                        color: #333;
+                        margin-top: 10px;
+                    }}
+                    .hours-summary p {{
+                        margin: 5px 0;
+                    }}
+                    .hours-total, .hours-approved, .hours-unapproved {{
+                        color: #1E90FF;
+                    }}
+                    .hours-approved {{
+                        color: #28a745;
+                    }}
+                    .hours-unapproved {{
+                        color: #dc3545;
                     }}
                 </style>
             </head>
             <body>
                 <div id="header">
                     <div class="header-logo">
-                        <img src="{{ url_for('static', filename='transparent_evt_logo.png') }}" alt="EVT">
+                        <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
                         <h1>EVT - Aprovação de Horas - {user_name}</h1>
                     </div>
                 </div>
@@ -1521,7 +1950,7 @@ def relatorio_horas(user_id):
                             </fieldset>
                         </form>
                     </div>
-                    <div class="table-container">
+                    <div>
                         {table_html}
                     </div>
                     <div id="all-actions" class="btn-group">
@@ -1535,190 +1964,12 @@ def relatorio_horas(user_id):
                         <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
                     </div>
                 </div>
-                <script src="{{ url_for('static', filename='script.js') }}"></script>
+                <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
             </body>
             </html>
             '''
 
             return render_template_string(html_template)
-        else:
-            logger.error(f"Erro ao buscar entradas de tempo: {entries_response.status_code}")
-            return render_response("Erro ao buscar entradas de tempo", 500)
-    except Exception as e:
-        logger.error(f"Erro ao gerar a página HTML: {e}")
-        return render_response("Erro ao gerar a página HTML", 500)
-
-
-@app.route('/relatorio_horas_client/<int:user_id>', methods=['GET'])
-def relatorio_horas_client(user_id):
-    try:
-        # Faz uma requisição para obter o usuário pelo ID fornecido na URL
-        user_url = f'{REDMINE_URL}/users/{user_id}.json'
-        user_response = requests.get(user_url, headers={
-            'X-Redmine-API-Key': REDMINE_API_KEY,
-            'Content-Type': 'application/json'
-        }, verify=False)
-
-        if not user_response.ok:
-            logger.error(f"Erro ao buscar usuário com ID {user_id}: {user_response.status_code}")
-            return render_response("Usuário não encontrado", 404)
-
-        user = user_response.json()
-        user_name = user['user']['firstname'] + ' ' + user['user']['lastname']
-
-        # Obter parâmetros de filtro
-        project_id = request.args.get('project_id')
-        start_date = request.args.get('start_date')
-        end_date = request.args.get('end_date')
-        is_client = 1 if 'client' in request.full_path else 0
-        # Definir datas padrão (últimos 30 dias) se não fornecidas
-        if not start_date or not end_date:
-            today = datetime.today()
-            thirty_days_ago = today - timedelta(days=30)
-            start_date = thirty_days_ago.strftime('%Y-%m-%d')
-            end_date = today.strftime('%Y-%m-%d')
-
-        # Construir URL de requisição com filtros
-        url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
-        if project_id:
-            url += f'&project_id={project_id}'
-
-        entries_response = requests.get(url, headers={
-            'X-Redmine-API-Key': REDMINE_API_KEY,
-            'Content-Type': 'application/json'
-        }, verify=False)
-
-        if entries_response.ok:
-            # Filtra as entradas de tempo para incluir apenas aquelas que não foram aprovadas e têm o destinatário correto
-            time_entries = entries_response.json().get('time_entries', [])
-            unapproved_entries = [entry for entry in time_entries if any(
-                field['name'] == 'TS - Aprovado - CLI' and field['value'] == '0' for field in entry.get('custom_fields', []))
-                                  and any(field['name'] == 'TS - Aprovador - CLI' for field in entry.get('custom_fields', []))
-                                  ]
-
-            # Agrupar entradas por destinatário
-            email_entries = defaultdict(list)
-            for entry in time_entries:
-                recipient = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Aprovador - CLI'), None)
-                if recipient:
-                    email_entries[recipient].append(entry)
-
-            if not time_entries:
-                logger.warning(
-                    f"Nenhuma entrada de tempo não aprovada encontrada para o usuário ID {user_id} no período de {start_date} a {end_date}")
-                return render_response("Nenhuma entrada de tempo encontrada", 404)
-
-            token = request.args.get('token')
-            token_email = get_email_from_token(token)  # Obtendo o e-mail associado ao token
-            logger.warning(f'TOKEN_EMAIL:{token_email}')
-
-            for recipient, entries in email_entries.items():
-                # Validação do e-mail do token com o recipient
-                if token_email != recipient:
-                    logger.warning(f'Token não autorizado para o e-mail: {recipient} ')
-                    continue
-
-                table_html = create_html_table_client(entries, recipient)
-                # Constrói a lista de IDs das entradas
-                entry_ids = ','.join([str(entry['id']) for entry in entries])
-
-                # Template HTML para renderizar a página com filtros
-                html_template = f'''
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Tempo gasto</title>
-                    <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
-                    <script>
-                        function filterTable() {{
-                            var input, filter, table, tr, td, i, j, txtValue;
-                            input = document.getElementById("filterInput");
-                            filter = input.value.toUpperCase();
-                            table = document.getElementById("time_entries_table");
-                            tr = table.getElementsByTagName("tr");
-
-                            for (i = 1; i < tr.length; i++) {{
-                                tr[i].style.display = "none";
-                                td = tr[i].getElementsByTagName("td");
-                                for (j = 0; j < td.length; j++) {{
-                                    if (td[j]) {{
-                                        txtValue = td[j].textContent || td[j].innerText;
-                                        if (txtValue.toUpperCase().indexOf(filter) > -1) {{
-                                            tr[i].style.display = "";
-                                            break;
-                                        }}
-                                    }}
-                                }}
-                            }}
-                        }}
-
-                        function toggleAll(source) {{
-                            checkboxes = document.getElementsByName('selected_entries');
-                            for(var i=0, n=checkboxes.length;i<n;i++) {{
-                                if (!checkboxes[i].disabled) {{
-                                    checkboxes[i].checked = source.checked;
-                                }}
-                            }}
-                        }}
-                        function showAlert(message, type) {{
-                        var alertDiv = document.createElement('div');
-                        alertDiv.className = `alert alert-${type}`;
-                        alertDiv.textContent = message;
-
-                        // Estilização básica para o popup
-                        alertDiv.style.position = 'fixed';
-                        alertDiv.style.top = '20px';
-                        alertDiv.style.left = '50%';
-                        alertDiv.style.transform = 'translateX(-50%)';
-                        alertDiv.style.padding = '10px';
-                        alertDiv.style.zIndex = 1000;
-                        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
-                        alertDiv.style.color = 'white';
-                        alertDiv.style.borderRadius = '5px';
-                        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
-                        alertDiv.style.fontSize = '16px';
-
-                        document.body.appendChild(alertDiv);
-
-                        // Remover o popup após 3 segundos
-                        setTimeout(() => {{
-                            document.body.removeChild(alertDiv);
-                        }}, 3000);
-                    </script>
-                </head>
-                <body>
-                    <div id="header">
-                        <div class="header-logo">
-                            <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
-                            <h1>EVT - Aprovação de Horas - {user_name}</h1>
-                        </div>
-                    </div>
-                    <div class="container">
-                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
-                            <div class="filters">
-                                <label for="filterInput">Buscar:</label>
-                                <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
-                            </div>
-                            {table_html}
-                            <div id="all-actions" class="btn-group">
-                                <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                                <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
-                            </div>
-                            <div id="selected-actions" class="btn-group">
-                                <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
-                                <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
-                            </div>
-                        </form>
-                    </div>
-                    <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
-                </body>
-                </html>
-                '''
-
-                return render_template_string(html_template)
-
         else:
             logger.error(f"Erro ao buscar entradas de tempo: {entries_response.status_code}")
             return render_response("Erro ao buscar entradas de tempo", 500)
@@ -1758,8 +2009,10 @@ def create_html_table(time_entries):
     '''
 
     for entry in time_entries:
-        hora_inicial = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora inicial (HH:MM)'), '')
-        hora_final = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora final (HH:MM)'), '')
+        hora_inicial = next(
+            (field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora inicial (HH:MM)'), '')
+        hora_final = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora final (HH:MM)'),
+                          '')
         project_name = entry['project']['name'] if 'project' in entry else 'N/A'
         user_id = entry['user']['id']
         user_email = 'teste@teste.com'  # tornar dinâmico após ajustar o plugin
@@ -1770,7 +2023,8 @@ def create_html_table(time_entries):
 
         total_hours += entry['hours']  # Soma as horas da entrada atual
 
-        approved = any(field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '1') for field in entry['custom_fields'])
+        approved = any(
+            field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '1') for field in entry['custom_fields'])
         if approved:
             approved_hours += entry['hours']
         else:
@@ -1792,23 +2046,22 @@ def create_html_table(time_entries):
           <td>{entry['hours']}</td>
           <td>{aprovado}</td>
           <td>
-            <a href="#" onclick="approveHour({entry['id']}, '{token}', {is_client})" class="btn btn-approve-table" style="pointer-events:{'none' if approved else 'auto'};opacity:{'0.5' if approved else '1'};">Aprovar</a>
-            <a href="#" onclick="rejectHour({entry['id']}, '{token}', {is_client})" class="btn btn-reject-table" style="pointer-events:{'none' if approved else 'auto'};opacity:{'0.5' if approved else '1'};">Reprovar</a>
+            <a href="#" onclick="approveHour({entry['id']}, '{token}', {is_client})" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
+            <a href="#" onclick="rejectHour({entry['id']}, '{token}', {is_client})" class="btn btn-reject-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Reprovar</a>
           </td>
         </tr>
         '''
 
-    table += '''
+    table += f'''
           </tbody>
         </table>
       </div>
       <br>
-      </div>
       <div class="hours-summary">
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
         <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
         <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
-      
+
       </div>
     <br>
     '''
@@ -1819,7 +2072,7 @@ def create_html_table(time_entries):
         width: 100%;
         overflow-x: auto;
         overflow-y: auto;
-        max-height: 400px;
+        max-height: 450px;
       }}
       .hours-summary {{
         font-size: 1.2em;
@@ -1838,6 +2091,26 @@ def create_html_table(time_entries):
       }}
       .hours-unapproved {{
         color: #dc3545;
+      }}
+      thead th {{
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 10;
+        box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
+        padding: 16px 8px; /* Aumenta a altura do thead */
+        min-height: 10px; /* Define uma altura mínima para o thead */
+        text-align: center; /* Centraliza os textos do thead */
+      }}
+      .table-container td {{
+        white-space: normal; /* Permite quebra de linha */
+      }}
+      .btn {{
+        display: inline-block; /* Garante que os botões fiquem lado a lado */
+        margin-right: 5px; /* Espaçamento entre os botões */
+      }}
+      .btn.disabled {{
+        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
       }}
     </style>
     '''
@@ -1862,7 +2135,19 @@ def create_html_table(time_entries):
           alert('Erro ao aprovar hora.');
         }});
       }}
-
+      function toggleFieldset(legend) {{
+        var fieldset = legend.parentElement;
+        fieldset.classList.toggle('collapsed');
+        var div = fieldset.querySelector('div');
+        var arrow = legend.querySelector('.arrow');
+        if (fieldset.classList.contains('collapsed')) {{
+            div.style.display = 'none';
+            arrow.innerHTML = '▼';  // Seta para a direita
+        }} else {{
+            div.style.display = 'block';
+            arrow.innerHTML = '▶';  // Seta para baixo
+        }}
+        }}
       function rejectHour(entryId, token, isClient) {{
         fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
@@ -1885,194 +2170,18 @@ def create_html_table(time_entries):
       function disableRow(entryId) {{
         var row = document.getElementById("entry-row-" + entryId);
         var checkBox = row.querySelector('input[type="checkbox"]');
-        var buttons = row.querySelectorAll('a');
+        var approveButton = row.querySelector('.btn-approve-table');
+        var rejectButton = row.querySelector('.btn-reject-table');
 
         if (checkBox) {{
           checkBox.disabled = true;
         }}
-        buttons.forEach(button => {{
-          button.style.pointerEvents = 'none';
-          button.style.opacity = '0.5';
-        }});
-      }}
-
-      function toggleAll(source) {{
-        var checkboxes = document.getElementsByName('selected_entries');
-        for (var i = 0, n = checkboxes.length; i < n; i++) {{
-          if (!checkboxes[i].disabled) {{
-            checkboxes[i].checked = source.checked;
-          }}
+        if (approveButton) {{
+          approveButton.classList.add('disabled');
         }}
-      }}
-    </script>
-    '''
-
-    return table
-
-
-def create_html_table_client(time_entries, recipient):
-    total_hours = 0  # Variável para somar as horas
-    approved_hours = 0  # Variável para somar as horas aprovadas
-    unapproved_hours = 0  # Variável para somar as horas não aprovadas
-
-    table = '''
-    <div class="container">
-      <div class="filters-container">
-        <!-- Coloque aqui os elementos do filtro -->
-      </div>
-      <div style="overflow-x:auto;" class="table-container">
-        <table id="time_entries_table">
-          <thead>
-            <tr>
-              <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th>
-              <th>Data</th>
-              <th>Usuário</th>
-              <th>Atividade</th>
-              <th>Projeto</th>
-              <th>Comentário</th>
-              <th>Hora inicial (HH:MM)</th>
-              <th>Hora final (HH:MM)</th>
-              <th>Horas</th>
-              <th>Aprovado</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-    '''
-
-    for entry in time_entries:
-        approver_cli = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'TS - Aprovador - CLI'), '')
-
-        if approver_cli == recipient:
-            hora_inicial = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora inicial (HH:MM)'), '')
-            hora_final = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora final (HH:MM)'), '')
-            project_name = entry['project']['name'] if 'project' in entry else 'N/A'
-            is_client = 1 if 'client' in request.full_path else 0
-
-            total_hours += entry['hours']
-            approved = any(field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '1') for field in entry['custom_fields'])
-            if approved:
-                approved_hours += entry['hours']
-            else:
-                unapproved_hours += entry['hours']
-            disable_attr = 'disabled' if approved else ''
-            aprovado = 'Sim' if approved else 'Não'
-
-            table += f'''
-            <tr id="entry-row-{entry['id']}">
-              <td><input type="checkbox" name="selected_entries" value="{entry['id']}" {disable_attr}></td>
-              <td>{entry['spent_on']}</td>
-              <td>{entry['user']['name']}</td>
-              <td>{entry['activity']['name']}</td>
-              <td>{project_name}</td>
-              <td>{entry['comments']}</td>
-              <td>{hora_inicial}</td>
-              <td>{hora_final}</td>
-              <td>{entry['hours']}</td>
-              <td>{aprovado}</td>
-              <td>
-                <a href="#" onclick="approveHour({entry['id']}, '{request.args.get('token')}', {is_client})" class="btn btn-approve-table" style="pointer-events:{'none' if approved else 'auto'};opacity:{'0.5' if approved else '1'};">Aprovar</a>
-                <a href="#" onclick="rejectHour({entry['id']}, '{request.args.get('token')}', {is_client})" class="btn btn-reject-table" style="pointer-events:{'none' if approved else 'auto'};opacity:{'0.5' if approved else '1'};">Reprovar</a>
-              </td>
-            </tr>
-            '''
-
-    table += '''
-          </tbody>
-        </table>
-      </div>
-      <br>
-      </div>
-      <div class="hours-summary">
-        <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
-        <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
-        <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
-      
-    </div>
-    <br>
-    '''
-
-    table += f'''
-    <style>
-      .table-container {{
-        width: 100%;
-        overflow-x: auto;
-        overflow-y: auto;
-        max-height: 400px;
-      }}
-      .hours-summary {{
-        font-size: 1.2em;
-        font-weight: bold;
-        color: #333;
-        margin-top: 10px;
-      }}
-      .hours-summary p {{
-        margin: 5px 0;
-      }}
-      .hours-total, .hours-approved, .hours-unapproved {{
-        color: #1E90FF;
-      }}
-      .hours-approved {{
-        color: #28a745;
-      }}
-      .hours-unapproved {{
-        color: #dc3545;
-      }}
-    </style>
-    '''
-
-    table += f'''
-    <script>
-      function approveHour(entryId, token, isClient) {{
-        fetch("{API_URL}aprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
-        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
-        .then(result => {{
-          const status = result.status;
-          const body = result.body;
-          if (status === 200) {{
-            alert(body.message);
-            disableRow(entryId);
-          }} else {{
-            alert(body.message);
-          }}
-        }})
-        .catch(error => {{
-          console.error('Erro:', error);
-          alert('Erro ao aprovar hora.');
-        }});
-      }}
-
-      function rejectHour(entryId, token, isClient) {{
-        fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
-        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
-        .then(result => {{
-          const status = result.status;
-          const body = result.body;
-          if (status === 200) {{
-            alert(body.message);
-            disableRow(entryId);
-          }} else {{
-            alert(body.message);
-          }}
-        }})
-        .catch(error => {{
-          console.error('Erro:', error);
-          alert('Erro ao reprovar hora.');
-        }});
-      }}
-
-      function disableRow(entryId) {{
-        var row = document.getElementById("entry-row-" + entryId);
-        var checkBox = row.querySelector('input[type="checkbox"]');
-        var buttons = row.querySelectorAll('a');
-
-        if (checkBox) {{
-          checkBox.disabled = true;
+        if (rejectButton) {{
+          rejectButton.classList.add('disabled');
         }}
-        buttons.forEach(button => {{
-          button.style.pointerEvents = 'none';
-          button.style.opacity = '0.5';
-        }});
       }}
 
       function toggleAll(source) {{
