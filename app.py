@@ -1778,27 +1778,29 @@ def create_html_table_client(time_entries, recipient):
             </tr>
             '''
 
+        # Adiciona a linha com o total de horas no final da tabela
+    table += f'''
+        <tr>
+            <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas:</td>
+            <td colspan="2" style="font-weight: bold;">{total_hours}</td>
+        </tr>
+        <tr>
+            <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas Aprovadas:</td>
+            <td colspan="2" style="font-weight: bold;">{approved_hours}</td>
+        </tr>
+        <tr>
+            <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas Não Aprovadas:</td>
+            <td colspan="2" style="font-weight: bold;">{unapproved_hours}</td>
+        </tr>
+        '''
+
     table += '''
     </tbody>
     </table>
     </div>
     <br>
     '''
-    # Adiciona a linha com o total de horas no final da tabela
-    table += f'''
-        <tr>
-          <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas:</td>
-          <td colspan="2" style="font-weight: bold;">{total_hours}</td>
-        </tr>
-        <tr>
-          <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas Aprovadas:</td>
-          <td colspan="2" style="font-weight: bold;">{approved_hours}</td>
-        </tr>
-        <tr>
-          <td colspan="8" style="text-align: right; font-weight: bold;">Total de Horas Não Aprovadas:</td>
-          <td colspan="2" style="font-weight: bold;">{unapproved_hours}</td>
-        </tr>
-        '''
+
     table += f'''
     <script>
       function approveHour(entryId, token, isClient) {{
