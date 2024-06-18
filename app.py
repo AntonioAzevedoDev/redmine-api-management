@@ -898,7 +898,7 @@ def relatorio_horas_geral():
             # Filtra as entradas de tempo para incluir apenas aquelas que não foram aprovadas
             time_entries = entries_response.json().get('time_entries', [])
             unapproved_entries = [entry for entry in time_entries if any(
-                field['name'] == 'TS - Aprovado - CLI' and field['value'] == '0' for field in
+                field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in
                 entry.get('custom_fields', []))
                                   ]
             entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
