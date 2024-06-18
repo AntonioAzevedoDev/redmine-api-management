@@ -1390,6 +1390,7 @@ def relatorio_horas(user_id):
                         }});
                     }}
 
+                    }}
                     function showAlert(message, type) {{
                         var alertDiv = document.createElement('div');
                         alertDiv.className = `alert alert-${type}`;
@@ -1414,7 +1415,6 @@ def relatorio_horas(user_id):
                         setTimeout(() => {{
                             document.body.removeChild(alertDiv);
                         }}, 3000);
-                    }}
                 </script>
                 <style>
                     .container {{
@@ -1664,6 +1664,30 @@ def relatorio_horas_client(user_id):
                                 }}
                             }}
                         }}
+                        function showAlert(message, type) {{
+                        var alertDiv = document.createElement('div');
+                        alertDiv.className = `alert alert-${type}`;
+                        alertDiv.textContent = message;
+
+                        // Estilização básica para o popup
+                        alertDiv.style.position = 'fixed';
+                        alertDiv.style.top = '20px';
+                        alertDiv.style.left = '50%';
+                        alertDiv.style.transform = 'translateX(-50%)';
+                        alertDiv.style.padding = '10px';
+                        alertDiv.style.zIndex = 1000;
+                        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+                        alertDiv.style.color = 'white';
+                        alertDiv.style.borderRadius = '5px';
+                        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
+                        alertDiv.style.fontSize = '16px';
+
+                        document.body.appendChild(alertDiv);
+
+                        // Remover o popup após 3 segundos
+                        setTimeout(() => {{
+                            document.body.removeChild(alertDiv);
+                        }}, 3000);
                     </script>
                 </head>
                 <body>
