@@ -1181,6 +1181,7 @@ def relatorio_horas_geral():
         logger.error(f"Erro ao gerar a página HTML: {e}")
         return render_response("Erro ao gerar a página HTML", 500)
 
+
 @app.route('/relatorio_horas/<int:user_id>', methods=['GET'])
 def relatorio_horas(user_id):
     try:
@@ -1318,60 +1319,6 @@ def relatorio_horas(user_id):
                         }}
                     }}
 
-                    function getFilteredTableData() {{
-                        var table = document.getElementById("time_entries_table");
-                        var tr = table.getElementsByTagName("tr");
-                        var data = [];
-                        var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
-
-                        if (checkboxes.length > 0) {{
-                            for (var checkbox of checkboxes) {{
-                                var row = checkbox.closest("tr");
-                                var td = row.getElementsByTagName("td");
-
-                                
-
-                                var entry = {{
-                                    id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
-                                    date: td[1] ? td[1].textContent : "N/A",
-                                    user: td[2] ? td[2].textContent : "N/A",
-                                    activity: td[3] ? td[3].textContent : "N/A",
-                                    project: td[4] ? td[4].textContent : "N/A",
-                                    comments: td[5] ? td[5].textContent : "N/A",
-                                    start_time: td[6] ? td[6].textContent : "N/A",
-                                    end_time: td[7] ? td[7].textContent : "N/A",
-                                    hours: td[8] ? td[8].textContent : "N/A"
-                                }};
-
-                                data.push(entry);
-                            }}
-                        }} else {{
-                            for (var i = 1; i < tr.length; i++) {{
-                                if (tr[i].style.display !== "none") {{
-                                    var td = tr[i].getElementsByTagName("td");
-
-                                    
-                                    var entry = {{
-                                        id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
-                                        date: td[1] ? td[1].textContent : "N/A",
-                                        user: td[2] ? td[2].textContent : "N/A",
-                                        activity: td[3] ? td[3].textContent : "N/A",
-                                        project: td[4] ? td[4].textContent : "N/A",
-                                        comments: td[5] ? td[5].textContent : "N/A",
-                                        start_time: td[6] ? td[6].textContent : "N/A",
-                                        end_time: td[7] ? td[7].textContent : "N/A",
-                                        hours: td[8] ? td[8].textContent : "N/A"
-                                    }};
-
-                                   
-                                    data.push(entry);
-                                }}
-                            }}
-                        }}
-
-                        return data;
-                    }}
-
                     function sendFilteredData() {{
                         var data = getFilteredTableData();
                         fetch('/send_email_report_client_geral', {{
@@ -1390,7 +1337,6 @@ def relatorio_horas(user_id):
                         }});
                     }}
 
-                    }}
                     function showAlert(message, type) {{
                         var alertDiv = document.createElement('div');
                         alertDiv.className = `alert alert-${type}`;
@@ -1415,6 +1361,59 @@ def relatorio_horas(user_id):
                         setTimeout(() => {{
                             document.body.removeChild(alertDiv);
                         }}, 3000);
+                    }}
+
+                    function getFilteredTableData() {{
+                        var table = document.getElementById("time_entries_table");
+                        var tr = table.getElementsByTagName("tr");
+                        var data = [];
+                        var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
+
+                        if (checkboxes.length > 0) {{
+                            for (var checkbox of checkboxes) {{
+                                var row = checkbox.closest("tr");
+                                var td = row.getElementsByTagName("td");
+
+
+                                var entry = {{
+                                    id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                    date: td[1] ? td[1].textContent : "N/A",
+                                    user: td[2] ? td[2].textContent : "N/A",
+                                    activity: td[3] ? td[3].textContent : "N/A",
+                                    project: td[4] ? td[4].textContent : "N/A",
+                                    comments: td[5] ? td[5].textContent : "N/A",
+                                    start_time: td[6] ? td[6].textContent : "N/A",
+                                    end_time: td[7] ? td[7].textContent : "N/A",
+                                    hours: td[8] ? td[8].textContent : "N/A"
+                                }};
+
+                                data.push(entry);
+                            }}
+                        }} else {{
+                            for (var i = 1; i < tr.length; i++) {{
+                                if (tr[i].style.display !== "none") {{
+                                    var td = tr[i].getElementsByTagName("td");
+
+
+                                    var entry = {{
+                                        id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                        date: td[1] ? td[1].textContent : "N/A",
+                                        user: td[2] ? td[2].textContent : "N/A",
+                                        activity: td[3] ? td[3].textContent : "N/A",
+                                        project: td[4] ? td[4].textContent : "N/A",
+                                        comments: td[5] ? td[5].textContent : "N/A",
+                                        start_time: td[6] ? td[6].textContent : "N/A",
+                                        end_time: td[7] ? td[7].textContent : "N/A",
+                                        hours: td[8] ? td[8].textContent : "N/A"
+                                    }};
+
+                                    data.push(entry);
+                                }}
+                            }}
+                        }}
+
+                        return data;
+                    }}
                 </script>
                 <style>
                     .container {{
@@ -1541,8 +1540,6 @@ def relatorio_horas(user_id):
             </html>
             '''
 
-            # Código atualizado com logs adicionais
-
             return render_template_string(html_template)
         else:
             logger.error(f"Erro ao buscar entradas de tempo: {entries_response.status_code}")
@@ -1550,6 +1547,7 @@ def relatorio_horas(user_id):
     except Exception as e:
         logger.error(f"Erro ao gerar a página HTML: {e}")
         return render_response("Erro ao gerar a página HTML", 500)
+
 
 @app.route('/relatorio_horas_client/<int:user_id>', methods=['GET'])
 def relatorio_horas_client(user_id):
