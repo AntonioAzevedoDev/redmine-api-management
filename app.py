@@ -971,18 +971,28 @@ def relatorio_horas_geral():
                     }}
 
                     function toggleFieldset(legend) {{
-                        var fieldset = legend.parentElement;
-                        fieldset.classList.toggle('collapsed');
-                        var div = fieldset.querySelector('div');
-                        var arrow = legend.querySelector('.arrow');
-                        if (fieldset.classList.contains('collapsed')) {{
-                            div.style.display = 'none';
-                            arrow.innerHTML = '▼';  // Seta para a direita
-                        }} else {{
-                            div.style.display = 'block';
-                            arrow.innerHTML = '▶';  // Seta para baixo
-                        }}
-                    }}
+    var fieldset = legend.parentElement;
+    var isCollapsed = fieldset.classList.toggle('collapsed');
+    var div = fieldset.querySelector('div');
+    var arrow = legend.querySelector('.arrow');
+    if (isCollapsed) {{
+        div.style.display = 'none';
+        arrow.innerHTML = '▼';  // Seta para a direita
+    }} else {{
+        div.style.display = 'block';
+        arrow.innerHTML = '▶';  // Seta para baixo
+    }}
+}}
+// Garantir que o filtro comece colapsado
+document.addEventListener('DOMContentLoaded', function() {{
+    var fieldset = document.querySelector('fieldset.collapsible');
+    if (fieldset) {{
+        var div = fieldset.querySelector('div');
+        var arrow = fieldset.querySelector('.arrow');
+        div.style.display = 'none';
+        arrow.innerHTML = '▼';
+    }}
+}});
 
                     function toggleAll(source) {{
                         checkboxes = document.getElementsByName('selected_entries');
@@ -1228,7 +1238,7 @@ def relatorio_horas_geral():
                 <div class="container">
                     <div class="filters-container">
                         <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
-                            <fieldset class="collapsible">
+                            <fieldset class="collapsible collapsed">
                                 <legend class="legend-text" onclick="toggleFieldset(this);">
                                     <span class="legend-button">
                                         <span class="arrow">▶</span>
@@ -1759,18 +1769,28 @@ def create_html_table_client(time_entries, recipient):
         }});
       }}
       function toggleFieldset(legend) {{
-        var fieldset = legend.parentElement;
-        fieldset.classList.toggle('collapsed');
+    var fieldset = legend.parentElement;
+    var isCollapsed = fieldset.classList.toggle('collapsed');
+    var div = fieldset.querySelector('div');
+    var arrow = legend.querySelector('.arrow');
+    if (isCollapsed) {{
+        div.style.display = 'none';
+        arrow.innerHTML = '▼';  // Seta para a direita
+    }} else {{
+        div.style.display = 'block';
+        arrow.innerHTML = '▶';  // Seta para baixo
+    }}
+}}
+// Garantir que o filtro comece colapsado
+document.addEventListener('DOMContentLoaded', function() {{
+    var fieldset = document.querySelector('fieldset.collapsible');
+    if (fieldset) {{
         var div = fieldset.querySelector('div');
-        var arrow = legend.querySelector('.arrow');
-        if (fieldset.classList.contains('collapsed')) {{
-            div.style.display = 'none';
-            arrow.innerHTML = '▼';  // Seta para a direita
-        }} else {{
-            div.style.display = 'block';
-            arrow.innerHTML = '▶';  // Seta para baixo
-        }}
-        }}
+        var arrow = fieldset.querySelector('.arrow');
+        div.style.display = 'none';
+        arrow.innerHTML = '▼';
+    }}
+}});
       function rejectHour(entryId, token, isClient) {{
         fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
@@ -1894,18 +1914,28 @@ def relatorio_horas(user_id):
                 <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
                 <script>
                     function toggleFieldset(legend) {{
-                        var fieldset = legend.parentElement;
-                        fieldset.classList.toggle('collapsed');
-                        var div = fieldset.querySelector('div');
-                        var arrow = legend.querySelector('.arrow');
-                        if (fieldset.classList.contains('collapsed')) {{
-                            div.style.display = 'none';
-                            arrow.innerHTML = '▼';  // Seta para a direita
-                        }} else {{
-                            div.style.display = 'block';
-                            arrow.innerHTML = '▶';  // Seta para baixo
-                        }}
-                    }}
+    var fieldset = legend.parentElement;
+    var isCollapsed = fieldset.classList.toggle('collapsed');
+    var div = fieldset.querySelector('div');
+    var arrow = legend.querySelector('.arrow');
+    if (isCollapsed) {{
+        div.style.display = 'none';
+        arrow.innerHTML = '▼';  // Seta para a direita
+    }} else {{
+        div.style.display = 'block';
+        arrow.innerHTML = '▶';  // Seta para baixo
+    }}
+}}
+// Garantir que o filtro comece colapsado
+document.addEventListener('DOMContentLoaded', function() {{
+    var fieldset = document.querySelector('fieldset.collapsible');
+    if (fieldset) {{
+        var div = fieldset.querySelector('div');
+        var arrow = fieldset.querySelector('.arrow');
+        div.style.display = 'none';
+        arrow.innerHTML = '▼';
+    }}
+}});
 
                     function filterTable() {{
                         var input, filter, table, tr, td, i, j, txtValue;
@@ -2057,6 +2087,8 @@ def relatorio_horas(user_id):
         display: flex;
         flex-direction: column;
         margin-top: 0; /* Remove qualquer margem superior */
+        overflow-y: auto;
+        max-height: 80vh;
     }}
     .filters-container {{
         display: flex;
@@ -2076,9 +2108,13 @@ def relatorio_horas(user_id):
                         margin: 0; /* Remove margem */
                         padding: 0; /* Remove padding */
                     }}
-    .table-container {{
+    .table-wrapper {{
                         width: 100%;
+                        overflow-x: auto; /* Adiciona rolagem horizontal */
+                    }}
+                    .table-container {{
                         max-height: 450px; /* Define uma altura máxima para a tabela */
+                        width: 100%;
                     }}
                     .table-container th:nth-child(11), .table-container td:nth-child(11) {{
         width: 120px; /* Define uma largura menor para a coluna "Ações" */
@@ -2146,19 +2182,25 @@ def relatorio_horas(user_id):
     @media (max-width: 768px) {{
         .container {{
             padding: 10px;
+            overflow-y: auto;
+            max-height: 80vh;
         }}
         .header-logo h1 {{
             font-size: 1.5em;
         }}
         .filters {{
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
-                        margin: 0; /* Remove margem */
-                        padding: 0; /* Remove padding */
-                    }}
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0; /* Remove margem */
+            padding: 0; /* Remove padding */
+        }}
+        .table-wrapper {{
+            overflow-x: auto;
+        }}
         .table-container {{
             font-size: 0.9em;
+            overflow-x: scroll;
         }}
         .btn-group {{
             flex-direction: column;
@@ -2190,7 +2232,7 @@ def relatorio_horas(user_id):
                 <div class="container">
                     <div class="filters-container">
                         <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
-                            <fieldset class="collapsible">
+                            <fieldset class="collapsible collapsed">
                                 <legend onclick="toggleFieldset(this);">
                                     <span class="legend-button">
                                         <span class="arrow">▶</span>
@@ -2214,25 +2256,21 @@ def relatorio_horas(user_id):
                             </fieldset>
                         </form>
                     </div>
-                    <div class="table-container">
-                        {table_html}
+                    <div class="table-wrapper">
+                        <div class="table-container">
+                            {table_html}
+                        </div>
                         <div id="all-actions" class="btn-group">
-                        <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                        <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
-                        <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
+                            <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
+                            <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
+                        </div>
                     </div>
-                    </div>
-
-
-
                     <div id="selected-actions" class="btn-group">
                         <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
                         <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
                         <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
                     </div>
-
-
-
                 </div>
                 <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
             </body>
@@ -2258,24 +2296,25 @@ def create_html_table(time_entries):
       <div class="filters-container">
         <!-- Coloque aqui os elementos do filtro -->
       </div>
-      <div style="overflow-x:auto;" class="table-container">
-        <table id="time_entries_table">
-          <thead>
-            <tr>
-              <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th>
-              <th>Data</th>
-              <th>Usuário</th>
-              <th>Atividade</th>
-              <th>Projeto</th>
-              <th>Comentário</th>
-              <th>Hora inicial (HH:MM)</th>
-              <th>Hora final (HH:MM)</th>
-              <th>Horas</th>
-              <th>Aprovado</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div class="table-wrapper">
+        <div class="table-container">
+          <table id="time_entries_table">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th>
+                <th>Data</th>
+                <th>Usuário</th>
+                <th>Atividade</th>
+                <th>Projeto</th>
+                <th>Comentário</th>
+                <th>Hora inicial (HH:MM)</th>
+                <th>Hora final (HH:MM)</th>
+                <th>Horas</th>
+                <th>Aprovado</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
     '''
 
     for entry in time_entries:
@@ -2340,9 +2379,13 @@ def create_html_table(time_entries):
 
     table += f'''
     <style>
-      .table-container {{
+      .table-wrapper {{
         width: 100%;
+        overflow-x: auto;
+      }}
+      .table-container {{
         max-height: 450px;
+        width: 100%;
       }}
       .hours-summary {{
         font-size: 1.2em;
@@ -2373,7 +2416,7 @@ def create_html_table(time_entries):
         text-align: center; /* Centraliza os textos do thead */
       }}
       .table-container td {{
-        white-space: normal; /* Permite quebra de linha */
+        white-space: nowrap; /* Impede quebra de linha */
       }}
       .btn {{
         display: inline-block; /* Garante que os botões fiquem lado a lado */
@@ -2385,27 +2428,34 @@ def create_html_table(time_entries):
       @media (max-width: 768px) {{
         .container {{
             padding: 10px;
+            overflow-y: auto;
+            max-height: 80vh;
         }}
         .header-logo h1 {{
             font-size: 1.5em;
         }}
         .filters {{
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
-                        margin: 0; /* Remove margem */
-                        padding: 0; /* Remove padding */
-                    }}
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0; /* Remove margem */
+            padding: 0; /* Remove padding */
+        }}
+        .table-wrapper {{
+            overflow-x: auto;
+        }}
         .table-container {{
             font-size: 0.9em;
+            overflow-x: scroll;
         }}
         .btn-group {{
             flex-direction: column;
-            align-items: stretch;
+            align-items: center;
         }}
-        .btn-relatorio {{
-            width: 100%;
-            margin-top: 10px;
+        .btn-group .btn-relatorio {{
+            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
+            height: 40px; /* Garante que a altura do botão seja mantida */
+            margin: 0px 0;
         }}
     }}
     </style>
@@ -2420,8 +2470,8 @@ def create_html_table(time_entries):
           const status = result.status;
           const body = result.body;
           if (status === 200) {{
-            updateHours(entryHours);
-            showAlert('Horas aprovadas com sucesso', 'success');
+            updateHourSummary(entryHours);
+            showAlert('Hora aprovada com sucesso!', 'success');
             disableRow(entryId);
           }} else {{
             showAlert(body.message, 'error');
@@ -2432,7 +2482,29 @@ def create_html_table(time_entries):
           showAlert('Erro ao aprovar hora.', 'error');
         }});
       }}
-
+      function toggleFieldset(legend) {{
+    var fieldset = legend.parentElement;
+    var isCollapsed = fieldset.classList.toggle('collapsed');
+    var div = fieldset.querySelector('div');
+    var arrow = legend.querySelector('.arrow');
+    if (isCollapsed) {{
+        div.style.display = 'none';
+        arrow.innerHTML = '▼';  // Seta para a direita
+    }} else {{
+        div.style.display = 'block';
+        arrow.innerHTML = '▶';  // Seta para baixo
+    }}
+}}
+// Garantir que o filtro comece colapsado
+document.addEventListener('DOMContentLoaded', function() {{
+    var fieldset = document.querySelector('fieldset.collapsible');
+    if (fieldset) {{
+        var div = fieldset.querySelector('div');
+        var arrow = fieldset.querySelector('.arrow');
+        div.style.display = 'none';
+        arrow.innerHTML = '▼';
+    }}
+}});
       function rejectHour(entryId, token, isClient) {{
         fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
@@ -2440,7 +2512,7 @@ def create_html_table(time_entries):
           const status = result.status;
           const body = result.body;
           if (status === 200) {{
-            showAlert('Horas reprovadas com sucesso', 'success');
+            showAlert('Hora reprovada com sucesso!', 'success');
             disableRow(entryId);
           }} else {{
             showAlert(body.message, 'error');
@@ -2452,17 +2524,18 @@ def create_html_table(time_entries):
         }});
       }}
 
-      function updateHours(entryHours) {{
-        const totalHoursElement = document.querySelector('.hours-total');
-        const approvedHoursElement = document.querySelector('.hours-approved');
-        const unapprovedHoursElement = document.querySelector('.hours-unapproved');
+      function updateHourSummary(entryHours) {{
+        const totalHoursElem = document.querySelector('.hours-total');
+        const approvedHoursElem = document.querySelector('.hours-approved');
+        const unapprovedHoursElem = document.querySelector('.hours-unapproved');
 
-        const totalHours = parseFloat(totalHoursElement.textContent);
-        const approvedHours = parseFloat(approvedHoursElement.textContent);
-        const unapprovedHours = parseFloat(unapprovedHoursElement.textContent);
+        const totalHours = parseFloat(totalHoursElem.textContent);
+        const approvedHours = parseFloat(approvedHoursElem.textContent);
+        const unapprovedHours = parseFloat(unapprovedHoursElem.textContent);
 
-        approvedHoursElement.textContent = (approvedHours + entryHours).toFixed(1);
-        unapprovedHoursElement.textContent = (unapprovedHours - entryHours).toFixed(1);
+        totalHoursElem.textContent = (totalHours + entryHours).toFixed(1);
+        approvedHoursElem.textContent = (approvedHours + entryHours).toFixed(1);
+        unapprovedHoursElem.textContent = (unapprovedHours - entryHours).toFixed(1);
       }}
 
       function disableRow(entryId) {{
@@ -2513,9 +2586,9 @@ def create_html_table(time_entries):
 
         // Remover o popup após 3 segundos
         setTimeout(() => {{
-          document.body.removeChild(alertDiv);
+            document.body.removeChild(alertDiv);
         }}, 3000);
-      }}
+    }}
     </script>
     '''
 
