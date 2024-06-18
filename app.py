@@ -587,6 +587,8 @@ def reprovar_todos():
 def atualizar_todas_entradas(aprovacao, entry_ids, token, is_client):
     user = get_current_user()
     errors = []
+    total_horas = 0
+
     if is_client == '0':
         for entry_id in entry_ids:
             status_code, response = get_time_entry(entry_id)
@@ -595,7 +597,7 @@ def atualizar_todas_entradas(aprovacao, entry_ids, token, is_client):
                 custom_fields = time_entry.get('custom_fields', [])
 
                 data_original = time_entry.get('spent_on')
-                nova_data = (datetime.now() - timedelta(days=4)).strftime('%Y-%m-%d')
+                nova_data = (datetime.now() + timedelta(days=4)).strftime('%Y-%m-%d')
                 data_atual = datetime.now().strftime('%Y-%m-%d')
 
                 alterar_status, alterar_response = alterar_data_temporariamente(entry_id, nova_data)
@@ -620,6 +622,7 @@ def atualizar_todas_entradas(aprovacao, entry_ids, token, is_client):
                     restaurar_data_original(entry_id, data_original)
                     log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'],
                                            'aprovar' if aprovacao else 'reprovar', token)
+                    total_horas += time_entry['hours']
                 else:
                     restaurar_data_original(entry_id, data_original)
                     errors.append({
@@ -637,7 +640,7 @@ def atualizar_todas_entradas(aprovacao, entry_ids, token, is_client):
         if errors:
             return render_response("Some entries failed to update", 207, details=errors)
 
-        return render_response(f"Todas as horas foram {'aprovadas' if aprovacao else 'reprovadas'}!", 200)
+        return render_response(f"{total_horas} horas foram {'aprovadas' if aprovacao else 'reprovadas'} com sucesso!", 200)
     else:
         for entry_id in entry_ids:
             status_code, response = get_time_entry(entry_id)
@@ -669,6 +672,7 @@ def atualizar_todas_entradas(aprovacao, entry_ids, token, is_client):
                     restaurar_data_original(entry_id, data_original)
                     log_approval_rejection(entry_id, time_entry['spent_on'], time_entry['hours'],
                                            'aprovar' if aprovacao else 'reprovar', token)
+                    total_horas += time_entry['hours']
                 else:
                     restaurar_data_original(entry_id, data_original)
                     errors.append({
@@ -686,7 +690,7 @@ def atualizar_todas_entradas(aprovacao, entry_ids, token, is_client):
         if errors:
             return render_response("Some entries failed to update", 207, details=errors)
 
-        return render_response(f"Todas as horas foram {'aprovadas' if aprovacao else 'reprovadas'}!", 200)
+        return render_response(f"{total_horas} horas foram {'aprovadas' if aprovacao else 'reprovadas'} com sucesso!", 200)
 
 
 def get_recipient_by_token(token):
