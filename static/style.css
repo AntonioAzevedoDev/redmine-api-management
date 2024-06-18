@@ -219,6 +219,8 @@ tr:hover {
     border-radius: 5px;
     cursor: pointer;
     text-decoration: none; /* Remove a linha de baixo */
+    display: inline-block; /* Garante que os botões fiquem lado a lado */
+    margin-right: 5px; /* Espaçamento entre os botões */
 }
 
 .btn-reject, .btn-reject-table {
