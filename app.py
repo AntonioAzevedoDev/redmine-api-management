@@ -2916,10 +2916,11 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token, is_client):
             if alterar_status not in [200, 204]:
                 return {"error": "Failed to temporarily change date", "details": alterar_response}
             for field in custom_fields:
-                if field.get('name') == 'TS - Aprovado - CLI':
-                    field['value'] = '1' if tipo in ['aprovar', 'aprovar_selecionados'] else '0'
                 if field.get('name') == 'TS - Aprovado - EVT':
                     field['value'] = '0' if tipo in ['reprovar', 'reprovar_selecionados'] else  field['value']
+                if field.get('name') == 'TS - Aprovado - CLI':
+                    field['value'] = '1' if tipo in ['aprovar', 'aprovar_selecionados'] else '0'
+
                 if field.get('name') == 'TS - Dt. Aprovação - CLI':
                     field['value'] = data_atual if tipo in ['aprovar', 'aprovar_selecionados'] else ''
             update_status, update_response = update_time_entry(entry_id, custom_fields)
