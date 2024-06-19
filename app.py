@@ -1379,15 +1379,15 @@ def create_html_table_client(time_entries, recipient):
           const status = result.status;
           const body = result.body;
           if (status === 200) {{
-            alert(body.message);
+            showAlert('Hora aprovada com sucesso!', 'success');
             disableRow(entryId);
           }} else {{
-            alert(body.message);
+            showAlert(body.message, 'error');
           }}
         }})
         .catch(error => {{
           console.error('Erro:', error);
-          alert('Erro ao aprovar hora.');
+          showAlert('Erro ao aprovar hora.', 'error');
         }});
       }}
       function toggleFieldset(legend) {{
@@ -1420,15 +1420,15 @@ document.addEventListener('DOMContentLoaded', function() {{
           const status = result.status;
           const body = result.body;
           if (status === 200) {{
-            alert(body.message);
+            showAlert('Hora reprovada com sucesso!', 'success');
             disableRow(entryId);
           }} else {{
-            alert(body.message);
+            showAlert(body.message, 'error');
           }}
         }})
         .catch(error => {{
           console.error('Erro:', error);
-          alert('Erro ao reprovar hora.');
+          showAlert('Erro ao reprovar hora.', 'error');
         }});
       }}
 
