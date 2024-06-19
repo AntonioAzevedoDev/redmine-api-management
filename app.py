@@ -437,9 +437,15 @@ def send_email_report_client_geral():
             return jsonify('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.'), 400
 
         for email, entries in email_entries.items():
-            unapproved_entries = [entry for entry in entries if any(
-                field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '0' or field['value'] == '') for field in
-                entry.get('custom_fields', []))]
+            unapproved_entries = [
+                entry for entry in entries if any(
+                    field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '0' or field['value'] == '')
+                    for field in entry.get('custom_fields', [])
+                ) and any(
+                    field['name'] == 'TS - Aprovador - EVT' and (field['value'] == '1' or field['value'] == '')
+                    for field in entry.get('custom_fields', [])
+                )
+            ]
 
             if unapproved_entries:
                 table_html = create_html_table_mail_client(unapproved_entries, email)
@@ -1209,25 +1215,25 @@ def create_html_table_client(time_entries, recipient):
       <div class="filters-container">
         <!-- Coloque aqui os elementos do filtro -->
       </div>
-	<div class="table-wrapper">						 
-      <div style="overflow-x:auto;" class="table-container">
-        <table id="time_entries_table">
-          <thead>
-            <tr>
-              <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th>
-              <th>Data</th>
-              <th>Usuário</th>
-              <th>Atividade</th>
-              <th>Projeto</th>
-              <th>Comentário</th>
-              <th>Hora inicial (HH:MM)</th>
-              <th>Hora final (HH:MM)</th>
-              <th>Horas</th>
-              <th>Aprovado</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div class="table-wrapper">
+        <div style="overflow-x:auto;" class="table-container">
+          <table id="time_entries_table">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th>
+                <th>Data</th>
+                <th>Usuário</th>
+                <th>Atividade</th>
+                <th>Projeto</th>
+                <th>Comentário</th>
+                <th>Hora inicial (HH:MM)</th>
+                <th>Hora final (HH:MM)</th>
+                <th>Horas</th>
+                <th>Aprovado</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
     '''
 
     for entry in time_entries:
@@ -1271,11 +1277,11 @@ def create_html_table_client(time_entries, recipient):
               <td>{entry['comments']}</td>
               <td>{hora_inicial}</td>
               <td>{hora_final}</td>
-			  <td class="hours-value">{entry['hours']}</td>
-			  <td class="approved-value">{aprovado}</td>
+              <td class="hours-value">{entry['hours']}</td>
+              <td class="approved-value">{aprovado}</td>
               <td>
-                <a href="#" onclick="approveHour({entry['id']}, '{request.args.get('token')}', {is_client})" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
-                <a href="#" onclick="rejectHour({entry['id']}, '{request.args.get('token')}', {is_client})" class="btn btn-reject-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Reprovar</a>
+                <a href="#" onclick="approveHour({entry['id']}, '{request.args.get('token')}', {is_client}, {entry['hours']})" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
+                <a href="#" onclick="rejectHour({entry['id']}, '{request.args.get('token')}', {is_client}, {entry['hours']})" class="btn btn-reject-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Reprovar</a>
               </td>
             </tr>
             '''
@@ -1291,9 +1297,7 @@ def create_html_table_client(time_entries, recipient):
         <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
         <p>Total de Horas Reprovadas: <span class="hours-repproved">{repproved_hours}</span></p>
         <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
-
-    </div>
-    <br>
+      </div>
     '''
 
     table += f'''
@@ -1325,44 +1329,41 @@ def create_html_table_client(time_entries, recipient):
       .hours-approved {{
         color: #28a745;
       }}
-	  .hours-repproved {{
+      .hours-repproved {{
         color: #dc3545;
       }}
       .hours-unapproved {{
         color: #bbdb03;
       }}
-
-
-
       thead th {{
         position: sticky;
         top: 0;
         background: white;
         z-index: 10;
         box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
-        padding: 8px 4px; /* Aumenta a altura do thead */
-        min-height: 10px; /* Define uma altura mínima para o thead */
-        text-align: center; /* Centraliza os textos do thead */
+        padding: 8px 4px;
+        min-height: 10px;
+        text-align: center;
       }}
       .table-container td {{
-        white-space: nowrap; /* Impede quebra de linha */
+        white-space: nowrap;
       }}
       .btn {{
-        display: inline-block; /* Garante que os botões fiquem lado a lado */
-        margin-right: 5px; /* Espaçamento entre os botões */
+        display: inline-block;
+        margin-right: 5px;
       }}
       .btn-approve-table, .btn-reject-table {{
         display: inline-block;
         width: 70px;
-        margin-right: 2px; /* Adiciona espaçamento entre os botões */
-        text-align: center; /* Centraliza o texto do botão */
-        font-size: 0.8em; /* Reduz o tamanho da fonte */
-        padding: 5px; /* Ajusta o padding */
+        margin-right: 2px;
+        text-align: center;
+        font-size: 0.8em;
+        padding: 5px;
       }}
       .btn-approve-table {{
         background-color: #28a745;
         color: white;
-        margin-bottom: 2px; /* Adiciona espaçamento vertical entre os botões */
+        margin-bottom: 2px;
       }}
       .btn-reject-table {{
         background-color: #dc3545;
@@ -1370,7 +1371,7 @@ def create_html_table_client(time_entries, recipient):
         margin-top: 2px;
       }}
       .btn.disabled {{
-        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+        visibility: hidden;
       }}
       @media (max-width: 768px) {{
         .container {{
@@ -1385,8 +1386,8 @@ def create_html_table_client(time_entries, recipient):
             display: flex;
             align-items: center;
             gap: 10px;
-            margin: 0; /* Remove margem */
-            padding: 0; /* Remove padding */
+            margin: 0;
+            padding: 0;
         }}
         .table-wrapper {{
             overflow-x: auto;
@@ -1400,8 +1401,8 @@ def create_html_table_client(time_entries, recipient):
             align-items: center;
         }}
         .btn-group .btn-relatorio {{
-            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
-            height: 40px; /* Garante que a altura do botão seja mantida */
+            width: 180px;
+            height: 40px;
             margin: 0px 0;
         }}
     }}
@@ -1410,16 +1411,16 @@ def create_html_table_client(time_entries, recipient):
 
     table += f'''
     <script>
-      function approveHour(entryId, token, isClient) {{
+      function approveHour(entryId, token, isClient, entryHours) {{
         fetch("{API_URL}aprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
         .then(result => {{
           const status = result.status;
           const body = result.body;
           if (status === 200) {{
-			updateHourSummary(entryHours);							  
             showAlert('Hora aprovada com sucesso!', 'success');
-            disableRow(entryId);
+            updateRowApproval(entryId, true, entryHours);
+            updateHourSummary(entryHours, 'approve');
           }} else {{
             showAlert(body.message, 'error');
           }}
@@ -1429,30 +1430,8 @@ def create_html_table_client(time_entries, recipient):
           showAlert('Erro ao aprovar hora.', 'error');
         }});
       }}
-      function toggleFieldset(legend) {{
-    var fieldset = legend.parentElement;
-    var isCollapsed = fieldset.classList.toggle('collapsed');
-    var div = fieldset.querySelector('div');
-    var arrow = legend.querySelector('.arrow');
-    if (isCollapsed) {{
-        div.style.display = 'none';
-        arrow.innerHTML = '▼';  // Seta para a direita
-    }} else {{
-        div.style.display = 'block';
-        arrow.innerHTML = '▶';  // Seta para baixo
-    }}
-}}
-// Garantir que o filtro comece colapsado
-document.addEventListener('DOMContentLoaded', function() {{
-    var fieldset = document.querySelector('fieldset.collapsible');
-    if (fieldset) {{
-        var div = fieldset.querySelector('div');
-        var arrow = fieldset.querySelector('.arrow');
-        div.style.display = 'none';
-        arrow.innerHTML = '▼';
-    }}
-}});
-      function rejectHour(entryId, token, isClient) {{
+
+      function rejectHour(entryId, token, isClient, entryHours) {{
         fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
         .then(result => {{
@@ -1460,7 +1439,8 @@ document.addEventListener('DOMContentLoaded', function() {{
           const body = result.body;
           if (status === 200) {{
             showAlert('Hora reprovada com sucesso!', 'success');
-            disableRow(entryId);
+            updateRowApproval(entryId, false, entryHours);
+            updateHourSummary(entryHours, 'reject');
           }} else {{
             showAlert(body.message, 'error');
           }}
@@ -1471,34 +1451,42 @@ document.addEventListener('DOMContentLoaded', function() {{
         }});
       }}
 
-		function updateHourSummary(entryHours) {{
+      function updateHourSummary(entryHours, action) {{
         const totalHoursElem = document.querySelector('.hours-total');
         const approvedHoursElem = document.querySelector('.hours-approved');
         const unapprovedHoursElem = document.querySelector('.hours-unapproved');
+        const repprovedHoursElem = document.querySelector('.hours-repproved');
 
         const totalHours = parseFloat(totalHoursElem.textContent);
         const approvedHours = parseFloat(approvedHoursElem.textContent);
         const unapprovedHours = parseFloat(unapprovedHoursElem.textContent);
+        const repprovedHours = parseFloat(repprovedHoursElem.textContent);
 
-        totalHoursElem.textContent = (totalHours + entryHours).toFixed(1);
-        approvedHoursElem.textContent = (approvedHours + entryHours).toFixed(1);
-        unapprovedHoursElem.textContent = (unapprovedHours - entryHours).toFixed(1);
-      }}		
+        totalHoursElem.textContent = totalHours.toFixed(1);
 
-      function disableRow(entryId) {{
+        if (action === 'approve') {{
+          approvedHoursElem.textContent = (approvedHours + entryHours).toFixed(1);
+          unapprovedHoursElem.textContent = (unapprovedHours - entryHours).toFixed(1);
+        }} else {{
+          repprovedHoursElem.textContent = (repprovedHours + entryHours).toFixed(1);
+          unapprovedHoursElem.textContent = (unapprovedHours - entryHours).toFixed(1);
+        }}
+      }}
+
+      function updateRowApproval(entryId, isApproved, entryHours) {{
         var row = document.getElementById("entry-row-" + entryId);
-        var checkBox = row.querySelector('input[type="checkbox"]');
         var approveButton = row.querySelector('.btn-approve-table');
         var rejectButton = row.querySelector('.btn-reject-table');
+        var approvedCell = row.querySelector('.approved-value');
 
-        if (checkBox) {{
-          checkBox.disabled = true;
-        }}
         if (approveButton) {{
           approveButton.classList.add('disabled');
         }}
         if (rejectButton) {{
           rejectButton.classList.add('disabled');
+        }}
+        if (approvedCell) {{
+          approvedCell.textContent = isApproved ? 'Sim' : 'Não';
         }}
       }}
 
@@ -1510,7 +1498,8 @@ document.addEventListener('DOMContentLoaded', function() {{
           }}
         }}
       }}
-	function showAlert(message, type) {{
+
+      function showAlert(message, type) {{
         var alertDiv = document.createElement('div');
         alertDiv.className = `alert alert-${type}`;
         alertDiv.textContent = message;
@@ -1532,7 +1521,7 @@ document.addEventListener('DOMContentLoaded', function() {{
         setTimeout(() => {{
             document.body.removeChild(alertDiv);
         }}, 3000);
-    }}
+      }}
     </script>
     '''
 
@@ -2575,7 +2564,7 @@ def create_html_table(time_entries):
           <td class="approved-value">{aprovado}</td>
           <td>
             <a href="#" onclick="approveHour({entry['id']}, '{token}', {is_client}, {entry['hours']})" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
-            <a href="#" onclick="rejectHour({entry['id']}, '{token}', {is_client})" class="btn btn-reject-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Reprovar</a>
+            <a href="#" onclick="rejectHour({entry['id']}, '{token}', {is_client}, {entry['hours']})" class="btn btn-reject-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Reprovar</a>
           </td>
         </tr>
         '''
@@ -2712,9 +2701,9 @@ def create_html_table(time_entries):
           const status = result.status;
           const body = result.body;
           if (status === 200) {{
-            updateHourSummary(entryHours);
             showAlert('Hora aprovada com sucesso!', 'success');
-            disableRow(entryId);
+            updateRowApproval(entryId, true, entryHours);
+            updateHourSummary(entryHours, 'approve');
           }} else {{
             showAlert(body.message, 'error');
           }}
@@ -2725,7 +2714,7 @@ def create_html_table(time_entries):
         }});
       }}
 
-      function rejectHour(entryId, token, isClient) {{
+      function rejectHour(entryId, token, isClient, entryHours) {{
         fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
         .then(result => {{
@@ -2733,7 +2722,8 @@ def create_html_table(time_entries):
           const body = result.body;
           if (status === 200) {{
             showAlert('Hora reprovada com sucesso!', 'success');
-            disableRow(entryId);
+            updateRowApproval(entryId, false, entryHours);
+            updateHourSummary(entryHours, 'reject');
           }} else {{
             showAlert(body.message, 'error');
           }}
@@ -2744,34 +2734,42 @@ def create_html_table(time_entries):
         }});
       }}
 
-      function updateHourSummary(entryHours) {{
+      function updateHourSummary(entryHours, action) {{
         const totalHoursElem = document.querySelector('.hours-total');
         const approvedHoursElem = document.querySelector('.hours-approved');
         const unapprovedHoursElem = document.querySelector('.hours-unapproved');
+        const repprovedHoursElem = document.querySelector('.hours-repproved');
 
         const totalHours = parseFloat(totalHoursElem.textContent);
         const approvedHours = parseFloat(approvedHoursElem.textContent);
         const unapprovedHours = parseFloat(unapprovedHoursElem.textContent);
+        const repprovedHours = parseFloat(repprovedHoursElem.textContent);
 
-        totalHoursElem.textContent = (totalHours + entryHours).toFixed(1);
-        approvedHoursElem.textContent = (approvedHours + entryHours).toFixed(1);
-        unapprovedHoursElem.textContent = (unapprovedHours - entryHours).toFixed(1);
+        totalHoursElem.textContent = totalHours.toFixed(1);
+
+        if (action === 'approve') {{
+          approvedHoursElem.textContent = (approvedHours + entryHours).toFixed(1);
+          unapprovedHoursElem.textContent = (unapprovedHours - entryHours).toFixed(1);
+        }} else {{
+          repprovedHoursElem.textContent = (repprovedHours + entryHours).toFixed(1);
+          unapprovedHoursElem.textContent = (unapprovedHours - entryHours).toFixed(1);
+        }}
       }}
 
-      function disableRow(entryId) {{
+      function updateRowApproval(entryId, isApproved, entryHours) {{
         var row = document.getElementById("entry-row-" + entryId);
-        var checkBox = row.querySelector('input[type="checkbox"]');
         var approveButton = row.querySelector('.btn-approve-table');
         var rejectButton = row.querySelector('.btn-reject-table');
+        var approvedCell = row.querySelector('.approved-value');
 
-        if (checkBox) {{
-          checkBox.disabled = true;
-        }}
         if (approveButton) {{
           approveButton.classList.add('disabled');
         }}
         if (rejectButton) {{
           rejectButton.classList.add('disabled');
+        }}
+        if (approvedCell) {{
+          approvedCell.textContent = isApproved ? 'Sim' : 'Não';
         }}
       }}
 
@@ -2920,7 +2918,8 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token, is_client):
                     field['value'] = '0' if tipo in ['reprovar', 'reprovar_selecionados'] else  field['value']
                 if field.get('name') == 'TS - Aprovado - CLI':
                     field['value'] = '1' if tipo in ['aprovar', 'aprovar_selecionados'] else '0'
-
+                if field.get('name') == 'TS - Dt. Aprovação - EVT':
+                    field['value'] = '' if tipo in ['reprovar', 'reprovar_selecionados'] else field['value']
                 if field.get('name') == 'TS - Dt. Aprovação - CLI':
                     field['value'] = data_atual if tipo in ['aprovar', 'aprovar_selecionados'] else ''
             update_status, update_response = update_time_entry(entry_id, custom_fields)
