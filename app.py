@@ -882,418 +882,6 @@ def create_html_table_mail(time_entries):
     return table
 
 
-@app.route('/relatorio_horas', methods=['GET'])
-def relatorio_horas_geral():
-    try:
-        # Define o período de 30 dias
-        today = datetime.today() + timedelta(days=1)
-        thirty_days_ago = today - timedelta(days=90)
-        start_date = thirty_days_ago.strftime('%Y-%m-%d')
-        end_date = today.strftime('%Y-%m-%d')
-
-        # Faz uma requisição para obter as entradas de tempo do Redmine
-        url = f'{REDMINE_URL}/time_entries.json?from={start_date}&to={end_date}'
-        entries_response = requests.get(url, headers={
-            'X-Redmine-API-Key': REDMINE_API_KEY,
-            'Content-Type': 'application/json'
-        }, verify=False)
-
-        if entries_response.ok:
-            # Filtra as entradas de tempo para incluir apenas aquelas que não foram aprovadas
-            time_entries = entries_response.json().get('time_entries', [])
-            unapproved_entries = [entry for entry in time_entries if any(
-                field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in
-                entry.get('custom_fields', []))
-                                  ]
-            entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
-            table_html = create_html_table(time_entries)
-            # Obtém o token da URL atual
-            user = get_current_user()
-            user_id = user['user']['id']
-            token = get_or_create_token(user_id, user['user']['mail'])
-            # Constrói a lista de IDs das entradas
-
-            is_client = 1 if 'client' in request.full_path else 0
-            # Extrai usuários e projetos para os filtros
-            usuarios = {entry['user']['name'] for entry in time_entries}
-            projetos = {entry['project']['name'] for entry in time_entries}
-
-            # Template HTML para renderizar a página
-            html_template = f'''
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Tempo gasto</title>
-                <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
-                <script>
-                    function filterTable() {{
-                        var input, filter, table, tr, td, i, j, txtValue;
-                        input = document.getElementById("filterInput");
-                        filter = input.value.toUpperCase();
-                        table = document.getElementById("time_entries_table");
-                        tr = table.getElementsByTagName("tr");
-
-                        for (i = 1; i < tr.length; i++) {{
-                            tr[i].style.display = "none";
-                            td = tr[i].getElementsByTagName("td");
-                            for (j = 0; j < td.length; j++) {{
-                                if (td[j]) {{
-                                    txtValue = td[j].textContent || td[j].innerText;
-                                    if (txtValue.toUpperCase().indexOf(filter) > -1) {{
-                                        tr[i].style.display = "";
-                                        break;
-                                    }}
-                                }}
-                            }}
-                        }}
-                    }}
-
-                    function filterBySelect() {{
-                        var userSelect = document.getElementById("userSelect").value.toUpperCase();
-                        var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
-                        var table = document.getElementById("time_entries_table");
-                        var tr = table.getElementsByTagName("tr");
-                        for (var i = 1; i < tr.length; i++) {{
-                            tr[i].style.display = "none";
-                            var userTd = tr[i].getElementsByTagName("td")[2];
-                            var projectTd = tr[i].getElementsByTagName("td")[4];
-                            if (userTd && projectTd) {{
-                                var userValue = userTd.textContent || userTd.innerText;
-                                var projectValue = projectTd.textContent || projectTd.innerText;
-                                if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
-                                    (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect)) {{
-                                    tr[i].style.display = "";
-                                }}
-                            }}
-                        }}
-                    }}
-
-                    function toggleFieldset(legend) {{
-    var fieldset = legend.parentElement;
-    var isCollapsed = fieldset.classList.toggle('collapsed');
-    var div = fieldset.querySelector('div');
-    var arrow = legend.querySelector('.arrow');
-    if (isCollapsed) {{
-        div.style.display = 'none';
-        arrow.innerHTML = '▼';  // Seta para a direita
-    }} else {{
-        div.style.display = 'block';
-        arrow.innerHTML = '▶';  // Seta para baixo
-    }}
-}}
-// Garantir que o filtro comece colapsado
-document.addEventListener('DOMContentLoaded', function() {{
-    var fieldset = document.querySelector('fieldset.collapsible');
-    if (fieldset) {{
-        var div = fieldset.querySelector('div');
-        var arrow = fieldset.querySelector('.arrow');
-        div.style.display = 'none';
-        arrow.innerHTML = '▼';
-    }}
-}});
-
-                    function toggleAll(source) {{
-                        checkboxes = document.getElementsByName('selected_entries');
-                        for(var i=0, n=checkboxes.length;i<n;i++) {{
-                            checkboxes[i].checked = source.checked;
-                        }}
-                    }}
-
-                    function getFilteredTableData() {{
-                        var table = document.getElementById("time_entries_table");
-                        var tr = table.getElementsByTagName("tr");
-                        var data = [];
-                        var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
-
-                        if (checkboxes.length > 0) {{
-                            for (var checkbox of checkboxes) {{
-                                var row = checkbox.closest("tr");
-                                var td = row.getElementsByTagName("td");
-
-
-
-                                var entry = {{
-                                    id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
-                                    date: td[1] ? td[1].textContent : "N/A",
-                                    user: td[2] ? td[2].textContent : "N/A",
-                                    activity: td[3] ? td[3].textContent : "N/A",
-                                    project: td[4] ? td[4].textContent : "N/A",
-                                    comments: td[5] ? td[5].textContent : "N/A",
-                                    start_time: td[6] ? td[6].textContent : "N/A",
-                                    end_time: td[7] ? td[7].textContent : "N/A",
-                                    hours: td[8] ? td[8].textContent : "N/A"
-                                }};
-
-                                data.push(entry);
-                            }}
-                        }} else {{
-                            for (var i = 1; i < tr.length; i++) {{
-                                if (tr[i].style.display !== "none") {{
-                                    var td = tr[i].getElementsByTagName("td");
-
-
-                                    var entry = {{
-                                        id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
-                                        date: td[1] ? td[1].textContent : "N/A",
-                                        user: td[2] ? td[2].textContent : "N/A",
-                                        activity: td[3] ? td[3].textContent : "N/A",
-                                        project: td[4] ? td[4].textContent : "N/A",
-                                        comments: td[5] ? td[5].textContent : "N/A",
-                                        start_time: td[6] ? td[6].textContent : "N/A",
-                                        end_time: td[7] ? td[7].textContent : "N/A",
-                                        hours: td[8] ? td[8].textContent : "N/A"
-                                    }};
-
-
-                                    data.push(entry);
-                                }}
-                            }}
-                        }}
-
-                        return data;
-                    }}
-
-                    function sendFilteredData() {{
-                        var data = getFilteredTableData();
-                        fetch('/send_email_report_client_geral', {{
-                            method: 'POST',
-                            headers: {{
-                                'Content-Type': 'application/json'
-                            }},
-                            body: JSON.stringify({{ entries: data }})
-                        }})
-                        .then(response => response.json())
-                        .then(data => {{
-                            showAlert('Relatório enviado com sucesso', 'success');
-                        }})
-                        .catch((error) => {{
-                            showAlert('Erro ao enviar o relatório: ' + error, 'error');
-                        }});
-                    }}
-
-                    function showAlert(message, type) {{
-                        var alertDiv = document.createElement('div');
-                        alertDiv.className = `alert alert-${type}`;
-                        alertDiv.textContent = message;
-
-                        // Estilização básica para o popup
-                        alertDiv.style.position = 'fixed';
-                        alertDiv.style.top = '20px';
-                        alertDiv.style.left = '50%';
-                        alertDiv.style.transform = 'translateX(-50%)';
-                        alertDiv.style.padding = '10px';
-                        alertDiv.style.zIndex = 1000;
-                        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
-                        alertDiv.style.color = 'white';
-                        alertDiv.style.borderRadius = '5px';
-                        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
-                        alertDiv.style.fontSize = '16px';
-
-                        document.body.appendChild(alertDiv);
-
-                        // Remover o popup após 3 segundos
-                        setTimeout(() => {{
-                            document.body.removeChild(alertDiv);
-                        }}, 3000);
-                    }}
-                </script>
-              <style>
-    .container {{
-        display: flex;
-        flex-direction: column;
-        margin-top: 0; /* Remove qualquer margem superior */
-    }}
-    .filters-container {{
-        display: flex;
-        justify-content: center; /* Alinha os itens no início */
-        margin-bottom: 10px;
-        width: 100%; /* Garante que ocupe a largura total */
-    }}
-    fieldset {{
-        border: none;
-        margin: 0; /* Remove margem */
-        padding: 0; /* Remove padding */
-    }}
-    .filters {{
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
-                        margin: 0; /* Remove margem */
-                        padding: 0; /* Remove padding */
-                    }}
-    .table-container {{
-                        width: 100%;
-                        max-height: 450px; /* Define uma altura máxima para a tabela */
-                    }}
-                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-        width: 120px; /* Define uma largura menor para a coluna "Ações" */
-        text-align: center; /* Centraliza o texto e os botões na coluna */
-    }}
-					.table-container td {{
-                        padding: 4px; /* Diminui a altura dos td */
-                        text-align: left;
-                        border-bottom: 1px solid #ddd;
-                        vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
-                        white-space: nowrap; /* Impede quebra de linha em células */
-                        overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
-                        text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
-                    }}
-                    .table-container th {{
-                        background-color: #f2f2f2;
-                        position: sticky;
-                        top: 0;
-                        z-index: 1;
-                        text-align: center; /* Centraliza o texto do thead */
-                    }}
-					.table-container {{
-                            font-size: 0.9em;
-                        }}
-    .btn-relatorio {{
-        background-color: #1E90FF; /* Cor azul padrão */
-        color: white; /* Texto branco */
-        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
-        border-radius: 5px; /* Bordas arredondadas */
-        border: none; /* Remover borda */
-        transition: background-color 0.3s; /* Suavização da transição de cor */
-    }}
-    .btn-relatorio:hover {{
-        background-color: #63B8FF; /* Azul claro ao passar o mouse */
-    }}
-    .btn-group {{
-        display: flex;
-        justify-content: center;
-        margin-top: 20px;
-    }}
-    .btn-approve-table, .btn-reject-table {{
-                        display: inline-block;
-                        width: 90px;
-                        margin-right: 5px; /* Adiciona espaçamento entre os botões */
-                        text-align: center; /* Centraliza o texto do botão */
-                    }}
-                    .btn-approve-table {{
-                        background-color: #28a745;
-                        color: white;
-                        margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
-                    }}
-
-                    .btn-reject-table {{
-                        background-color: #dc3545;
-                        color: white;
-                        margin-top: 5px;
-                    }}
-                    .btn-approve-table.disabled, .btn-reject-table.disabled {{
-                        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
-                    }}
-					
-.btn-relatorio:hover {{
-                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
-                    }}
-    @media (max-width: 768px) {{
-        .container {{
-            padding: 10px;
-        }}
-        .header-logo h1 {{
-            font-size: 1.5em;
-        }}
-        .filters {{
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
-                        margin: 0; /* Remove margem */
-                        padding: 0; /* Remove padding */
-                    }}
-        .table-container {{
-            font-size: 0.9em;
-        }}
-        .btn-group {{
-            flex-direction: column;
-            align-items: center;
-        }}
-        .btn-group .btn-relatorio {{
-            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
-            height: 40px; /* Garante que a altura do botão seja mantida */
-            margin: 0px 0;
-        }}
-        
-    }}
-    .filters label, .legend-button {{
-        color: black;
-    }}
-    
-    table {{
-        width: 100%;
-    }}
-</style>
-
-            </head>
-            <body>
-                <div id="header">
-                    <div class="header-logo">
-                        <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
-                        <h1>EVT - Aprovação de Horas</h1>
-                    </div>
-                </div>
-                <div class="container">
-                    <div class="filters-container">
-                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
-                            <fieldset class="collapsible collapsed">
-                                <legend class="legend-text" onclick="toggleFieldset(this);">
-                                    <span class="legend-button">
-                                        <span class="arrow">▶</span>
-                                        Filtros
-                                    </span>
-                                </legend>
-                                <div>
-                                    <label for="filterInput">Buscar:</label>
-                                    <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
-                                    <label for="userSelect">Usuário:</label>
-                                    <select id="userSelect" onchange="filterBySelect()">
-                                        <option value="ALL">Todos</option>
-                                        {''.join([f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
-                                    </select>
-                                    <label for="projectSelect">Projeto:</label>
-                                    <select id="projectSelect" onchange="filterBySelect()">
-                                        <option value="ALL">Todos</option>
-                                        {''.join([f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
-                                    </select>
-                                </div>
-                            </fieldset>
-                        </form>
-                    </div>
-                    <div class="table-container">
-                        {table_html}
-                        <div id="all-actions" class="btn-group">
-                            <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
-                            <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
-                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
-                        
-                        </div>
-                        <div id="selected-actions" class="btn-group">
-                            <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
-                            <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
-                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
-                        </div
-                    </div>
-                    
-                    </div>
-                    
-                    
-                </div>
-                <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
-            </body>
-            </html>
-            '''
-
-            return render_template_string(html_template)
-        else:
-            logger.error(f"Erro ao buscar entradas de tempo: {entries_response.status_code}")
-            return render_response("Erro ao buscar entradas de tempo", 500)
-    except Exception as e:
-        logger.error(f"Erro ao gerar a página HTML: {e}")
-        return render_response("Erro ao gerar a página HTML", 500)
-
 
 @app.route('/relatorio_horas_client/<int:user_id>', methods=['GET'])
 def relatorio_horas_client(user_id):
@@ -1947,28 +1535,28 @@ def relatorio_horas(user_id):
                 <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
                 <script>
                     function toggleFieldset(legend) {{
-    var fieldset = legend.parentElement;
-    var isCollapsed = fieldset.classList.toggle('collapsed');
-    var div = fieldset.querySelector('div');
-    var arrow = legend.querySelector('.arrow');
-    if (isCollapsed) {{
-        div.style.display = 'none';
-        arrow.innerHTML = '▼';  // Seta para a direita
-    }} else {{
-        div.style.display = 'block';
-        arrow.innerHTML = '▶';  // Seta para baixo
-    }}
-}}
-// Garantir que o filtro comece colapsado
-document.addEventListener('DOMContentLoaded', function() {{
-    var fieldset = document.querySelector('fieldset.collapsible');
-    if (fieldset) {{
-        var div = fieldset.querySelector('div');
-        var arrow = fieldset.querySelector('.arrow');
-        div.style.display = 'none';
-        arrow.innerHTML = '▼';
-    }}
-}});
+                        var fieldset = legend.parentElement;
+                        var isCollapsed = fieldset.classList.toggle('collapsed');
+                        var div = fieldset.querySelector('div');
+                        var arrow = legend.querySelector('.arrow');
+                        if (isCollapsed) {{
+                            div.style.display = 'none';
+                            arrow.innerHTML = '▼';  // Seta para a direita
+                        }} else {{
+                            div.style.display = 'block';
+                            arrow.innerHTML = '▶';  // Seta para baixo
+                        }}
+                    }}
+                    // Garantir que o filtro comece colapsado
+                    document.addEventListener('DOMContentLoaded', function() {{
+                        var fieldset = document.querySelector('fieldset.collapsible');
+                        if (fieldset) {{
+                            var div = fieldset.querySelector('div');
+                            var arrow = fieldset.querySelector('.arrow');
+                            div.style.display = 'none';
+                            arrow.innerHTML = '▼';
+                        }}
+                    }});
 
                     function filterTable() {{
                         var input, filter, table, tr, td, i, j, txtValue;
@@ -1976,6 +1564,10 @@ document.addEventListener('DOMContentLoaded', function() {{
                         filter = input.value.toUpperCase();
                         table = document.getElementById("time_entries_table");
                         tr = table.getElementsByTagName("tr");
+
+                        let totalHours = 0;
+                        let approvedHours = 0;
+                        let unapprovedHours = 0;
 
                         for (i = 1; i < tr.length; i++) {{
                             tr[i].style.display = "none";
@@ -1985,11 +1577,21 @@ document.addEventListener('DOMContentLoaded', function() {{
                                     txtValue = td[j].textContent || td[j].innerText;
                                     if (txtValue.toUpperCase().indexOf(filter) > -1) {{
                                         tr[i].style.display = "";
+                                        totalHours += parseFloat(td[8].textContent);
+                                        if (td[9].textContent === 'Sim') {{
+                                            approvedHours += parseFloat(td[8].textContent);
+                                        }} else {{
+                                            unapprovedHours += parseFloat(td[8].textContent);
+                                        }}
                                         break;
                                     }}
                                 }}
                             }}
                         }}
+
+                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                        document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
                     }}
 
                     function filterBySelect() {{
@@ -1997,6 +1599,11 @@ document.addEventListener('DOMContentLoaded', function() {{
                         var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
                         var table = document.getElementById("time_entries_table");
                         var tr = table.getElementsByTagName("tr");
+
+                        let totalHours = 0;
+                        let approvedHours = 0;
+                        let unapprovedHours = 0;
+
                         for (var i = 1; i < tr.length; i++) {{
                             tr[i].style.display = "none";
                             var userTd = tr[i].getElementsByTagName("td")[2];
@@ -2007,9 +1614,19 @@ document.addEventListener('DOMContentLoaded', function() {{
                                 if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
                                     (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect)) {{
                                     tr[i].style.display = "";
+                                    totalHours += parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
+                                    if (tr[i].getElementsByTagName("td")[9].textContent === 'Sim') {{
+                                        approvedHours += parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
+                                    }} else {{
+                                        unapprovedHours += parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
+                                    }}
                                 }}
                             }}
                         }}
+
+                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                        document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
                     }}
 
                     function toggleAll(source) {{
@@ -2137,39 +1754,39 @@ document.addEventListener('DOMContentLoaded', function() {{
         padding: 0; /* Remove padding */
     }}
     .filters {{
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
-                        margin: 0; /* Remove margem */
-                        padding: 0; /* Remove padding */
-                    }}
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0; /* Remove margem */
+        padding: 0; /* Remove padding */
+    }}
     .table-container {{
-                        width: 100%;
-                        max-height: 450px; /* Define uma altura máxima para a tabela */
-                    }}
-                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+        width: 100%;
+        max-height: 450px; /* Define uma altura máxima para a tabela */
+    }}
+    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
         width: 120px; /* Define uma largura menor para a coluna "Ações" */
         text-align: center; /* Centraliza o texto e os botões na coluna */
     }}
-					.table-container td {{
-                        padding: 4px; /* Diminui a altura dos td */
-                        text-align: left;
-                        border-bottom: 1px solid #ddd;
-                        vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
-                        white-space: nowrap; /* Impede quebra de linha em células */
-                        overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
-                        text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
-                    }}
-                    .table-container th {{
-                        background-color: #f2f2f2;
-                        position: sticky;
-                        top: 0;
-                        z-index: 1;
-                        text-align: center; /* Centraliza o texto do thead */
-                    }}
-					.table-container {{
-                            font-size: 0.9em;
-                        }}
+    .table-container td {{
+        padding: 4px; /* Diminui a altura dos td */
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+        vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
+        white-space: nowrap; /* Impede quebra de linha em células */
+        overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
+        text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
+    }}
+    .table-container th {{
+        background-color: #f2f2f2;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        text-align: center; /* Centraliza o texto do thead */
+    }}
+    .table-container {{
+        font-size: 0.9em;
+    }}
     .btn-relatorio {{
         background-color: #1E90FF; /* Cor azul padrão */
         color: white; /* Texto branco */
@@ -2187,45 +1804,51 @@ document.addEventListener('DOMContentLoaded', function() {{
         margin-top: 20px;
     }}
     .btn-approve-table, .btn-reject-table {{
-                        display: inline-block;
-                        width: 90px;
-                        margin-right: 5px; /* Adiciona espaçamento entre os botões */
-                        text-align: center; /* Centraliza o texto do botão */
-                    }}
-                    .btn-approve-table {{
-                        background-color: #28a745;
-                        color: white;
-                        margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
-                    }}
+        display: inline-block;
+        width: 90px;
+        margin-right: 5px; /* Adiciona espaçamento entre os botões */
+        text-align: center; /* Centraliza o texto do botão */
+    }}
+    .btn-approve-table {{
+        background-color: #28a745;
+        color: white;
+        margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
+    }}
 
-                    .btn-reject-table {{
-                        background-color: #dc3545;
-                        color: white;
-                        margin-top: 5px;
-                    }}
-                    .btn-approve-table.disabled, .btn-reject-table.disabled {{
-                        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
-                    }}
-					
-.btn-relatorio:hover {{
-                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
-                    }}
+    .btn-reject-table {{
+        background-color: #dc3545;
+        color: white;
+        margin-top: 5px;
+    }}
+    .btn-approve-table.disabled, .btn-reject-table.disabled {{
+        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+    }}
+
+    .btn-relatorio:hover {{
+        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+    }}
     @media (max-width: 768px) {{
         .container {{
             padding: 10px;
+            overflow-y: auto;
+            max-height: 80vh;
         }}
         .header-logo h1 {{
             font-size: 1.5em;
         }}
         .filters {{
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
-                        margin: 0; /* Remove margem */
-                        padding: 0; /* Remove padding */
-                    }}
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0; /* Remove margem */
+            padding: 0; /* Remove padding */
+        }}
+        .table-wrapper {{
+            overflow-x: auto;
+        }}
         .table-container {{
             font-size: 0.9em;
+            overflow-x: scroll;
         }}
         .btn-group {{
             flex-direction: column;
@@ -2236,16 +1859,13 @@ document.addEventListener('DOMContentLoaded', function() {{
             height: 40px; /* Garante que a altura do botão seja mantida */
             margin: 0px 0;
         }}
-        
     }}
     .filters label, .legend-button {{
         color: black;
     }}
-    
     table {{
         width: 100%;
     }}
-    
 </style>
             </head>
             <body>
@@ -2288,18 +1908,476 @@ document.addEventListener('DOMContentLoaded', function() {{
                             <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
                             <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
                             <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
-                        
+
                         </div>
                         <div id="selected-actions" class="btn-group">
                             <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
                             <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
                             <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
-                        </div
+                        </div>
                     </div>
-                    
+                </div>
+                <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
+            </body>
+            </html>
+            '''
+
+            return render_template_string(html_template)
+        else:
+            logger.error(f"Erro ao buscar entradas de tempo: {entries_response.status_code}")
+            return render_response("Erro ao buscar entradas de tempo", 500)
+    except Exception as e:
+        logger.error(f"Erro ao gerar a página HTML: {e}")
+        return render_response("Erro ao gerar a página HTML", 500)
+
+
+@app.route('/relatorio_horas', methods=['GET'])
+def relatorio_horas_geral():
+    try:
+        # Define o período de 30 dias
+        today = datetime.today() + timedelta(days=1)
+        thirty_days_ago = today - timedelta(days=90)
+        start_date = thirty_days_ago.strftime('%Y-%m-%d')
+        end_date = today.strftime('%Y-%m-%d')
+
+        # Faz uma requisição para obter as entradas de tempo do Redmine
+        url = f'{REDMINE_URL}/time_entries.json?from={start_date}&to={end_date}'
+        entries_response = requests.get(url, headers={
+            'X-Redmine-API-Key': REDMINE_API_KEY,
+            'Content-Type': 'application/json'
+        }, verify=False)
+
+        if entries_response.ok:
+            # Filtra as entradas de tempo para incluir apenas aquelas que não foram aprovadas
+            time_entries = entries_response.json().get('time_entries', [])
+            unapproved_entries = [entry for entry in time_entries if any(
+                field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in
+                entry.get('custom_fields', []))
+                                  ]
+            entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
+            table_html = create_html_table(time_entries)
+            # Obtém o token da URL atual
+            user = get_current_user()
+            user_id = user['user']['id']
+            token = get_or_create_token(user_id, user['user']['mail'])
+            # Constrói a lista de IDs das entradas
+
+            is_client = 1 if 'client' in request.full_path else 0
+            # Extrai usuários e projetos para os filtros
+            usuarios = {entry['user']['name'] for entry in time_entries}
+            projetos = {entry['project']['name'] for entry in time_entries}
+
+            # Template HTML para renderizar a página
+            # Template HTML para renderizar a página
+            # Template HTML para renderizar a página
+            # Template HTML para renderizar a página
+            html_template = f'''
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Tempo gasto</title>
+                <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {{
+                        var fieldset = document.querySelector('fieldset.collapsible');
+                        if (fieldset) {{
+                            var div = fieldset.querySelector('div');
+                            var arrow = fieldset.querySelector('.arrow');
+                            div.style.display = 'none';
+                            arrow.innerHTML = '▼';
+                        }}
+
+                        document.getElementById("filterInput").addEventListener("keyup", function() {{
+                            filterTable();
+                        }});
+
+                        document.getElementById("userSelect").addEventListener("change", function() {{
+                            filterBySelect();
+                        }});
+
+                        document.getElementById("projectSelect").addEventListener("change", function() {{
+                            filterBySelect();
+                        }});
+
+                        console.log("Event listeners added.");
+                    }});
+
+                    function toggleFieldset(legend) {{
+                        var fieldset = legend.parentElement;
+                        var isCollapsed = fieldset.classList.toggle('collapsed');
+                        var div = fieldset.querySelector('div');
+                        var arrow = legend.querySelector('.arrow');
+                        if (isCollapsed) {{
+                            div.style.display = 'none';
+                            arrow.innerHTML = '▼';  // Seta para a direita
+                        }} else {{
+                            div.style.display = 'block';
+                            arrow.innerHTML = '▶';  // Seta para baixo
+                        }}
+                    }}
+
+                    function filterTable() {{
+                        var input, filter, table, tr, td, i, j, txtValue;
+                        input = document.getElementById("filterInput");
+                        filter = input.value.toUpperCase();
+                        table = document.getElementById("time_entries_table");
+                        tr = table.getElementsByTagName("tr");
+
+                        for (i = 1; i < tr.length; i++) {{
+                            tr[i].style.display = "none";
+                            td = tr[i].getElementsByTagName("td");
+                            for (j = 0; j < td.length; j++) {{
+                                if (td[j]) {{
+                                    txtValue = td[j].textContent || td[j].innerText;
+                                    if (txtValue.toUpperCase().indexOf(filter) > -1) {{
+                                        tr[i].style.display = "";
+                                        break;
+                                    }}
+                                }}
+                            }}
+                        }}
+                        updateHourSummary();
+                    }}
+
+                    function filterBySelect() {{
+                        console.log("filterBySelect called");
+                        var userSelect = document.getElementById("userSelect").value.toUpperCase();
+                        var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
+                        var table = document.getElementById("time_entries_table");
+                        var tr = table.getElementsByTagName("tr");
+
+                        for (var i = 1; i < tr.length; i++) {{
+                            tr[i].style.display = "none";
+                            var userTd = tr[i].getElementsByTagName("td")[2];
+                            var projectTd = tr[i].getElementsByTagName("td")[4];
+                            if (userTd && projectTd) {{
+                                var userValue = userTd.textContent || userTd.innerText;
+                                var projectValue = projectTd.textContent || projectTd.innerText;
+                                if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
+                                    (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect)) {{
+                                    tr[i].style.display = "";
+                                }}
+                            }}
+                        }}
+
+                        console.log("updateHourSummary called");
+                        var totalHours = 0;
+                        var approvedHours = 0;
+                        var unapprovedHours = 0;
+
+                        for (var i = 1; i < tr.length; i++) {{
+                            if (tr[i].style.display !== "none") {{
+                                var td = tr[i].getElementsByTagName("td");
+                                var hours = parseFloat(td[8].textContent) || 0;
+                                console.log("Row " + i + ": hours = " + hours);
+                                totalHours += hours;
+                                if (td[9].textContent === "Sim") {{
+                                    approvedHours += hours;
+                                }} else {{
+                                    unapprovedHours += hours;
+                                }}
+                            }}
+                        }}
+
+                        console.log("Total Hours: " + totalHours, "Approved Hours: " + approvedHours, "Unapproved Hours: " + unapprovedHours);
+
+                        var totalElem = document.querySelector('.hours-total');
+                        var approvedElem = document.querySelector('.hours-approved');
+                        var unapprovedElem = document.querySelector('.hours-unapproved');
+
+                        if (totalElem) {{
+                            totalElem.textContent = totalHours.toFixed(1);
+                        }} else {{
+                            console.log("totalElem not found");
+                        }}
+
+                        if (approvedElem) {{
+                            approvedElem.textContent = approvedHours.toFixed(1);
+                        }} else {{
+                            console.log("approvedElem not found");
+                        }}
+
+                        if (unapprovedElem) {{
+                            unapprovedElem.textContent = unapprovedHours.toFixed(1);
+                        }} else {{
+                            console.log("unapprovedElem not found");
+                        }}
+                    }}
+
+                    function toggleAll(source) {{
+                        checkboxes = document.getElementsByName('selected_entries');
+                        for(var i=0, n=checkboxes.length; i<n; i++) {{
+                            checkboxes[i].checked = source.checked;
+                        }}
+                    }}
+
+                    function getFilteredTableData() {{
+                        var table = document.getElementById("time_entries_table");
+                        var tr = table.getElementsByTagName("tr");
+                        var data = [];
+                        var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
+
+                        if (checkboxes.length > 0) {{
+                            for (var checkbox of checkboxes) {{
+                                var row = checkbox.closest("tr");
+                                var td = row.getElementsByTagName("td");
+
+                                var entry = {{
+                                    id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                    date: td[1] ? td[1].textContent : "N/A",
+                                    user: td[2] ? td[2].textContent : "N/A",
+                                    activity: td[3] ? td[3].textContent : "N/A",
+                                    project: td[4] ? td[4].textContent : "N/A",
+                                    comments: td[5] ? td[5].textContent : "N/A",
+                                    start_time: td[6] ? td[6].textContent : "N/A",
+                                    end_time: td[7] ? td[7].textContent : "N/A",
+                                    hours: td[8] ? td[8].textContent : "N/A"
+                                }};
+
+                                data.push(entry);
+                            }}
+                        }} else {{
+                            for (var i = 1; i < tr.length; i++) {{
+                                if (tr[i].style.display !== "none") {{
+                                    var td = tr[i].getElementsByTagName("td");
+
+                                    var entry = {{
+                                        id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                        date: td[1] ? td[1].textContent : "N/A",
+                                        user: td[2] ? td[2].textContent : "N/A",
+                                        activity: td[3] ? td[3].textContent : "N/A",
+                                        project: td[4] ? td[4].textContent : "N/A",
+                                        comments: td[5] ? td[5].textContent : "N/A",
+                                        start_time: td[6] ? td[6].textContent : "N/A",
+                                        end_time: td[7] ? td[7].textContent : "N/A",
+                                        hours: td[8] ? td[8].textContent : "N/A"
+                                    }};
+
+                                    data.push(entry);
+                                }}
+                            }}
+                        }}
+
+                        return data;
+                    }}
+
+                    function sendFilteredData() {{
+                        var data = getFilteredTableData();
+                        fetch('/send_email_report_client_geral', {{
+                            method: 'POST',
+                            headers: {{
+                                'Content-Type': 'application/json'
+                            }},
+                            body: JSON.stringify({{ entries: data }})
+                        }})
+                        .then(response => response.json())
+                        .then(data => {{
+                            showAlert('Relatório enviado com sucesso', 'success');
+                        }})
+                        .catch((error) => {{
+                            showAlert('Erro ao enviar o relatório: ' + error, 'error');
+                        }});
+                    }}
+
+                    function showAlert(message, type) {{
+                        var alertDiv = document.createElement('div');
+                        alertDiv.className = `alert alert-${type}`;
+                        alertDiv.textContent = message;
+
+                        // Estilização básica para o popup
+                        alertDiv.style.position = 'fixed';
+                        alertDiv.style.top = '20px';
+                        alertDiv.style.left = '50%';
+                        alertDiv.style.transform = 'translateX(-50%)';
+                        alertDiv.style.padding = '10px';
+                        alertDiv.style.zIndex = 1000;
+                        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+                        alertDiv.style.color = 'white';
+                        alertDiv.style.borderRadius = '5px';
+                        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
+                        alertDiv.style.fontSize = '16px';
+
+                        document.body.appendChild(alertDiv);
+
+                        // Remover o popup após 3 segundos
+                        setTimeout(() => {{
+                            document.body.removeChild(alertDiv);
+                        }}, 3000);
+                    }}
+                </script>
+                <style>
+                    .container {{
+                        display: flex;
+                        flex-direction: column;
+                        margin-top: 0; /* Remove qualquer margem superior */
+                    }}
+                    .filters-container {{
+                        display: flex;
+                        justify-content: center; /* Alinha os itens no início */
+                        margin-bottom: 10px;
+                        width: 100%; /* Garante que ocupe a largura total */
+                    }}
+                    fieldset {{
+                        border: none;
+                        margin: 0; /* Remove margem */
+                        padding: 0; /* Remove padding */
+                    }}
+                    .filters {{
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        margin: 0; /* Remove margem */
+                        padding: 0; /* Remove padding */
+                    }}
+                    .table-container {{
+                        width: 100%;
+                        max-height: 450px; /* Define uma altura máxima para a tabela */
+                    }}
+                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                        width: 120px; /* Define uma largura menor para a coluna "Ações" */
+                        text-align: center; /* Centraliza o texto e os botões na coluna */
+                    }}
+                    .table-container td {{
+                        padding: 4px; /* Diminui a altura dos td */
+                        text-align: left;
+                        border-bottom: 1px solid #ddd;
+                        vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
+                        white-space: nowrap; /* Impede quebra de linha em células */
+                        overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
+                        text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
+                    }}
+                    .table-container th {{
+                        background-color: #f2f2f2;
+                        position: sticky;
+                        top: 0;
+                        z-index: 1;
+                        text-align: center; /* Centraliza o texto do thead */
+                    }}
+                    .table-container {{
+                        font-size: 0.9em;
+                    }}
+                    .btn-relatorio {{
+                        background-color: #1E90FF; /* Cor azul padrão */
+                        color: white; /* Texto branco */
+                        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+                        border-radius: 5px; /* Bordas arredondadas */
+                        border: none; /* Remover borda */
+                        transition: background-color 0.3s; /* Suavização da transição de cor */
+                    }}
+                    .btn-relatorio:hover {{
+                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                    }}
+                    .btn-group {{
+                        display: flex;
+                        justify-content: center;
+                        margin-top: 20px;
+                    }}
+                    .btn-approve-table, .btn-reject-table {{
+                        display: inline-block;
+                        width: 90px;
+                        margin-right: 5px; /* Adiciona espaçamento entre os botões */
+                        text-align: center; /* Centraliza o texto do botão */
+                    }}
+                    .btn-approve-table {{
+                        background-color: #28a745;
+                        color: white;
+                        margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
+                    }}
+                    .btn-reject-table {{
+                        background-color: #dc3545;
+                        color: white;
+                        margin-top: 5px;
+                    }}
+                    .btn-approve-table.disabled, .btn-reject-table.disabled {{
+                        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+                    }}
+                    .btn-relatorio:hover {{
+                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                    }}
+                    @media (max-width: 768px) {{
+                        .container {{
+                            padding: 10px;
+                        }}
+                        .header-logo h1 {{
+                            font-size: 1.5em;
+                        }}
+                        .filters {{
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                            margin: 0; /* Remove margem */
+                            padding: 0; /* Remove padding */
+                        }}
+                        .table-container {{
+                            font-size: 0.9em;
+                        }}
+                        .btn-group {{
+                            flex-direction: column;
+                            align-items: center;
+                        }}
+                        .btn-group .btn-relatorio {{
+                            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
+                            height: 40px; /* Garante que a altura do botão seja mantida */
+                            margin: 0px 0;
+                        }}
+                    }}
+                    .filters label, .legend-button {{
+                        color: black;
+                    }}
+                    table {{
+                        width: 100%;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div id="header">
+                    <div class="header-logo">
+                        <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
+                        <h1>EVT - Aprovação de Horas</h1>
                     </div>
-                    
-                    
+                </div>
+                <div class="container">
+                    <div class="filters-container">
+                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
+                            <fieldset class="collapsible collapsed">
+                                <legend class="legend-text" onclick="toggleFieldset(this);">
+                                    <span class="legend-button">
+                                        <span class="arrow">▶</span>
+                                        Filtros
+                                    </span>
+                                </legend>
+                                <div>
+                                    <label for="filterInput">Buscar:</label>
+                                    <input type="text" id="filterInput" onkeyup="filterTable();" placeholder="Digite para buscar...">
+                                    <label for="userSelect">Usuário:</label>
+                                    <select id="userSelect" onchange="filterBySelect();">
+                                        <option value="ALL">Todos</option>
+                                        {''.join([f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
+                                    </select>
+                                    <label for="projectSelect">Projeto:</label>
+                                    <select id="projectSelect" onchange="filterBySelect();">
+                                        <option value="ALL">Todos</option>
+                                        {''.join([f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
+                                    </select>
+                                </div>
+                            </fieldset>
+                        </form>
+                    </div>
+                    <div class="table-container">
+                        {table_html}
+                        <div id="all-actions" class="btn-group">
+                            <a href="{API_URL}aprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-approve" target="_blank">Aprovar Todos</a>
+                            <a href="{API_URL}reprovar_todos?token={token}&entries={entry_ids}&client={is_client}" class="btn btn-reject" target="_blank">Reprovar Todos</a>
+                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
+                        </div>
+                        <div id="selected-actions" class="btn-group">
+                            <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
+                            <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
+                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
+                        </div>
+                    </div>
                 </div>
                 <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
             </body>
@@ -2381,8 +2459,8 @@ def create_html_table(time_entries):
           <td>{entry['comments']}</td>
           <td>{hora_inicial}</td>
           <td>{hora_final}</td>
-          <td>{entry['hours']}</td>
-          <td>{aprovado}</td>
+          <td class="hours-value">{entry['hours']}</td>
+          <td class="approved-value">{aprovado}</td>
           <td>
             <a href="#" onclick="approveHour({entry['id']}, '{token}', {is_client}, {entry['hours']})" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
             <a href="#" onclick="rejectHour({entry['id']}, '{token}', {is_client})" class="btn btn-reject-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Reprovar</a>
@@ -2395,7 +2473,6 @@ def create_html_table(time_entries):
         </table>
       </div>
       <br>
-      </div>
       </div>
       <div class="hours-summary">
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
@@ -2442,29 +2519,29 @@ def create_html_table(time_entries):
         background: white;
         z-index: 10;
         box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
-        padding: 8px 4px; /* Aumenta a altura do thead */
-        min-height: 10px; /* Define uma altura mínima para o thead */
-        text-align: center; /* Centraliza os textos do thead */
+        padding: 8px 4px;
+        min-height: 10px;
+        text-align: center;
       }}
       .table-container td {{
-        white-space: nowrap; /* Impede quebra de linha */
+        white-space: nowrap;
       }}
       .btn {{
-        display: inline-block; /* Garante que os botões fiquem lado a lado */
-        margin-right: 5px; /* Espaçamento entre os botões */
+        display: inline-block;
+        margin-right: 5px;
       }}
       .btn-approve-table, .btn-reject-table {{
         display: inline-block;
         width: 70px;
-        margin-right: 2px; /* Adiciona espaçamento entre os botões */
-        text-align: center; /* Centraliza o texto do botão */
-        font-size: 0.8em; /* Reduz o tamanho da fonte */
-        padding: 5px; /* Ajusta o padding */
+        margin-right: 2px;
+        text-align: center;
+        font-size: 0.8em;
+        padding: 5px;
       }}
       .btn-approve-table {{
         background-color: #28a745;
         color: white;
-        margin-bottom: 2px; /* Adiciona espaçamento vertical entre os botões */
+        margin-bottom: 2px;
       }}
       .btn-reject-table {{
         background-color: #dc3545;
@@ -2472,7 +2549,7 @@ def create_html_table(time_entries):
         margin-top: 2px;
       }}
       .btn.disabled {{
-        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+        visibility: hidden;
       }}
       @media (max-width: 768px) {{
         .container {{
@@ -2487,8 +2564,8 @@ def create_html_table(time_entries):
             display: flex;
             align-items: center;
             gap: 10px;
-            margin: 0; /* Remove margem */
-            padding: 0; /* Remove padding */
+            margin: 0;
+            padding: 0;
         }}
         .table-wrapper {{
             overflow-x: auto;
@@ -2502,8 +2579,8 @@ def create_html_table(time_entries):
             align-items: center;
         }}
         .btn-group .btn-relatorio {{
-            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
-            height: 40px; /* Garante que a altura do botão seja mantida */
+            width: 180px;
+            height: 40px;
             margin: 0px 0;
         }}
     }}
@@ -2531,29 +2608,7 @@ def create_html_table(time_entries):
           showAlert('Erro ao aprovar hora.', 'error');
         }});
       }}
-      function toggleFieldset(legend) {{
-    var fieldset = legend.parentElement;
-    var isCollapsed = fieldset.classList.toggle('collapsed');
-    var div = fieldset.querySelector('div');
-    var arrow = legend.querySelector('.arrow');
-    if (isCollapsed) {{
-        div.style.display = 'none';
-        arrow.innerHTML = '▼';  // Seta para a direita
-    }} else {{
-        div.style.display = 'block';
-        arrow.innerHTML = '▶';  // Seta para baixo
-    }}
-}}
-// Garantir que o filtro comece colapsado
-document.addEventListener('DOMContentLoaded', function() {{
-    var fieldset = document.querySelector('fieldset.collapsible');
-    if (fieldset) {{
-        var div = fieldset.querySelector('div');
-        var arrow = fieldset.querySelector('.arrow');
-        div.style.display = 'none';
-        arrow.innerHTML = '▼';
-    }}
-}});
+
       function rejectHour(entryId, token, isClient) {{
         fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
@@ -2618,7 +2673,6 @@ document.addEventListener('DOMContentLoaded', function() {{
         alertDiv.className = `alert alert-${type}`;
         alertDiv.textContent = message;
 
-        // Estilização básica para o popup
         alertDiv.style.position = 'fixed';
         alertDiv.style.top = '20px';
         alertDiv.style.left = '50%';
@@ -2633,7 +2687,6 @@ document.addEventListener('DOMContentLoaded', function() {{
 
         document.body.appendChild(alertDiv);
 
-        // Remover o popup após 3 segundos
         setTimeout(() => {{
             document.body.removeChild(alertDiv);
         }}, 3000);
@@ -2642,6 +2695,7 @@ document.addEventListener('DOMContentLoaded', function() {{
     '''
 
     return table
+
 
 def get_time_entry(time_entry_id):
     url = f"{REDMINE_URL}/time_entries/{time_entry_id}.json"
