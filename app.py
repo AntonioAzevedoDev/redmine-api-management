@@ -913,8 +913,8 @@ def relatorio_horas_client(user_id):
         is_client = 1 if 'client' in request.full_path else 0
         # Definir datas padrão (últimos 30 dias) se não fornecidas
         if not start_date or not end_date:
-            today = datetime.today()
-            thirty_days_ago = today - timedelta(days=30)
+            today = datetime.today() + timedelta(days=30) #BUG
+            thirty_days_ago = today - timedelta(days=60)
             start_date = thirty_days_ago.strftime('%Y-%m-%d')
             end_date = today.strftime('%Y-%m-%d')
 
