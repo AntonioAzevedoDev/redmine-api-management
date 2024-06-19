@@ -457,7 +457,12 @@ def send_email_report_client_geral():
 
 @app.route('/send_email_report', methods=['POST'])
 def send_email_report():
-    user_id = request.headers.get('user_id', '')
+    entry_id = request.headers.get('id', '')
+    if not entry_id:
+        return jsonify('ID de entrada não fornecido.'), 400
+    status_code, response = get_time_entry(entry_id)
+    time_entry = response.get('time_entry', {})
+    user_id = time_entry['user']['id']
     logger.info(f"Usuario {user_id} solicitando aprovação de horas.")
     allowed_emails = request.headers.get('allowed_emails', '').split(',')
     today = datetime.today()
