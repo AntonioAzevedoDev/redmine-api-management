@@ -1,3 +1,4 @@
+import calendar
 from collections import defaultdict
 from datetime import datetime, timedelta
 from flask import render_template_string
@@ -1485,12 +1486,13 @@ def relatorio_horas(user_id):
         end_date = request.args.get('end_date')
         is_client = 1 if 'client' in request.full_path else 0
 
-        # Definir datas padrão (últimos 30 dias) se não fornecidas
+        # Definir datas padrão (mês atual) se não fornecidas
         if not start_date or not end_date:
             today = datetime.today()
-            thirty_days_ago = today - timedelta(days=30)
-            start_date = thirty_days_ago.strftime('%Y-%m-%d')
-            end_date = today.strftime('%Y-%m-%d')
+            first_day_of_month = today.replace(day=1)
+            last_day_of_month = today.replace(day=calendar.monthrange(today.year, today.month)[1])
+            start_date = first_day_of_month.strftime('%Y-%m-%d')
+            end_date = last_day_of_month.strftime('%Y-%m-%d')
 
         # Construir URL de requisição com filtros
         url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
