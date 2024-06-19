@@ -457,7 +457,7 @@ def send_email_report_client_geral():
 
 @app.route('/send_email_report', methods=['POST'])
 def send_email_report():
-    entry_id = request.headers.get('id', '')
+    entry_id = request.headers.get('entryId', '')
     if not entry_id:
         return jsonify('ID de entrada não fornecido.'), 400
     status_code, response = get_time_entry(entry_id)
