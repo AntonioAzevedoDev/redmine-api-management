@@ -382,8 +382,9 @@ def send_email_report_client():
 
         for email, entries in email_entries.items():
             unapproved_entries = [entry for entry in entries if any(
-                field['name'] == 'TS - Aprovado - CLI' and field['value'] == '0' for field in
+                field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '0' or field['value'] == '') for field in
                 entry.get('custom_fields', []))]
+
 
             if unapproved_entries:
                 table_html = create_html_table_mail_client(unapproved_entries, email)
@@ -437,7 +438,7 @@ def send_email_report_client_geral():
 
         for email, entries in email_entries.items():
             unapproved_entries = [entry for entry in entries if any(
-                field['name'] == 'TS - Aprovado - CLI' and field['value'] == '0' for field in
+                field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '0' or field['value'] == '') for field in
                 entry.get('custom_fields', []))]
 
             if unapproved_entries:
@@ -480,7 +481,7 @@ def send_email_report():
     if entries_response.ok:
         time_entries = entries_response.json().get('time_entries', [])
         unapproved_entries = [entry for entry in time_entries if any(
-            field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in
+            field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '0' or field['value'] == '') for field in
             entry.get('custom_fields', []))]
 
         if not unapproved_entries:
@@ -932,7 +933,7 @@ def relatorio_horas_client(user_id):
             # Filtra as entradas de tempo para incluir apenas aquelas que não foram aprovadas e têm o destinatário correto
             time_entries = entries_response.json().get('time_entries', [])
             unapproved_entries = [entry for entry in time_entries if any(
-                field['name'] == 'TS - Aprovado - CLI' and field['value'] == '0' for field in
+                field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '0' or field['value'] == '') for field in
                 entry.get('custom_fields', []))
                                   and any(
                 field['name'] == 'TS - Aprovador - CLI' for field in entry.get('custom_fields', []))
@@ -1034,10 +1035,24 @@ def relatorio_horas_client(user_id):
                         }}
                     </script>
                     <style>
+                        body {{
+                            overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
+                            margin: 0;
+                            padding: 0;
+                        }}
+                        #header {{
+                            position: fixed;
+                            top: 0;
+                            width: 100%;
+                            z-index: 10; /* Garante que o header fique sobre outros elementos */
+                            background-color: #333333; /* Cor de fundo do header */
+                            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
+                            color: white; /* Cor do texto no header */
+                        }}
                         .container {{
                             display: flex;
                             flex-direction: column;
-                            margin-top: 10px; /* Ajuste a margem superior para aproximar do topo */
+                            margin-top: 60px; /* Espaço para o header fixo */
                         }}
                         .filters-container {{
                             display: flex;
@@ -1187,12 +1202,14 @@ def create_html_table_client(time_entries, recipient):
     total_hours = 0  # Variável para somar as horas
     approved_hours = 0  # Variável para somar as horas aprovadas
     unapproved_hours = 0  # Variável para somar as horas não aprovadas
+    repproved_hours = 0
 
     table = '''
-    <div class="container">
+    <div">
       <div class="filters-container">
         <!-- Coloque aqui os elementos do filtro -->
       </div>
+	<div class="table-wrapper">						 
       <div style="overflow-x:auto;" class="table-container">
         <table id="time_entries_table">
           <thead>
@@ -1228,10 +1245,19 @@ def create_html_table_client(time_entries, recipient):
             total_hours += entry['hours']
             approved = any(
                 field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '1') for field in entry['custom_fields'])
+
+            repproved = any(
+                field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '0') for field in entry['custom_fields'])
+
             if approved:
                 approved_hours += entry['hours']
+
+            elif repproved:
+                repproved_hours += entry['hours']
+
             else:
                 unapproved_hours += entry['hours']
+
             disable_attr = 'disabled' if approved else ''
             aprovado = 'Sim' if approved else 'Não'
 
@@ -1245,8 +1271,8 @@ def create_html_table_client(time_entries, recipient):
               <td>{entry['comments']}</td>
               <td>{hora_inicial}</td>
               <td>{hora_final}</td>
-              <td>{entry['hours']}</td>
-              <td>{aprovado}</td>
+			  <td class="hours-value">{entry['hours']}</td>
+			  <td class="approved-value">{aprovado}</td>
               <td>
                 <a href="#" onclick="approveHour({entry['id']}, '{request.args.get('token')}', {is_client})" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
                 <a href="#" onclick="rejectHour({entry['id']}, '{request.args.get('token')}', {is_client})" class="btn btn-reject-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Reprovar</a>
@@ -1263,6 +1289,7 @@ def create_html_table_client(time_entries, recipient):
       <div class="hours-summary">
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
         <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
+        <p>Total de Horas Reprovadas: <span class="hours-repproved">{repproved_hours}</span></p>
         <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
 
     </div>
@@ -1298,9 +1325,15 @@ def create_html_table_client(time_entries, recipient):
       .hours-approved {{
         color: #28a745;
       }}
-      .hours-unapproved {{
+	  .hours-repproved {{
         color: #dc3545;
       }}
+      .hours-unapproved {{
+        color: #bbdb03;
+      }}
+
+
+
       thead th {{
         position: sticky;
         top: 0;
@@ -1384,6 +1417,7 @@ def create_html_table_client(time_entries, recipient):
           const status = result.status;
           const body = result.body;
           if (status === 200) {{
+			updateHourSummary(entryHours);							  
             showAlert('Hora aprovada com sucesso!', 'success');
             disableRow(entryId);
           }} else {{
@@ -1437,6 +1471,20 @@ document.addEventListener('DOMContentLoaded', function() {{
         }});
       }}
 
+		function updateHourSummary(entryHours) {{
+        const totalHoursElem = document.querySelector('.hours-total');
+        const approvedHoursElem = document.querySelector('.hours-approved');
+        const unapprovedHoursElem = document.querySelector('.hours-unapproved');
+
+        const totalHours = parseFloat(totalHoursElem.textContent);
+        const approvedHours = parseFloat(approvedHoursElem.textContent);
+        const unapprovedHours = parseFloat(unapprovedHoursElem.textContent);
+
+        totalHoursElem.textContent = (totalHours + entryHours).toFixed(1);
+        approvedHoursElem.textContent = (approvedHours + entryHours).toFixed(1);
+        unapprovedHoursElem.textContent = (unapprovedHours - entryHours).toFixed(1);
+      }}		
+
       function disableRow(entryId) {{
         var row = document.getElementById("entry-row-" + entryId);
         var checkBox = row.querySelector('input[type="checkbox"]');
@@ -1462,6 +1510,29 @@ document.addEventListener('DOMContentLoaded', function() {{
           }}
         }}
       }}
+	function showAlert(message, type) {{
+        var alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type}`;
+        alertDiv.textContent = message;
+
+        alertDiv.style.position = 'fixed';
+        alertDiv.style.top = '20px';
+        alertDiv.style.left = '50%';
+        alertDiv.style.transform = 'translateX(-50%)';
+        alertDiv.style.padding = '10px';
+        alertDiv.style.zIndex = 1000;
+        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+        alertDiv.style.color = 'white';
+        alertDiv.style.borderRadius = '5px';
+        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
+        alertDiv.style.fontSize = '16px';
+
+        document.body.appendChild(alertDiv);
+
+        setTimeout(() => {{
+            document.body.removeChild(alertDiv);
+        }}, 3000);
+    }}
     </script>
     '''
 
@@ -1513,7 +1584,7 @@ def relatorio_horas(user_id):
             # Filtra as entradas de tempo para incluir apenas aquelas que não foram aprovadas
             time_entries = entries_response.json().get('time_entries', [])
             unapproved_entries = [entry for entry in time_entries if any(
-                field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in
+                field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '0' or field['value'] == '') for field in
                 entry.get('custom_fields', []))]
 
             if not unapproved_entries:
@@ -1739,141 +1810,152 @@ def relatorio_horas(user_id):
                         return data;
                     }}
                 </script>
-               <style>
-    .container {{
-        display: flex;
-        flex-direction: column;
-        margin-top: 0; /* Remove qualquer margem superior */
-    }}
-    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-        width: 100px; /* Define uma largura menor para a coluna "Ações" */
-        text-align: center; /* Centraliza o texto e os botões na coluna */
-    }}
-    .filters-container {{
-        display: flex;
-        justify-content: center; /* Alinha os itens no início */
-        margin-bottom: 10px;
-        width: 100%; /* Garante que ocupe a largura total */
-    }}
-    fieldset {{
-        border: none;
-        margin: 0; /* Remove margem */
-        padding: 0; /* Remove padding */
-    }}
-    .filters {{
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin: 0; /* Remove margem */
-        padding: 0; /* Remove padding */
-    }}
-    .table-container {{
-        width: 100%;
-        max-height: 450px; /* Define uma altura máxima para a tabela */
-    }}
-    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-        width: 120px; /* Define uma largura menor para a coluna "Ações" */
-        text-align: center; /* Centraliza o texto e os botões na coluna */
-    }}
-    .table-container td {{
-        padding: 4px; /* Diminui a altura dos td */
-        text-align: left;
-        border-bottom: 1px solid #ddd;
-        vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
-        white-space: nowrap; /* Impede quebra de linha em células */
-        overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
-        text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
-    }}
-    .table-container th {{
-        background-color: #f2f2f2;
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        text-align: center; /* Centraliza o texto do thead */
-    }}
-    .table-container {{
-        font-size: 0.9em;
-    }}
-    .btn-relatorio {{
-        background-color: #1E90FF; /* Cor azul padrão */
-        color: white; /* Texto branco */
-        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
-        border-radius: 5px; /* Bordas arredondadas */
-        border: none; /* Remover borda */
-        transition: background-color 0.3s; /* Suavização da transição de cor */
-    }}
-    .btn-relatorio:hover {{
-        background-color: #63B8FF; /* Azul claro ao passar o mouse */
-    }}
-    .btn-group {{
-        display: flex;
-        justify-content: center;
-        margin-top: 20px;
-    }}
-    .btn-approve-table, .btn-reject-table {{
-        display: inline-block;
-        width: 90px;
-        margin-right: 5px; /* Adiciona espaçamento entre os botões */
-        text-align: center; /* Centraliza o texto do botão */
-    }}
-    .btn-approve-table {{
-        background-color: #28a745;
-        color: white;
-        margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
-    }}
-
-    .btn-reject-table {{
-        background-color: #dc3545;
-        color: white;
-        margin-top: 5px;
-    }}
-    .btn-approve-table.disabled, .btn-reject-table.disabled {{
-        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
-    }}
-
-    .btn-relatorio:hover {{
-        background-color: #63B8FF; /* Azul claro ao passar o mouse */
-    }}
-    @media (max-width: 768px) {{
-        .container {{
-            padding: 10px;
-            overflow-y: auto;
-            max-height: 80vh;
-        }}
-        .header-logo h1 {{
-            font-size: 1.5em;
-        }}
-        .filters {{
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin: 0; /* Remove margem */
-            padding: 0; /* Remove padding */
-        }}
-        .table-wrapper {{
-            overflow-x: auto;
-        }}
-        .table-container {{
-            font-size: 0.9em;
-            overflow-x: scroll;
-        }}
-        .btn-group {{
-            flex-direction: column;
-            align-items: center;
-        }}
-        .btn-group .btn-relatorio {{
-            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
-            height: 40px; /* Garante que a altura do botão seja mantida */
-            margin: 0px 0;
-        }}
-    }}
-    .filters label, .legend-button {{
-        color: black;
-    }}
-    table {{
-        width: 100%;
-    }}
-</style>
+                <style>
+                    body {{
+                        overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    #header {{
+                        position: fixed;
+                        top: 0;
+                        width: 100%;
+                        z-index: 10; /* Garante que o header fique sobre outros elementos */
+                        background-color: #333333; /* Defina a cor de fundo original aqui */
+                        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
+                    }}
+                    .container {{
+                        display: flex;
+                        flex-direction: column;
+                        margin-top: 60px; /* Espaço para o header fixo */
+                    }}
+                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                        width: 100px; /* Define uma largura menor para a coluna "Ações" */
+                        text-align: center; /* Centraliza o texto e os botões na coluna */
+                    }}
+                    .filters-container {{
+                        display: flex;
+                        justify-content: center; /* Alinha os itens no início */
+                        margin-bottom: 10px;
+                        width: 100%; /* Garante que ocupe a largura total */
+                    }}
+                    fieldset {{
+                        border: none;
+                        margin: 0; /* Remove margem */
+                        padding: 0; /* Remove padding */
+                    }}
+                    .filters {{
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        margin: 0; /* Remove margem */
+                        padding: 0; /* Remove padding */
+                    }}
+                    .table-container {{
+                        width: 100%;
+                        max-height: 450px; /* Define uma altura máxima para a tabela */
+                    }}
+                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                        width: 120px; /* Define uma largura menor para a coluna "Ações" */
+                        text-align: center; /* Centraliza o texto e os botões na coluna */
+                    }}
+                    .table-container td {{
+                        padding: 4px; /* Diminui a altura dos td */
+                        text-align: left;
+                        border-bottom: 1px solid #ddd;
+                        vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
+                        white-space: nowrap; /* Impede quebra de linha em células */
+                        overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
+                        text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
+                    }}
+                    .table-container th {{
+                        background-color: #f2f2f2;
+                        position: sticky;
+                        top: 0;
+                        z-index: 1;
+                        text-align: center; /* Centraliza o texto do thead */
+                    }}
+                    .table-container {{
+                        font-size: 0.9em;
+                    }}
+                    .btn-relatorio {{
+                        background-color: #1E90FF; /* Cor azul padrão */
+                        color: white; /* Texto branco */
+                        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+                        border-radius: 5px; /* Bordas arredondadas */
+                        border: none; /* Remover borda */
+                        transition: background-color 0.3s; /* Suavização da transição de cor */
+                    }}
+                    .btn-relatorio:hover {{
+                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                    }}
+                    .btn-group {{
+                        display: flex;
+                        justify-content: center;
+                        margin-top: 20px;
+                    }}
+                    .btn-approve-table, .btn-reject-table {{
+                        display: inline-block;
+                        width: 90px;
+                        margin-right: 5px; /* Adiciona espaçamento entre os botões */
+                        text-align: center; /* Centraliza o texto do botão */
+                    }}
+                    .btn-approve-table {{
+                        background-color: #28a745;
+                        color: white;
+                        margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
+                    }}
+                    .btn-reject-table {{
+                        background-color: #dc3545;
+                        color: white;
+                        margin-top: 5px;
+                    }}
+                    .btn-approve-table.disabled, .btn-reject-table.disabled {{
+                        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+                    }}
+                    .btn-relatorio:hover {{
+                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                    }}
+                    @media (max-width: 768px) {{
+                        .container {{
+                            padding: 10px;
+                            overflow-y: auto;
+                            max-height: 80vh;
+                        }}
+                        .header-logo h1 {{
+                            font-size: 1.5em;
+                        }}
+                        .filters {{
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                            margin: 0; /* Remove margem */
+                            padding: 0; /* Remove padding */
+                        }}
+                        .table-wrapper {{
+                            overflow-x: auto;
+                        }}
+                        .table-container {{
+                            font-size: 0.9em;
+                            overflow-x: scroll;
+                        }}
+                        .btn-group {{
+                            flex-direction: column;
+                            align-items: center;
+                        }}
+                        .btn-group .btn-relatorio {{
+                            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
+                            height: 40px; /* Garante que a altura do botão seja mantida */
+                            margin: 0px 0;
+                        }}
+                    }}
+                    .filters label, .legend-button {{
+                        color: black;
+                    }}
+                    table {{
+                        width: 100%;
+                    }}
+                </style>
             </head>
             <body>
                 <div id="header">
@@ -1958,9 +2040,8 @@ def relatorio_horas_geral():
             # Filtra as entradas de tempo para incluir apenas aquelas que não foram aprovadas
             time_entries = entries_response.json().get('time_entries', [])
             unapproved_entries = [entry for entry in time_entries if any(
-                field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in
-                entry.get('custom_fields', []))
-                                  ]
+                field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '0' or field['value'] == '') for field in
+                entry.get('custom_fields', []))]
             entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
             table_html = create_html_table(time_entries)
             # Obtém o token da URL atual
@@ -1974,9 +2055,6 @@ def relatorio_horas_geral():
             usuarios = {entry['user']['name'] for entry in time_entries}
             projetos = {entry['project']['name'] for entry in time_entries}
 
-            # Template HTML para renderizar a página
-            # Template HTML para renderizar a página
-            # Template HTML para renderizar a página
             # Template HTML para renderizar a página
             html_template = f'''
             <!DOCTYPE html>
@@ -2215,10 +2293,28 @@ def relatorio_horas_geral():
                     }}
                 </script>
                 <style>
+                    body {{
+                        overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    #header {{
+                        position: fixed;
+                        top: 0;
+                        width: 100%;
+                        z-index: 10; /* Garante que o header fique sobre outros elementos */
+                        background-color: #333333; /* Cor de fundo do header */
+                        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
+                        color: white; /* Cor do texto no header */
+                    }}
                     .container {{
                         display: flex;
                         flex-direction: column;
-                        margin-top: 0; /* Remove qualquer margem superior */
+                        margin-top: 60px; /* Espaço para o header fixo */
+                    }}
+                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                        width: 100px; /* Define uma largura menor para a coluna "Ações" */
+                        text-align: center; /* Centraliza o texto e os botões na coluna */
                     }}
                     .filters-container {{
                         display: flex;
@@ -2404,6 +2500,7 @@ def create_html_table(time_entries):
     total_hours = 0  # Variável para somar as horas
     approved_hours = 0  # Variável para somar as horas aprovadas
     unapproved_hours = 0  # Variável para somar as horas não aprovadas
+    repproved_hours = 0
 
     table = '''
     <div>
@@ -2448,8 +2545,16 @@ def create_html_table(time_entries):
 
         approved = any(
             field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '1') for field in entry['custom_fields'])
+
+        repproved = any(
+            field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '0') for field in entry['custom_fields'])
+
         if approved:
             approved_hours += entry['hours']
+
+        elif repproved:
+            repproved_hours += entry['hours']
+
         else:
             unapproved_hours += entry['hours']
 
@@ -2484,6 +2589,7 @@ def create_html_table(time_entries):
       <div class="hours-summary">
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
         <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
+        <p>Total de Horas Reprovadas: <span class="hours-repproved">{repproved_hours}</span></p>
         <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
       </div>
     '''
@@ -2517,8 +2623,11 @@ def create_html_table(time_entries):
       .hours-approved {{
         color: #28a745;
       }}
-      .hours-unapproved {{
+      .hours-repproved {{
         color: #dc3545;
+      }}
+      .hours-unapproved {{
+        color: #bbdb03;
       }}
       thead th {{
         position: sticky;
@@ -2809,6 +2918,8 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token, is_client):
             for field in custom_fields:
                 if field.get('name') == 'TS - Aprovado - CLI':
                     field['value'] = '1' if tipo in ['aprovar', 'aprovar_selecionados'] else '0'
+                if field.get('name') == 'TS - Aprovado - EVT':
+                    field['value'] = '0' if tipo in ['reprovar', 'reprovar_selecionados'] else  field['value']
                 if field.get('name') == 'TS - Dt. Aprovação - CLI':
                     field['value'] = data_atual if tipo in ['aprovar', 'aprovar_selecionados'] else ''
             update_status, update_response = update_time_entry(entry_id, custom_fields)
