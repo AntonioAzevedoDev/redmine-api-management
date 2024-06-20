@@ -932,9 +932,10 @@ def relatorio_horas_client(user_id):
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
         is_client = 1 if 'client' in request.full_path else 0
+
         # Definir datas padrão (últimos 30 dias) se não fornecidas
         if not start_date or not end_date:
-            today = datetime.today() + timedelta(days=30) #BUG
+            today = datetime.today() + timedelta(days=30)
             thirty_days_ago = today - timedelta(days=60)
             start_date = thirty_days_ago.strftime('%Y-%m-%d')
             end_date = today.strftime('%Y-%m-%d')
@@ -958,7 +959,6 @@ def relatorio_horas_client(user_id):
                                   and any(
                 field['name'] == 'TS - Aprovador - CLI' for field in entry.get('custom_fields', []))
                                   ]
-
 
             # Agrupar entradas por destinatário
             email_entries = defaultdict(list)
@@ -986,11 +986,19 @@ def relatorio_horas_client(user_id):
 
                 table_html = create_html_table_client(entries, recipient)
                 # Constrói a lista de IDs das entradas
-                entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
+                approve_entry_ids = ','.join(
+                    [str(entry['id']) for entry in unapproved_entries if
+                     any(field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '0' or field['value'] == '') for field in entry.get('custom_fields', []))]
+                )
+                reject_entry_ids = ','.join(
+                    [str(entry['id']) for entry in unapproved_entries if
+                     any(field['name'] == 'TS - Aprovado - CLI' and field['value'] == '1' for field in entry.get('custom_fields', []))]
+                )
 
                 # Extrai usuários e projetos para os filtros
                 usuarios = {entry['user']['name'] for entry in time_entries}
                 projetos = {entry['project']['name'] for entry in time_entries}
+
                 # Template HTML para renderizar a página com filtros
                 html_template = f'''
                 <!DOCTYPE html>
@@ -1023,6 +1031,22 @@ def relatorio_horas_client(user_id):
                                 div.style.display = 'none';
                                 arrow.innerHTML = '▼';
                             }}
+
+                            document.getElementById("filterInput").addEventListener("keyup", function() {{
+                                filterTable();
+                            }});
+
+                            document.getElementById("userSelect").addEventListener("change", function() {{
+                                filterBySelect();
+                            }});
+
+                            document.getElementById("projectSelect").addEventListener("change", function() {{
+                                filterBySelect();
+                            }});
+
+                            document.getElementById("approvalSelect").addEventListener("change", function() {{
+                                filterBySelect();
+                            }});
                         }});
 
                         function filterTable() {{
@@ -1038,7 +1062,11 @@ def relatorio_horas_client(user_id):
 
                             let totalHours = 0;
                             let approvedHours = 0;
+                            let repprovedHours = 0;
                             let unapprovedHours = 0;
+
+                            let filteredApproveIds = [];
+                            let filteredRejectIds = [];
 
                             for (var i = 1; i < tr.length; i++) {{
                                 tr[i].style.display = "none";
@@ -1053,21 +1081,30 @@ def relatorio_horas_client(user_id):
                                         (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect) &&
                                         (approvalSelect === "ALL" || approvalValue.toUpperCase() === approvalSelect)) {{
                                         tr[i].style.display = "";
+                                        var entryId = tr[i].getElementsByTagName("td")[0].querySelector("input").value;
                                         var entryHours = parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
                                         totalHours += entryHours;
-                                        if (approvalValue === 'SIM') {{
+                                        if (approvalValue === 'Sim') {{
                                             approvedHours += entryHours;
-                                        }} else if (approvalValue === 'NÃO') {{
+                                            filteredApproveIds.push(entryId);
+                                        }} else if (approvalValue === 'Não') {{
+                                            repprovedHours += entryHours;
+                                            filteredRejectIds.push(entryId);
+                                        }} else if (approvalValue === 'Pendente') {{
                                             unapprovedHours += entryHours;
+                                            filteredApproveIds.push(entryId);
                                         }}
                                     }}
                                 }}
                             }}
-                            console.log('filterbyselect');
+
                             document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
                             document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
-                            document.querySelector('.hours-repproved').textContent = unapprovedHours.toFixed(1);
-                            document.querySelector('.hours-unapproved').textContent = (totalHours - (approvedHours + unapprovedHours)).toFixed(1);
+                            document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                            document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
+
+                            document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
+                            document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
                         }}
 
                         function toggleAll(source) {{
@@ -1211,37 +1248,53 @@ def relatorio_horas_client(user_id):
                             var table = document.getElementById("time_entries_table");
                             var tr = table.getElementsByTagName("tr");
 
-                            let totalHours = parseFloat(document.querySelector('.hours-total').textContent);
-                            let approvedHours = parseFloat(document.querySelector('.hours-approved').textContent);
-                            let repprovedHours = parseFloat(document.querySelector('.hours-repproved').textContent);
+                            let totalHours = 0;
+                            let approvedHours = 0;
+                            let repprovedHours = 0;
+                            let pendingHours = 0;
 
                             for (var i = 1; i < tr.length; i++) {{
                                 var row = tr[i];
                                 var entryId = row.getElementsByTagName("td")[0].querySelector("input").value;
-                                if (entryIds.includes(entryId)) {{
-                                    var td = row.getElementsByTagName("td");
-                                    var entryHours = parseFloat(td[8].textContent);
+                                var td = row.getElementsByTagName("td");
+                                var entryHours = parseFloat(td[8].textContent);
+                                var approvalValue = td[9].textContent;
 
-                                    if (isApproved && td[9].textContent !== "SIM") {{
-                                        td[9].textContent = "SIM";
+                                if (entryIds.includes(entryId)) {{
+                                    if (isApproved && approvalValue !== "Sim") {{
+                                        td[9].textContent = "Sim";
                                         approvedHours += entryHours;
-                                        if (repprovedHours >= entryHours) {{
+                                        if (approvalValue === "Não") {{
                                             repprovedHours -= entryHours;
+                                        }} else if (approvalValue === "Pendente") {{
+                                            pendingHours -= entryHours;
                                         }}
-                                    }} else if (!isApproved && td[9].textContent !== "NÃO") {{
-                                        td[9].textContent = "NÃO";
+                                    }} else if (!isApproved && approvalValue !== "Não") {{
+                                        td[9].textContent = "Não";
                                         repprovedHours += entryHours;
-                                        if (approvedHours >= entryHours) {{
+                                        if (approvalValue === "Sim") {{
                                             approvedHours -= entryHours;
+                                        }} else if (approvalValue === "Pendente") {{
+                                            pendingHours -= entryHours;
                                         }}
                                     }}
                                     disableRow(entryId);
+                                }} else {{
+                                    if (approvalValue === "Sim") {{
+                                        approvedHours += entryHours;
+                                    }} else if (approvalValue === "Não") {{
+                                        repprovedHours += entryHours;
+                                    }} else if (approvalValue === "Pendente") {{
+                                        pendingHours += entryHours;
+                                    }}
                                 }}
+                                totalHours += entryHours;
                             }}
 
+                            document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
                             document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
                             document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
-                            document.querySelector('.hours-unapproved').textContent = (totalHours - (approvedHours + repprovedHours)).toFixed(1);
+                            document.querySelector('.hours-unapproved').textContent = pendingHours.toFixed(1);
                         }}
 
                         function disableRow(entryId) {{
@@ -1443,6 +1496,7 @@ def relatorio_horas_client(user_id):
                                             <option value="ALL">Todos</option>
                                             <option value="SIM">Aprovadas</option>
                                             <option value="NÃO">Reprovadas</option>
+                                            <option value="PENDENTE">Pendentes</option>
                                         </select>
                                     </div>
                                 </fieldset>
@@ -1451,8 +1505,8 @@ def relatorio_horas_client(user_id):
                         <div class="table-container">
                             {table_html}
                             <div id="all-actions" class="btn-group">
-                                <button type="button" onclick="approveAll('{token}', '{entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
-                                <button type="button" onclick="rejectAll('{token}', '{entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
+                                <button type="button" onclick="approveAll('{token}', '{approve_entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
+                                <button type="button" onclick="rejectAll('{token}', '{reject_entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
                                 <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
                             </div>
                             <div id="selected-actions" class="btn-group">
@@ -1528,18 +1582,26 @@ def create_html_table_client(time_entries, recipient):
             repproved = any(
                 field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '0') for field in entry['custom_fields'])
 
+            unnaproved = any(
+                field['name'] == 'TS - Aprovado - CLI' and field['value'] == '' for field in entry['custom_fields']
+            )
+
             if approved:
                 approved_hours += entry['hours']
-
+                aprovado = 'Sim'
+                disable_attr = 'disabled'
             elif repproved:
                 repproved_hours += entry['hours']
-
+                aprovado = 'Não'
+                disable_attr = ''
+            elif unnaproved:
+                unapproved_hours += entry['hours']
+                aprovado = 'Pendente'
+                disable_attr = ''
             else:
                 unapproved_hours += entry['hours']
-
-            disable_attr = 'disabled' if approved else ''
-            aprovado = 'Sim' if approved else 'Não'
-
+                aprovado = 'Pendente'
+                disable_attr = ''
             table += f'''
             <tr id="entry-row-{entry['id']}">
               <td><input type="checkbox" name="selected_entries" value="{entry['id']}" {disable_attr}></td>
@@ -1553,8 +1615,8 @@ def create_html_table_client(time_entries, recipient):
               <td class="hours-value">{entry['hours']}</td>
               <td class="approved-value">{aprovado}</td>
               <td>
-                <a href="#" onclick="approveHour({entry['id']}, '{request.args.get('token')}', {is_client}, {entry['hours']})" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
-                <a href="#" onclick="rejectHour({entry['id']}, '{request.args.get('token')}', {is_client}, {entry['hours']})" class="btn btn-reject-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Reprovar</a>
+                <a href="#" onclick="approveHour({entry['id']}, '{request.args.get('token')}', {is_client}, {entry['hours']}, '{aprovado}')" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
+                <a href="#" onclick="rejectHour({entry['id']}, '{request.args.get('token')}', {is_client}, {entry['hours']}, '{aprovado}')" class="btn btn-reject-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Reprovar</a>
               </td>
             </tr>
             '''
@@ -1684,7 +1746,7 @@ def create_html_table_client(time_entries, recipient):
 
     table += f'''
     <script>
-      function approveHour(entryId, token, isClient, entryHours) {{
+      function approveHour(entryId, token, isClient, entryHours, currentStatus) {{
         fetch("{API_URL}aprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
         .then(result => {{
@@ -1693,7 +1755,7 @@ def create_html_table_client(time_entries, recipient):
           if (status === 200) {{
             showAlert('Hora aprovada com sucesso!', 'success');
             updateRowApproval(entryId, true, entryHours);
-            updateHourSummary(entryHours, 'approve');
+            updateHourSummary(entryHours, 'approve', currentStatus);
           }} else {{
             showAlert(body.message, 'error');
           }}
@@ -1704,7 +1766,7 @@ def create_html_table_client(time_entries, recipient):
         }});
       }}
 
-      function rejectHour(entryId, token, isClient, entryHours) {{
+      function rejectHour(entryId, token, isClient, entryHours, currentStatus) {{
         fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
         .then(result => {{
@@ -1713,7 +1775,7 @@ def create_html_table_client(time_entries, recipient):
           if (status === 200) {{
             showAlert('Hora reprovada com sucesso!', 'success');
             updateRowApproval(entryId, false, entryHours);
-            updateHourSummary(entryHours, 'reject');
+            updateHourSummary(entryHours, 'reject', currentStatus);
           }} else {{
             showAlert(body.message, 'error');
           }}
@@ -1724,26 +1786,39 @@ def create_html_table_client(time_entries, recipient):
         }});
       }}
 
-      function updateHourSummary(entryHours, action) {{
+      function updateHourSummary(entryHours, action, currentStatus) {{
         const totalHoursElem = document.querySelector('.hours-total');
         const approvedHoursElem = document.querySelector('.hours-approved');
         const unapprovedHoursElem = document.querySelector('.hours-unapproved');
         const repprovedHoursElem = document.querySelector('.hours-repproved');
 
-        const totalHours = parseFloat(totalHoursElem.textContent);
-        const approvedHours = parseFloat(approvedHoursElem.textContent);
-        const unapprovedHours = parseFloat(unapprovedHoursElem.textContent);
-        const repprovedHours = parseFloat(repprovedHoursElem.textContent);
+        let totalHours = parseFloat(totalHoursElem.textContent);
+        let approvedHours = parseFloat(approvedHoursElem.textContent);
+        let unapprovedHours = parseFloat(unapprovedHoursElem.textContent);
+        let repprovedHours = parseFloat(repprovedHoursElem.textContent);
+
+        if (currentStatus === 'Sim' && action === 'approve') {{
+          // Não faz alteração
+        }} else if (currentStatus === 'Sim' && action === 'reject') {{
+          approvedHours -= entryHours;
+          repprovedHours += entryHours;
+        }} else if (currentStatus === 'Não' && action === 'approve') {{
+          repprovedHours -= entryHours;
+          approvedHours += entryHours;
+        }} else if (currentStatus === 'Não' && action === 'reject') {{
+          // Não faz alteração
+        }} else if (currentStatus === 'Pendente' && action === 'approve') {{
+          unapprovedHours -= entryHours;
+          approvedHours += entryHours;
+        }} else if (currentStatus === 'Pendente' && action === 'reject') {{
+          unapprovedHours -= entryHours;
+          repprovedHours += entryHours;
+        }}
 
         totalHoursElem.textContent = totalHours.toFixed(1);
-
-        if (action === 'approve') {{
-          approvedHoursElem.textContent = (approvedHours + entryHours).toFixed(1);
-          unapprovedHoursElem.textContent = (unapprovedHours - entryHours).toFixed(1);
-        }} else {{
-          repprovedHoursElem.textContent = (repprovedHours + entryHours).toFixed(1);
-          unapprovedHoursElem.textContent = (unapprovedHours - entryHours).toFixed(1);
-        }}
+        approvedHoursElem.textContent = approvedHours.toFixed(1);
+        unapprovedHoursElem.textContent = unapprovedHours.toFixed(1);
+        repprovedHoursElem.textContent = repprovedHours.toFixed(1);
       }}
 
       function updateRowApproval(entryId, isApproved, entryHours) {{
@@ -1865,145 +1940,193 @@ def relatorio_horas(user_id):
             projetos = {entry['project']['name'] for entry in time_entries}
 
             html_template = f'''
-                            <!DOCTYPE html>
-                            <html lang="en">
-                            <head>
-                                <meta charset="UTF-8">
-                                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                                <title>Tempo gasto</title>
-                                <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
-                                <script>
-                                    function toggleFieldset(legend) {{
-                                        var fieldset = legend.parentElement;
-                                        var isCollapsed = fieldset.classList.toggle('collapsed');
-                                        var div = fieldset.querySelector('div');
-                                        var arrow = legend.querySelector('.arrow');
-                                        if (isCollapsed) {{
-                                            div.style.display = 'none';
-                                            arrow.innerHTML = '▼';  // Seta para a direita
-                                        }} else {{
-                                            div.style.display = 'block';
-                                            arrow.innerHTML = '▶';  // Seta para baixo
-                                        }}
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <title>Tempo gasto</title>
+                            <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
+                            <script>
+                                function toggleFieldset(legend) {{
+                                    var fieldset = legend.parentElement;
+                                    var isCollapsed = fieldset.classList.toggle('collapsed');
+                                    var div = fieldset.querySelector('div');
+                                    var arrow = legend.querySelector('.arrow');
+                                    if (isCollapsed) {{
+                                        div.style.display = 'none';
+                                        arrow.innerHTML = '▼';  // Seta para a direita
+                                    }} else {{
+                                        div.style.display = 'block';
+                                        arrow.innerHTML = '▶';  // Seta para baixo
                                     }}
-                                    // Garantir que o filtro comece colapsado
-                                    document.addEventListener('DOMContentLoaded', function() {{
-                                        var fieldset = document.querySelector('fieldset.collapsible');
-                                        if (fieldset) {{
-                                            var div = fieldset.querySelector('div');
-                                            var arrow = fieldset.querySelector('.arrow');
-                                            div.style.display = 'none';
-                                            arrow.innerHTML = '▼';
-                                        }}
+                                }}
+                                // Garantir que o filtro comece colapsado
+                                document.addEventListener('DOMContentLoaded', function() {{
+                                    var fieldset = document.querySelector('fieldset.collapsible');
+                                    if (fieldset) {{
+                                        var div = fieldset.querySelector('div');
+                                        var arrow = fieldset.querySelector('.arrow');
+                                        div.style.display = 'none';
+                                        arrow.innerHTML = '▼';
+                                    }}
+
+                                    document.getElementById("filterInput").addEventListener("keyup", function() {{
+                                        filterTable();
                                     }});
 
-                                    function filterTable() {{
+                                    document.getElementById("userSelect").addEventListener("change", function() {{
                                         filterBySelect();
-                                    }}
+                                    }});
 
-                                    function filterBySelect() {{
-                                        var userSelect = document.getElementById("userSelect").value.toUpperCase();
-                                        var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
-                                        var approvalSelect = document.getElementById("approvalSelect").value.toUpperCase();
-                                        var table = document.getElementById("time_entries_table");
-                                        var tr = table.getElementsByTagName("tr");
+                                    document.getElementById("projectSelect").addEventListener("change", function() {{
+                                        filterBySelect();
+                                    }});
 
-                                        let totalHours = 0;
-                                        let approvedHours = 0;
-                                        let unapprovedHours = 0;
+                                    document.getElementById("approvalSelect").addEventListener("change", function() {{
+                                        filterBySelect();
+                                    }});
+                                }});
 
-                                        for (var i = 1; i < tr.length; i++) {{
-                                            tr[i].style.display = "none";
-                                            var userTd = tr[i].getElementsByTagName("td")[2];
-                                            var projectTd = tr[i].getElementsByTagName("td")[4];
-                                            var approvalTd = tr[i].getElementsByTagName("td")[9];
-                                            if (userTd && projectTd && approvalTd) {{
-                                                var userValue = userTd.textContent || userTd.innerText;
-                                                var projectValue = projectTd.textContent || projectTd.innerText;
-                                                var approvalValue = approvalTd.textContent || approvalTd.innerText;
-                                                if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
-                                                    (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect) &&
-                                                    (approvalSelect === "ALL" || approvalValue.toUpperCase() === approvalSelect)) {{
-                                                    tr[i].style.display = "";
-                                                    var entryHours = parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
-                                                    totalHours += entryHours;
-                                                    if (approvalValue === 'SIM') {{
-                                                        approvedHours += entryHours;
-                                                    }} else {{
-                                                        unapprovedHours += entryHours;
-                                                    }}
+                                function filterTable() {{
+                                    filterBySelect();
+                                }}
+
+                                function filterBySelect() {{
+                                    var userSelect = document.getElementById("userSelect").value.toUpperCase();
+                                    var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
+                                    var approvalSelect = document.getElementById("approvalSelect").value.toUpperCase();
+                                    var table = document.getElementById("time_entries_table");
+                                    var tr = table.getElementsByTagName("tr");
+
+                                    let totalHours = 0;
+                                    let approvedHours = 0;
+                                    let repprovedHours = 0;
+                                    let unapprovedHours = 0;
+                                    let approveIds = [];
+                                    let rejectIds = [];
+
+                                    for (var i = 1; i < tr.length; i++) {{
+                                        tr[i].style.display = "none";
+                                        var userTd = tr[i].getElementsByTagName("td")[2];
+                                        var projectTd = tr[i].getElementsByTagName("td")[4];
+                                        var approvalTd = tr[i].getElementsByTagName("td")[9];
+                                        if (userTd && projectTd && approvalTd) {{
+                                            var userValue = userTd.textContent || userTd.innerText;
+                                            var projectValue = projectTd.textContent || projectTd.innerText;
+                                            var approvalValue = approvalTd.textContent || approvalTd.innerText;
+                                            if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
+                                                (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect) &&
+                                                (approvalSelect === "ALL" || approvalValue.toUpperCase() === approvalSelect)) {{
+                                                tr[i].style.display = "";
+                                                var entryHours = parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
+                                                var entryId = tr[i].getElementsByTagName("td")[0].querySelector("input").value;
+                                                totalHours += entryHours;
+                                                if (approvalValue === 'Sim') {{
+                                                    approvedHours += entryHours;
+                                                    approveIds.push(entryId);
+                                                }} else if (approvalValue === 'Não') {{
+                                                    repprovedHours += entryHours;
+                                                    rejectIds.push(entryId);
+                                                }} else if (approvalValue === 'Pendente') {{
+                                                    unapprovedHours += entryHours;
+                                                    approveIds.push(entryId);
                                                 }}
                                             }}
                                         }}
-
-                                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
-                                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
-                                        document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
                                     }}
 
-                                    function toggleAll(source) {{
-                                        checkboxes = document.getElementsByName('selected_entries');
-                                        for(var i=0, n=checkboxes.length;i<n;i++) {{
-                                            if (!checkboxes[i].disabled) {{
-                                                checkboxes[i].checked = source.checked;
-                                            }}
+                                    document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                                    document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                                    document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                                    document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
+
+                                    document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{approveIds.join(',')}}', {is_client})`);
+                                    document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{rejectIds.join(',')}}', {is_client})`);
+                                }}
+
+                                function toggleAll(source) {{
+                                    checkboxes = document.getElementsByName('selected_entries');
+                                    for(var i=0, n=checkboxes.length;i<n;i++) {{
+                                        if (!checkboxes[i].disabled) {{
+                                            checkboxes[i].checked = source.checked;
                                         }}
                                     }}
+                                }}
 
-                                    function sendFilteredData() {{
-                                        var data = getFilteredTableData();
-                                        fetch('/send_email_report_client_geral', {{
-                                            method: 'POST',
-                                            headers: {{
-                                                'Content-Type': 'application/json'
-                                            }},
-                                            body: JSON.stringify({{ entries: data }})
-                                        }})
-                                        .then(response => response.json())
-                                        .then(data => {{
-                                            showAlert('Relatório enviado com sucesso', 'success');
-                                        }})
-                                        .catch((error) => {{
-                                            showAlert('Erro ao enviar o relatório: ' + error, 'error');
-                                        }});
-                                    }}
+                                function sendFilteredData() {{
+                                    var data = getFilteredTableData();
+                                    fetch('/send_email_report_client_geral', {{
+                                        method: 'POST',
+                                        headers: {{
+                                            'Content-Type': 'application/json'
+                                        }},
+                                        body: JSON.stringify({{ entries: data }})
+                                    }})
+                                    .then(response => response.json())
+                                    .then(data => {{
+                                        showAlert('Relatório enviado com sucesso', 'success');
+                                    }})
+                                    .catch((error) => {{
+                                        showAlert('Erro ao enviar o relatório: ' + error, 'error');
+                                    }});
+                                }}
 
-                                    function showAlert(message, type) {{
-                                        var alertDiv = document.createElement('div');
-                                        alertDiv.className = `alert alert-${type}`;
-                                        alertDiv.textContent = message;
+                                function showAlert(message, type) {{
+                                    var alertDiv = document.createElement('div');
+                                    alertDiv.className = `alert alert-${type}`;
+                                    alertDiv.textContent = message;
 
-                                        // Estilização básica para o popup
-                                        alertDiv.style.position = 'fixed';
-                                        alertDiv.style.top = '20px';
-                                        alertDiv.style.left = '50%';
-                                        alertDiv.style.transform = 'translateX(-50%)';
-                                        alertDiv.style.padding = '10px';
-                                        alertDiv.style.zIndex = 1000;
-                                        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
-                                        alertDiv.style.color = 'white';
-                                        alertDiv.style.borderRadius = '5px';
-                                        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
-                                        alertDiv.style.fontSize = '16px';
+                                    // Estilização básica para o popup
+                                    alertDiv.style.position = 'fixed';
+                                    alertDiv.style.top = '20px';
+                                    alertDiv.style.left = '50%';
+                                    alertDiv.style.transform = 'translateX(-50%)';
+                                    alertDiv.style.padding = '10px';
+                                    alertDiv.style.zIndex = 1000;
+                                    alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+                                    alertDiv.style.color = 'white';
+                                    alertDiv.style.borderRadius = '5px';
+                                    alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
+                                    alertDiv.style.fontSize = '16px';
 
-                                        document.body.appendChild(alertDiv);
+                                    document.body.appendChild(alertDiv);
 
-                                        // Remover o popup após 3 segundos
-                                        setTimeout(() => {{
-                                            document.body.removeChild(alertDiv);
-                                        }}, 3000);
-                                    }}
+                                    // Remover o popup após 3 segundos
+                                    setTimeout(() => {{
+                                        document.body.removeChild(alertDiv);
+                                    }}, 3000);
+                                }}
 
-                                    function getFilteredTableData() {{
-                                        var table = document.getElementById("time_entries_table");
-                                        var tr = table.getElementsByTagName("tr");
-                                        var data = [];
-                                        var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
+                                function getFilteredTableData() {{
+                                    var table = document.getElementById("time_entries_table");
+                                    var tr = table.getElementsByTagName("tr");
+                                    var data = [];
+                                    var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
 
-                                        if (checkboxes.length > 0) {{
-                                            for (var checkbox of checkboxes) {{
-                                                var row = checkbox.closest("tr");
-                                                var td = row.getElementsByTagName("td");
+                                    if (checkboxes.length > 0) {{
+                                        for (var checkbox of checkboxes) {{
+                                            var row = checkbox.closest("tr");
+                                            var td = row.getElementsByTagName("td");
+
+                                            var entry = {{
+                                                id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                                date: td[1] ? td[1].textContent : "N/A",
+                                                user: td[2] ? td[2].textContent : "N/A",
+                                                activity: td[3] ? td[3].textContent : "N/A",
+                                                project: td[4] ? td[4].textContent : "N/A",
+                                                comments: td[5] ? td[5].textContent : "N/A",
+                                                start_time: td[6] ? td[6].textContent : "N/A",
+                                                end_time: td[7] ? td[7].textContent : "N/A",
+                                                hours: td[8] ? td[8].textContent : "N/A"
+                                            }};
+
+                                            data.push(entry);
+                                        }}
+                                    }} else {{
+                                        for (var i = 1; i < tr.length; i++) {{
+                                            if (tr[i].style.display !== "none") {{
+                                                var td = tr[i].getElementsByTagName("td");
 
                                                 var entry = {{
                                                     id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
@@ -2019,147 +2142,219 @@ def relatorio_horas(user_id):
 
                                                 data.push(entry);
                                             }}
+                                        }}
+                                    }}
+
+                                    return data;
+                                }}
+
+                                function approveAll(token, entryIds, isClient) {{
+                                    fetch("{API_URL}aprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
+                                    .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+                                    .then(result => {{
+                                        const status = result.status;
+                                        const body = result.body;
+                                        if (status === 200) {{
+                                            showAlert(body.message, 'success');
+                                            updateRowsApproval(body.approved_entries, true);
                                         }} else {{
-                                            for (var i = 1; i < tr.length; i++) {{
-                                                if (tr[i].style.display !== "none") {{
-                                                    var td = tr[i].getElementsByTagName("td");
-
-                                                    var entry = {{
-                                                        id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
-                                                        date: td[1] ? td[1].textContent : "N/A",
-                                                        user: td[2] ? td[2].textContent : "N/A",
-                                                        activity: td[3] ? td[3].textContent : "N/A",
-                                                        project: td[4] ? td[4].textContent : "N/A",
-                                                        comments: td[5] ? td[5].textContent : "N/A",
-                                                        start_time: td[6] ? td[6].textContent : "N/A",
-                                                        end_time: td[7] ? td[7].textContent : "N/A",
-                                                        hours: td[8] ? td[8].textContent : "N/A"
-                                                    }};
-
-                                                    data.push(entry);
-                                                }}
-                                            }}
+                                            showAlert(body.message, 'error');
                                         }}
+                                    }})
+                                    .catch(error => {{
+                                        console.error('Erro:', error);
+                                        showAlert('Erro ao aprovar horas.', 'error');
+                                    }});
+                                }}
 
-                                        return data;
-                                    }}
-
-                                    function approveAll(token, entryIds, isClient) {{
-                                        fetch("{API_URL}aprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
-                                        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
-                                        .then(result => {{
-                                            const status = result.status;
-                                            const body = result.body;
-                                            showAlert(body.message, status === 200 ? 'success' : 'error');
-                                            if (status === 200) {{
-                                                updateRowsApproval(entryIds.split(','), true);
-                                            }}
-                                        }})
-                                        .catch(error => {{
-                                            console.error('Erro:', error);
-                                            showAlert('Erro ao aprovar horas.', 'error');
-                                        }});
-                                    }}
-
-                                    function rejectAll(token, entryIds, isClient) {{
-                                        fetch("{API_URL}reprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
-                                        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
-                                        .then(result => {{
-                                            const status = result.status;
-                                            const body = result.body;
-                                            showAlert(body.message, status === 200 ? 'success' : 'error');
-                                            if (status === 200) {{
-                                                updateRowsApproval(entryIds.split(','), false);
-                                            }}
-                                        }})
-                                        .catch(error => {{
-                                            console.error('Erro:', error);
-                                            showAlert('Erro ao reprovar horas.', 'error');
-                                        }});
-                                    }}
-
-                                    function updateRowsApproval(entryIds, isApproved) {{
-                                        var table = document.getElementById("time_entries_table");
-                                        var tr = table.getElementsByTagName("tr");
-
-                                        let totalHours = 0;
-                                        let approvedHours = 0;
-                                        let unapprovedHours = 0;
-
-                                        for (var i = 1; i < tr.length; i++) {{
-                                            var row = tr[i];
-                                            var entryId = row.getElementsByTagName("td")[0].querySelector("input").value;
-                                            if (entryIds.includes(entryId)) {{
-                                                var td = row.getElementsByTagName("td");
-                                                var entryHours = parseFloat(td[8].textContent);
-
-                                                if (isApproved) {{
-                                                    td[9].textContent = "Sim";
-                                                    approvedHours += entryHours;
-                                                }} else {{
-                                                    td[9].textContent = "Não";
-                                                    unapprovedHours += entryHours;
-                                                }}
-                                                totalHours += entryHours;
-                                                disableRow(entryId);
-                                            }}
+                                function rejectAll(token, entryIds, isClient) {{
+                                    fetch("{API_URL}reprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
+                                    .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+                                    .then(result => {{
+                                        const status = result.status;
+                                        const body = result.body;
+                                        if (status === 200) {{
+                                            showAlert(body.message, 'success');
+                                            updateRowsApproval(body.rejected_entries, false);
+                                        }} else {{
+                                            showAlert(body.message, 'error');
                                         }}
+                                    }})
+                                    .catch(error => {{
+                                        console.error('Erro:', error);
+                                        showAlert('Erro ao reprovar horas.', 'error');
+                                    }});
+                                }}
 
-                                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
-                                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
-                                        document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
+                                function updateRowsApproval(entries, isApproved) {{
+                                    if (!entries || entries.length === 0) {{
+                                        return;
                                     }}
 
-                                    function disableRow(entryId) {{
+                                    let totalHours = parseFloat(document.querySelector('.hours-total').textContent);
+                                    let approvedHours = parseFloat(document.querySelector('.hours-approved').textContent);
+                                    let repprovedHours = parseFloat(document.querySelector('.hours-repproved').textContent);
+                                    let unapprovedHours = parseFloat(document.querySelector('.hours-unapproved').textContent);
+
+                                    entries.forEach(entryId => {{
                                         var row = document.getElementById("entry-row-" + entryId);
-                                        var checkBox = row.querySelector('input[type="checkbox"]');
-                                        var approveButton = row.querySelector('.btn-approve-table');
-                                        var rejectButton = row.querySelector('.btn-reject-table');
+                                        if (row) {{
+                                            var td = row.getElementsByTagName("td");
+                                            var entryHours = parseFloat(td[8].textContent);
 
-                                        if (checkBox) {{
-                                            checkBox.disabled = true;
+                                            if (isApproved) {{
+                                                td[9].textContent = "Sim";
+                                                approvedHours += entryHours;
+                                                unapprovedHours -= entryHours;
+                                            }} else {{
+                                                td[9].textContent = "Não";
+                                                repprovedHours += entryHours;
+                                                unapprovedHours -= entryHours;
+                                            }}
+
+                                            totalHours += entryHours;
+
+                                            disableRow(td[0].querySelector("input").value);
                                         }}
-                                        if (approveButton) {{
-                                            approveButton.classList.add('disabled');
-                                        }}
-                                        if (rejectButton) {{
-                                            rejectButton.classList.add('disabled');
-                                        }}
+                                    }});
+
+                                    document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                                    document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                                    document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                                    document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
+                                }}
+
+                                function disableRow(entryId) {{
+                                    var row = document.getElementById("entry-row-" + entryId);
+                                    var checkBox = row.querySelector('input[type="checkbox"]');
+                                    var approveButton = row.querySelector('.btn-approve-table');
+                                    var rejectButton = row.querySelector('.btn-reject-table');
+
+                                    if (checkBox) {{
+                                        checkBox.disabled = true;
                                     }}
-                                </script>
-                                <style>
-                                    body {{
-                                        overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
-                                        margin: 0;
-                                        padding: 0;
+                                    if (approveButton) {{
+                                        approveButton.classList.add('disabled');
                                     }}
-                                    #header {{
-                                        position: fixed;
-                                        top: 0;
-                                        width: 100%;
-                                        z-index: 10; /* Garante que o header fique sobre outros elementos */
-                                        background-color: #333333; /* Defina a cor de fundo original aqui */
-                                        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
+                                    if (rejectButton) {{
+                                        rejectButton.classList.add('disabled');
                                     }}
+                                }}
+                            </script>
+                            <style>
+                                body {{
+                                    overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
+                                    margin: 0;
+                                    padding: 0;
+                                }}
+                                #header {{
+                                    position: fixed;
+                                    top: 0;
+                                    width: 100%;
+                                    z-index: 10; /* Garante que o header fique sobre outros elementos */
+                                    background-color: #333333; /* Defina a cor de fundo original aqui */
+                                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
+                                }}
+                                .container {{
+                                    display: flex;
+                                    flex-direction: column;
+                                    margin-top: 60px; /* Espaço para o header fixo */
+                                }}
+                                .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                                    width: 100px; /* Define uma largura menor para a coluna "Ações" */
+                                    text-align: center; /* Centraliza o texto e os botões na coluna */
+                                }}
+                                .filters-container {{
+                                    display: flex;
+                                    justify-content: center; /* Alinha os itens no início */
+                                    margin-bottom: 10px;
+                                    width: 100%; /* Garante que ocupe a largura total */
+                                }}
+                                fieldset {{
+                                    border: none;
+                                    margin: 0; /* Remove margem */
+                                    padding: 0; /* Remove padding */
+                                }}
+                                .filters {{
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 10px;
+                                    margin: 0; /* Remove margem */
+                                    padding: 0; /* Remove padding */
+                                }}
+                                .table-container {{
+                                    width: 100%;
+                                    max-height: 450px; /* Define uma altura máxima para a tabela */
+                                }}
+                                .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                                    width: 120px; /* Define uma largura menor para a coluna "Ações" */
+                                    text-align: center; /* Centraliza o texto e os botões na coluna */
+                                }}
+                                .table-container td {{
+                                    padding: 4px; /* Diminui a altura dos td */
+                                    text-align: left;
+                                    border-bottom: 1px solid #ddd;
+                                    vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
+                                    white-space: nowrap; /* Impede quebra de linha em células */
+                                    overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
+                                    text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
+                                }}
+                                .table-container th {{
+                                    background-color: #f2f2f2;
+                                    position: sticky;
+                                    top: 0;
+                                    z-index: 1;
+                                    text-align: center; /* Centraliza o texto do thead */
+                                }}
+                                .table-container {{
+                                    font-size: 0.9em;
+                                }}
+                                .btn-relatorio {{
+                                    background-color: #1E90FF; /* Cor azul padrão */
+                                    color: white; /* Texto branco */
+                                    width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+                                    border-radius: 5px; /* Bordas arredondadas */
+                                    border: none; /* Remover borda */
+                                    transition: background-color 0.3s; /* Suavização da transição de cor */
+                                }}
+                                .btn-relatorio:hover {{
+                                    background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                                }}
+                                .btn-group {{
+                                    display: flex;
+                                    justify-content: center;
+                                    margin-top: 20px;
+                                }}
+                                .btn-approve-table, .btn-reject-table {{
+                                    display: inline-block;
+                                    width: 90px;
+                                    margin-right: 5px; /* Adiciona espaçamento entre os botões */
+                                    text-align: center; /* Centraliza o texto do botão */
+                                }}
+                                .btn-approve-table {{
+                                    background-color: #28a745;
+                                    color: white;
+                                    margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
+                                }}
+                                .btn-reject-table {{
+                                    background-color: #dc3545;
+                                    color: white;
+                                    margin-top: 5px;
+                                }}
+                                .btn-approve-table.disabled, .btn-reject-table.disabled {{
+                                    visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+                                }}
+                                .btn-relatorio:hover {{
+                                    background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                                }}
+                                @media (max-width: 768px) {{
                                     .container {{
-                                        display: flex;
-                                        flex-direction: column;
-                                        margin-top: 60px; /* Espaço para o header fixo */
+                                        padding: 10px;
+                                        overflow-y: auto;
+                                        max-height: 80vh;
                                     }}
-                                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-                                        width: 100px; /* Define uma largura menor para a coluna "Ações" */
-                                        text-align: center; /* Centraliza o texto e os botões na coluna */
-                                    }}
-                                    .filters-container {{
-                                        display: flex;
-                                        justify-content: center; /* Alinha os itens no início */
-                                        margin-bottom: 10px;
-                                        width: 100%; /* Garante que ocupe a largura total */
-                                    }}
-                                    fieldset {{
-                                        border: none;
-                                        margin: 0; /* Remove margem */
-                                        padding: 0; /* Remove padding */
+                                    .header-logo h1 {{
+                                        font-size: 1.5em;
                                     }}
                                     .filters {{
                                         display: flex;
@@ -2168,170 +2363,90 @@ def relatorio_horas(user_id):
                                         margin: 0; /* Remove margem */
                                         padding: 0; /* Remove padding */
                                     }}
-                                    .table-container {{
-                                        width: 100%;
-                                        max-height: 450px; /* Define uma altura máxima para a tabela */
-                                    }}
-                                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-                                        width: 120px; /* Define uma largura menor para a coluna "Ações" */
-                                        text-align: center; /* Centraliza o texto e os botões na coluna */
-                                    }}
-                                    .table-container td {{
-                                        padding: 4px; /* Diminui a altura dos td */
-                                        text-align: left;
-                                        border-bottom: 1px solid #ddd;
-                                        vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
-                                        white-space: nowrap; /* Impede quebra de linha em células */
-                                        overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
-                                        text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
-                                    }}
-                                    .table-container th {{
-                                        background-color: #f2f2f2;
-                                        position: sticky;
-                                        top: 0;
-                                        z-index: 1;
-                                        text-align: center; /* Centraliza o texto do thead */
+                                    .table-wrapper {{
+                                        overflow-x: auto;
                                     }}
                                     .table-container {{
                                         font-size: 0.9em;
-                                    }}
-                                    .btn-relatorio {{
-                                        background-color: #1E90FF; /* Cor azul padrão */
-                                        color: white; /* Texto branco */
-                                        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
-                                        border-radius: 5px; /* Bordas arredondadas */
-                                        border: none; /* Remover borda */
-                                        transition: background-color 0.3s; /* Suavização da transição de cor */
-                                    }}
-                                    .btn-relatorio:hover {{
-                                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                                        overflow-x: scroll;
                                     }}
                                     .btn-group {{
-                                        display: flex;
-                                        justify-content: center;
-                                        margin-top: 20px;
+                                        flex-direction: column;
+                                        align-items: center;
                                     }}
-                                    .btn-approve-table, .btn-reject-table {{
-                                        display: inline-block;
-                                        width: 90px;
-                                        margin-right: 5px; /* Adiciona espaçamento entre os botões */
-                                        text-align: center; /* Centraliza o texto do botão */
+                                    .btn-group .btn-relatorio {{
+                                        width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
+                                        height: 40px; /* Garante que a altura do botão seja mantida */
+                                        margin: 0px 0;
                                     }}
-                                    .btn-approve-table {{
-                                        background-color: #28a745;
-                                        color: white;
-                                        margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
-                                    }}
-                                    .btn-reject-table {{
-                                        background-color: #dc3545;
-                                        color: white;
-                                        margin-top: 5px;
-                                    }}
-                                    .btn-approve-table.disabled, .btn-reject-table.disabled {{
-                                        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
-                                    }}
-                                    .btn-relatorio:hover {{
-                                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
-                                    }}
-                                    @media (max-width: 768px) {{
-                                        .container {{
-                                            padding: 10px;
-                                            overflow-y: auto;
-                                            max-height: 80vh;
-                                        }}
-                                        .header-logo h1 {{
-                                            font-size: 1.5em;
-                                        }}
-                                        .filters {{
-                                            display: flex;
-                                            align-items: center;
-                                            gap: 10px;
-                                            margin: 0; /* Remove margem */
-                                            padding: 0; /* Remove padding */
-                                        }}
-                                        .table-wrapper {{
-                                            overflow-x: auto;
-                                        }}
-                                        .table-container {{
-                                            font-size: 0.9em;
-                                            overflow-x: scroll;
-                                        }}
-                                        .btn-group {{
-                                            flex-direction: column;
-                                            align-items: center;
-                                        }}
-                                        .btn-group .btn-relatorio {{
-                                            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
-                                            height: 40px; /* Garante que a altura do botão seja mantida */
-                                            margin: 0px 0;
-                                        }}
-                                    }}
-                                    .filters label, .legend-button {{
-                                        color: black;
-                                    }}
-                                    table {{
-                                        width: 100%;
-                                    }}
-                                </style>
-                            </head>
-                            <body>
-                                <div id="header">
-                                    <div class="header-logo">
-                                        <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
-                                        <h1>EVT - Aprovação de Horas - {user_name}</h1>
+                                }}
+                                .filters label, .legend-button {{
+                                    color: black;
+                                }}
+                                table {{
+                                    width: 100%;
+                                }}
+                            </style>
+                        </head>
+                        <body>
+                            <div id="header">
+                                <div class="header-logo">
+                                    <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
+                                    <h1>EVT - Aprovação de Horas</h1>
+                                </div>
+                            </div>
+                            <div class="container">
+                                <div class="filters-container">
+                                    <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
+                                        <fieldset class="collapsible collapsed">
+                                            <legend class="legend-text" onclick="toggleFieldset(this);">
+                                                <span class="legend-button">
+                                                    <span class="arrow">▶</span>
+                                                    Filtros
+                                                </span>
+                                            </legend>
+                                            <div>
+                                                <label for="filterInput">Buscar:</label>
+                                                <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
+                                                <label for="userSelect">Usuário:</label>
+                                                <select id="userSelect" onchange="filterBySelect()">
+                                                    <option value="ALL">Todos</option>
+                                                    {''.join([f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
+                                                </select>
+                                                <label for="projectSelect">Projeto:</label>
+                                                <select id="projectSelect" onchange="filterBySelect()">
+                                                    <option value="ALL">Todos</option>
+                                                    {''.join([f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
+                                                </select>
+                                                <label for="approvalSelect">Aprovado:</label>
+                                                <select id="approvalSelect" onchange="filterBySelect()">
+                                                    <option value="ALL">Todos</option>
+                                                    <option value="SIM">Aprovadas</option>
+                                                    <option value="NÃO">Reprovadas</option>
+                                                    <option value="PENDENTE">Pendentes</option>
+                                                </select>
+                                            </div>
+                                        </fieldset>
+                                    </form>
+                                </div>
+                                <div class="table-container">
+                                    {table_html}
+                                    <div id="all-actions" class="btn-group">
+                                        <button type="button" onclick="approveAll('{token}', '{entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
+                                        <button type="button" onclick="rejectAll('{token}', '{entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
+                                        <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
+                                    </div>
+                                    <div id="selected-actions" class="btn-group">
+                                        <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
+                                        <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
+                                        <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
                                     </div>
                                 </div>
-                                <div class="container">
-                                    <div class="filters-container">
-                                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
-                                            <fieldset class="collapsible collapsed">
-                                                <legend class="legend-text" onclick="toggleFieldset(this);">
-                                                    <span class="legend-button">
-                                                        <span class="arrow">▶</span>
-                                                        Filtros
-                                                    </span>
-                                                </legend>
-                                                <div>
-                                                    <label for="filterInput">Buscar:</label>
-                                                    <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
-                                                    <label for="userSelect">Usuário:</label>
-                                                    <select id="userSelect" onchange="filterBySelect()">
-                                                        <option value="ALL">Todos</option>
-                                                        {''.join([f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
-                                                    </select>
-                                                    <label for="projectSelect">Projeto:</label>
-                                                    <select id="projectSelect" onchange="filterBySelect()">
-                                                        <option value="ALL">Todos</option>
-                                                        {''.join([f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
-                                                    </select>
-                                                    <label for="approvalSelect">Aprovado:</label>
-                                                    <select id="approvalSelect" onchange="filterBySelect()">
-                                                        <option value="ALL">Todos</option>
-                                                        <option value="SIM">Aprovadas</option>
-                                                        <option value="NÃO">Reprovadas</option>
-                                                    </select>
-                                                </div>
-                                            </fieldset>
-                                        </form>
-                                    </div>
-                                    <div class="table-container">
-                                        {table_html}
-                                        <div id="all-actions" class="btn-group">
-                                            <button type="button" onclick="approveAll('{token}', '{entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
-                                            <button type="button" onclick="rejectAll('{token}', '{entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
-                                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
-                                        </div>
-                                        <div id="selected-actions" class="btn-group">
-                                            <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
-                                            <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
-                                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
-                                        </div>
-                                    </div>
-                                </div>
-                                <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
-                            </body>
-                            </html>
-                            '''
+                            </div>
+                            <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
+                        </body>
+                        </html>
+                        '''
 
             return render_template_string(html_template)
         else:
@@ -2440,13 +2555,18 @@ def relatorio_horas_geral():
 
                         let totalHours = 0;
                         let approvedHours = 0;
+                        let repprovedHours = 0;
                         let unapprovedHours = 0;
+
+                        let approveIds = [];
+                        let rejectIds = [];
 
                         for (var i = 1; i < tr.length; i++) {{
                             tr[i].style.display = "none";
                             var userTd = tr[i].getElementsByTagName("td")[2];
                             var projectTd = tr[i].getElementsByTagName("td")[4];
                             var approvalTd = tr[i].getElementsByTagName("td")[9];
+                            var entryId = tr[i].getElementsByTagName("td")[0].querySelector("input").value;
                             if (userTd && projectTd && approvalTd) {{
                                 var userValue = userTd.textContent || userTd.innerText;
                                 var projectValue = projectTd.textContent || projectTd.innerText;
@@ -2457,10 +2577,18 @@ def relatorio_horas_geral():
                                     tr[i].style.display = "";
                                     var entryHours = parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
                                     totalHours += entryHours;
-                                    if (approvalValue === 'SIM') {{
+                                    if (approvalValue === 'Sim') {{
                                         approvedHours += entryHours;
-                                    }} else {{
+                                    }} else if (approvalValue === 'Não') {{
+                                        repprovedHours += entryHours;
+                                    }} else if (approvalValue === 'Pendente') {{
                                         unapprovedHours += entryHours;
+                                    }}
+
+                                    if (approvalValue === 'Sim' || approvalValue === 'Pendente') {{
+                                        approveIds.push(entryId);
+                                    }} else {{
+                                        rejectIds.push(entryId);
                                     }}
                                 }}
                             }}
@@ -2468,7 +2596,12 @@ def relatorio_horas_geral():
 
                         document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
                         document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
                         document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
+
+                        // Atualiza os botões Aprovar Todos e Reprovar Todos com os IDs filtrados
+                        document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{approveIds.join(',')}}', {is_client})`);
+                        document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{rejectIds.join(',')}}', {is_client})`);
                     }}
 
                     function toggleAll(source) {{
@@ -2619,6 +2752,7 @@ def relatorio_horas_geral():
 
                         let totalHours = parseFloat(document.querySelector('.hours-total').textContent);
                         let approvedHours = parseFloat(document.querySelector('.hours-approved').textContent);
+                        let repprovedHours = parseFloat(document.querySelector('.hours-repproved').textContent);
                         let unapprovedHours = parseFloat(document.querySelector('.hours-unapproved').textContent);
 
                         entries.forEach(entryId => {{
@@ -2630,14 +2764,20 @@ def relatorio_horas_geral():
                                 if (isApproved) {{
                                     td[9].textContent = "Sim";
                                     approvedHours += entryHours;
-                                    unapprovedHours -= entryHours;
+                                    if (td[9].textContent === "Pendente") {{
+                                        unapprovedHours -= entryHours;
+                                    }} else if (td[9].textContent === "Não") {{
+                                        repprovedHours -= entryHours;
+                                    }}
                                 }} else {{
                                     td[9].textContent = "Não";
-                                    unapprovedHours += entryHours;
-                                    approvedHours -= entryHours;
+                                    repprovedHours += entryHours;
+                                    if (td[9].textContent === "Pendente") {{
+                                        unapprovedHours -= entryHours;
+                                    }} else if (td[9].textContent === "Sim") {{
+                                        approvedHours -= entryHours;
+                                    }}
                                 }}
-
-                                totalHours += entryHours;
 
                                 disableRow(td[0].querySelector("input").value);
                             }}
@@ -2645,6 +2785,7 @@ def relatorio_horas_geral():
 
                         document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
                         document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
                         document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
                     }}
 
@@ -2847,6 +2988,7 @@ def relatorio_horas_geral():
                                         <option value="ALL">Todos</option>
                                         <option value="SIM">Aprovadas</option>
                                         <option value="NÃO">Reprovadas</option>
+                                        <option value="PENDENTE">Pendentes</option>
                                     </select>
                                 </div>
                             </fieldset>
@@ -2928,22 +3070,33 @@ def create_html_table(time_entries):
         total_hours += entry['hours']  # Soma as horas da entrada atual
 
         approved = any(
-            field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '1') for field in entry['custom_fields'])
+            field['name'] == 'TS - Aprovado - EVT' and field['value'] == '1' for field in entry['custom_fields']
+        )
 
         repproved = any(
-            field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '0') for field in entry['custom_fields'])
+            field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in entry['custom_fields']
+        )
+
+        unnaproved = any(
+            field['name'] == 'TS - Aprovado - EVT' and field['value'] == '' for field in entry['custom_fields']
+        )
 
         if approved:
             approved_hours += entry['hours']
-
+            aprovado = 'Sim'
+            disable_attr = 'disabled'
         elif repproved:
             repproved_hours += entry['hours']
-
+            aprovado = 'Não'
+            disable_attr = ''
+        elif unnaproved:
+            unapproved_hours += entry['hours']
+            aprovado = 'Pendente'
+            disable_attr = ''
         else:
             unapproved_hours += entry['hours']
-
-        disable_attr = 'disabled' if approved else ''
-        aprovado = 'Sim' if approved else 'Não'
+            aprovado = 'Pendente'
+            disable_attr = ''
 
         table += f'''
         <tr id="entry-row-{entry['id']}">
@@ -2958,8 +3111,8 @@ def create_html_table(time_entries):
           <td class="hours-value">{entry['hours']}</td>
           <td class="approved-value">{aprovado}</td>
           <td>
-            <a href="#" onclick="approveHour({entry['id']}, '{token}', {is_client}, {entry['hours']})" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
-            <a href="#" onclick="rejectHour({entry['id']}, '{token}', {is_client}, {entry['hours']})" class="btn btn-reject-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Reprovar</a>
+            <a href="#" onclick="approveHour({entry['id']}, '{token}', {is_client}, {entry['hours']}, '{aprovado}')" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
+            <a href="#" onclick="rejectHour({entry['id']}, '{token}', {is_client}, {entry['hours']}, '{aprovado}')" class="btn btn-reject-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Reprovar</a>
           </td>
         </tr>
         '''
@@ -3089,7 +3242,7 @@ def create_html_table(time_entries):
 
     table += f'''
     <script>
-      function approveHour(entryId, token, isClient, entryHours) {{
+      function approveHour(entryId, token, isClient, entryHours, currentStatus) {{
         fetch("{API_URL}aprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
         .then(result => {{
@@ -3098,7 +3251,7 @@ def create_html_table(time_entries):
           if (status === 200) {{
             showAlert('Hora aprovada com sucesso!', 'success');
             updateRowApproval(entryId, true, entryHours);
-            updateHourSummary(entryHours, 'approve');
+            updateHourSummary(entryHours, 'approve', currentStatus);
           }} else {{
             showAlert(body.message, 'error');
           }}
@@ -3109,7 +3262,7 @@ def create_html_table(time_entries):
         }});
       }}
 
-      function rejectHour(entryId, token, isClient, entryHours) {{
+      function rejectHour(entryId, token, isClient, entryHours, currentStatus) {{
         fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
         .then(result => {{
@@ -3118,7 +3271,7 @@ def create_html_table(time_entries):
           if (status === 200) {{
             showAlert('Hora reprovada com sucesso!', 'success');
             updateRowApproval(entryId, false, entryHours);
-            updateHourSummary(entryHours, 'reject');
+            updateHourSummary(entryHours, 'reject', currentStatus);
           }} else {{
             showAlert(body.message, 'error');
           }}
@@ -3129,26 +3282,39 @@ def create_html_table(time_entries):
         }});
       }}
 
-      function updateHourSummary(entryHours, action) {{
+      function updateHourSummary(entryHours, action, currentStatus) {{
         const totalHoursElem = document.querySelector('.hours-total');
         const approvedHoursElem = document.querySelector('.hours-approved');
         const unapprovedHoursElem = document.querySelector('.hours-unapproved');
         const repprovedHoursElem = document.querySelector('.hours-repproved');
 
-        const totalHours = parseFloat(totalHoursElem.textContent);
-        const approvedHours = parseFloat(approvedHoursElem.textContent);
-        const unapprovedHours = parseFloat(unapprovedHoursElem.textContent);
-        const repprovedHours = parseFloat(repprovedHoursElem.textContent);
+        let totalHours = parseFloat(totalHoursElem.textContent);
+        let approvedHours = parseFloat(approvedHoursElem.textContent);
+        let unapprovedHours = parseFloat(unapprovedHoursElem.textContent);
+        let repprovedHours = parseFloat(repprovedHoursElem.textContent);
+
+        if (currentStatus === 'Sim' && action === 'approve') {{
+          // Não faz alteração
+        }} else if (currentStatus === 'Sim' && action === 'reject') {{
+          approvedHours -= entryHours;
+          repprovedHours += entryHours;
+        }} else if (currentStatus === 'Não' && action === 'approve') {{
+          repprovedHours -= entryHours;
+          approvedHours += entryHours;
+        }} else if (currentStatus === 'Não' && action === 'reject') {{
+          // Não faz alteração
+        }} else if (currentStatus === 'Pendente' && action === 'approve') {{
+          unapprovedHours -= entryHours;
+          approvedHours += entryHours;
+        }} else if (currentStatus === 'Pendente' && action === 'reject') {{
+          unapprovedHours -= entryHours;
+          repprovedHours += entryHours;
+        }}
 
         totalHoursElem.textContent = totalHours.toFixed(1);
-
-        if (action === 'approve') {{
-          approvedHoursElem.textContent = (approvedHours + entryHours).toFixed(1);
-          unapprovedHoursElem.textContent = (unapprovedHours - entryHours).toFixed(1);
-        }} else {{
-          repprovedHoursElem.textContent = (repprovedHours + entryHours).toFixed(1);
-          unapprovedHoursElem.textContent = (unapprovedHours - entryHours).toFixed(1);
-        }}
+        approvedHoursElem.textContent = approvedHours.toFixed(1);
+        unapprovedHoursElem.textContent = unapprovedHours.toFixed(1);
+        repprovedHoursElem.textContent = repprovedHours.toFixed(1);
       }}
 
       function updateRowApproval(entryId, isApproved, entryHours) {{
@@ -3199,7 +3365,7 @@ def create_html_table(time_entries):
         setTimeout(() => {{
             document.body.removeChild(alertDiv);
         }}, 3000);
-    }}
+      }}
     </script>
     '''
 
