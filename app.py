@@ -1063,11 +1063,11 @@ def relatorio_horas_client(user_id):
                                     }}
                                 }}
                             }}
-
+                            console.log('filterbyselect');
                             document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
                             document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
-                            document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
-                            document.querySelector('.hours-pending').textContent = (totalHours - approvedHours - unapprovedHours).toFixed(1);
+                            document.querySelector('.hours-repproved').textContent = unapprovedHours.toFixed(1);
+                            document.querySelector('.hours-unapproved').textContent = (totalHours - (approvedHours + unapprovedHours)).toFixed(1);
                         }}
 
                         function toggleAll(source) {{
@@ -1181,7 +1181,7 @@ def relatorio_horas_client(user_id):
                                 const body = result.body;
                                 showAlert(body.message, status === 200 ? 'success' : 'error');
                                 if (status === 200) {{
-                                    updateRowsApproval(entryIds.split(','), true);
+                                    location.reload();
                                 }}
                             }})
                             .catch(error => {{
@@ -1198,7 +1198,7 @@ def relatorio_horas_client(user_id):
                                 const body = result.body;
                                 showAlert(body.message, status === 200 ? 'success' : 'error');
                                 if (status === 200) {{
-                                    updateRowsApproval(entryIds.split(','), false);
+                                    location.reload();
                                 }}
                             }})
                             .catch(error => {{
@@ -1208,34 +1208,40 @@ def relatorio_horas_client(user_id):
                         }}
 
                         function updateRowsApproval(entryIds, isApproved) {{
-                            if (entryIds.length === 0) return;
+                            var table = document.getElementById("time_entries_table");
+                            var tr = table.getElementsByTagName("tr");
 
-                            var totalHours = parseFloat(document.querySelector('.hours-total').textContent);
-                            var approvedHours = parseFloat(document.querySelector('.hours-approved').textContent);
-                            var unapprovedHours = parseFloat(document.querySelector('.hours-unapproved').textContent);
+                            let totalHours = parseFloat(document.querySelector('.hours-total').textContent);
+                            let approvedHours = parseFloat(document.querySelector('.hours-approved').textContent);
+                            let repprovedHours = parseFloat(document.querySelector('.hours-repproved').textContent);
 
-                            entryIds.forEach(entryId => {{
-                                var row = document.getElementById("entry-row-" + entryId);
-                                if (row) {{
+                            for (var i = 1; i < tr.length; i++) {{
+                                var row = tr[i];
+                                var entryId = row.getElementsByTagName("td")[0].querySelector("input").value;
+                                if (entryIds.includes(entryId)) {{
                                     var td = row.getElementsByTagName("td");
                                     var entryHours = parseFloat(td[8].textContent);
 
-                                    if (isApproved) {{
-                                        td[9].textContent = "Sim";
+                                    if (isApproved && td[9].textContent !== "SIM") {{
+                                        td[9].textContent = "SIM";
                                         approvedHours += entryHours;
-                                    }} else {{
-                                        td[9].textContent = "Não";
-                                        unapprovedHours += entryHours;
+                                        if (repprovedHours >= entryHours) {{
+                                            repprovedHours -= entryHours;
+                                        }}
+                                    }} else if (!isApproved && td[9].textContent !== "NÃO") {{
+                                        td[9].textContent = "NÃO";
+                                        repprovedHours += entryHours;
+                                        if (approvedHours >= entryHours) {{
+                                            approvedHours -= entryHours;
+                                        }}
                                     }}
-
                                     disableRow(entryId);
                                 }}
-                            }});
+                            }}
 
-                            document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
                             document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
-                            document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
-                            document.querySelector('.hours-pending').textContent = (totalHours - approvedHours - unapprovedHours).toFixed(1);
+                            document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                            document.querySelector('.hours-unapproved').textContent = (totalHours - (approvedHours + repprovedHours)).toFixed(1);
                         }}
 
                         function disableRow(entryId) {{
