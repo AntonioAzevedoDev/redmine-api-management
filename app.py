@@ -2835,12 +2835,12 @@ def relatorio_horas_geral():
                                     <label for="userSelect">Usuário:</label>
                                     <select id="userSelect" onchange="filterBySelect()">
                                         <option value="ALL">Todos</option>
-                                        {''.join([f'<option value="{{usuario.upper()}}">{{usuario}}</option>' for usuario in sorted(usuarios)])}
+                                        {''.join([f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
                                     </select>
                                     <label for="projectSelect">Projeto:</label>
                                     <select id="projectSelect" onchange="filterBySelect()">
                                         <option value="ALL">Todos</option>
-                                        {''.join([f'<option value="{{projeto.upper()}}">{{projeto}}</option>' for projeto in sorted(projetos)])}
+                                        {''.join([f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
                                     </select>
                                     <label for="approvalSelect">Aprovado:</label>
                                     <select id="approvalSelect" onchange="filterBySelect()">
