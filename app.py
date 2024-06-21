@@ -2025,35 +2025,31 @@ def relatorio_horas(user_id):
                                                 var entryId = tr[i].getElementsByTagName("td")[0].querySelector("input").value;
                                                 totalHours += entryHours;
                                                 if (approvalValue === 'Sim') {{
-                                        approvedHours += entryHours;
-                                    }} else if (approvalValue === 'Não') {{
-                                        repprovedHours += entryHours;
-                                    }} else if (approvalValue === 'Pendente') {{
-                                        unapprovedHours += entryHours;
+                                                    approvedHours += entryHours;
+                                                }} else if (approvalValue === 'Não') {{
+                                                    repprovedHours += entryHours;
+                                                }} else if (approvalValue === 'Pendente') {{
+                                                    unapprovedHours += entryHours;
+                                                }}
+
+                                                if (approvalValue === 'Não' || approvalValue === 'Pendente') {{
+                                                    approveIds.push(entryId);
+                                                }} else if (approvalValue === 'Pendente') {{
+                                                    rejectIds.push(entryId);
+                                                }}
+                                            }}
+                                        }}
                                     }}
 
-                                    if (approvalValue === 'Não' || approvalValue === 'Pendente') {{
-                                        approveIds.push(entryId);
-                                    }}elif (approvalValue === 'Pendente'){{
-                                        rejectIds.push(entryId);
-                                    }}
-                                     else {{
-                                        
-                                    }}
+                                    document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                                    document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                                    document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                                    document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
+
+                                    // Atualiza os botões Aprovar Todos e Reprovar Todos com os IDs filtrados
+                                    document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{approveIds.join(',')}}', {is_client})`);
+                                    document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{rejectIds.join(',')}}', {is_client})`);
                                 }}
-                            }}
-                        }}
-
-                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
-                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
-                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
-                        document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
-
-                        // Atualiza os botões Aprovar Todos e Reprovar Todos com os IDs filtrados
-                        document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{approveIds.join(',')}}', {is_client})`);
-                        document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{rejectIds.join(',')}}', {is_client})`);
-                    }}
-
 
                                 function toggleAll(source) {{
                                     checkboxes = document.getElementsByName('selected_entries');
@@ -2455,7 +2451,306 @@ def relatorio_horas(user_id):
                                     </div>
                                 </div>
                             </div>
-                            <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
+                            <script>
+                                function toggleFieldset(legend) {{
+                                    var fieldset = legend.parentElement;
+                                    var isCollapsed = fieldset.classList.toggle('collapsed');
+                                    var div = fieldset.querySelector('div');
+                                    var arrow = legend.querySelector('.arrow');
+                                    if (isCollapsed) {{
+                                        div.style.display = 'none';
+                                        arrow.innerHTML = '▼';  // Seta para a direita
+                                    }} else {{
+                                        div.style.display = 'block';
+                                        arrow.innerHTML = '▶';  // Seta para baixo
+                                    }}
+                                }}
+                                // Garantir que o filtro comece colapsado
+                                document.addEventListener('DOMContentLoaded', function() {{
+                                    var fieldset = document.querySelector('fieldset.collapsible');
+                                    if (fieldset) {{
+                                        var div = fieldset.querySelector('div');
+                                        var arrow = fieldset.querySelector('.arrow');
+                                        div.style.display = 'none';
+                                        arrow.innerHTML = '▼';
+                                    }}
+
+                                    document.getElementById("filterInput").addEventListener("keyup", function() {{
+                                        filterTable();
+                                    }});
+
+                                    document.getElementById("userSelect").addEventListener("change", function() {{
+                                        filterBySelect();
+                                    }});
+
+                                    document.getElementById("projectSelect").addEventListener("change", function() {{
+                                        filterBySelect();
+                                    }});
+
+                                    document.getElementById("approvalSelect").addEventListener("change", function() {{
+                                        filterBySelect();
+                                    }});
+                                }});
+
+                                function filterTable() {{
+                                    filterBySelect();
+                                }}
+
+                                function filterBySelect() {{
+                                    var userSelect = document.getElementById("userSelect").value.toUpperCase();
+                                    var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
+                                    var approvalSelect = document.getElementById("approvalSelect").value.toUpperCase();
+                                    var table = document.getElementById("time_entries_table");
+                                    var tr = table.getElementsByTagName("tr");
+
+                                    let totalHours = 0;
+                                    let approvedHours = 0;
+                                    let repprovedHours = 0;
+                                    let unapprovedHours = 0;
+                                    let approveIds = [];
+                                    let rejectIds = [];
+
+                                    for (var i = 1; i < tr.length; i++) {{
+                                        tr[i].style.display = "none";
+                                        var userTd = tr[i].getElementsByTagName("td")[2];
+                                        var projectTd = tr[i].getElementsByTagName("td")[4];
+                                        var approvalTd = tr[i].getElementsByTagName("td")[9];
+                                        if (userTd && projectTd && approvalTd) {{
+                                            var userValue = userTd.textContent || userTd.innerText;
+                                            var projectValue = projectTd.textContent || projectTd.innerText;
+                                            var approvalValue = approvalTd.textContent || approvalTd.innerText;
+                                            if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
+                                                (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect) &&
+                                                (approvalSelect === "ALL" || approvalValue.toUpperCase() === approvalSelect)) {{
+                                                tr[i].style.display = "";
+                                                var entryHours = parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
+                                                var entryId = tr[i].getElementsByTagName("td")[0].querySelector("input").value;
+                                                totalHours += entryHours;
+                                                if (approvalValue === 'Sim') {{
+                                                    approvedHours += entryHours;
+                                                }} else if (approvalValue === 'Não') {{
+                                                    repprovedHours += entryHours;
+                                                }} else if (approvalValue === 'Pendente') {{
+                                                    unapprovedHours += entryHours;
+                                                }}
+
+                                                if (approvalValue === 'Não' || approvalValue === 'Pendente') {{
+                                                    approveIds.push(entryId);
+                                                }} else if (approvalValue === 'Pendente') {{
+                                                    rejectIds.push(entryId);
+                                                }}
+                                            }}
+                                        }}
+                                    }}
+
+                                    document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                                    document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                                    document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                                    document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
+
+                                    // Atualiza os botões Aprovar Todos e Reprovar Todos com os IDs filtrados
+                                    document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{approveIds.join(',')}}', {is_client})`);
+                                    document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{rejectIds.join(',')}}', {is_client})`);
+                                }}
+
+                                function toggleAll(source) {{
+                                    checkboxes = document.getElementsByName('selected_entries');
+                                    for(var i=0, n=checkboxes.length;i<n;i++) {{
+                                        if (!checkboxes[i].disabled) {{
+                                            checkboxes[i].checked = source.checked;
+                                        }}
+                                    }}
+                                }}
+
+                                function sendFilteredData() {{
+                                    var data = getFilteredTableData();
+                                    fetch('/send_email_report_client_geral', {{
+                                        method: 'POST',
+                                        headers: {{
+                                            'Content-Type': 'application/json'
+                                        }},
+                                        body: JSON.stringify({{ entries: data }})
+                                    }})
+                                    .then(response => response.json())
+                                    .then(data => {{
+                                        showAlert('Relatório enviado com sucesso', 'success');
+                                    }})
+                                    .catch((error) => {{
+                                        showAlert('Erro ao enviar o relatório: ' + error, 'error');
+                                    }});
+                                }}
+
+                                function showAlert(message, type) {{
+                                    var alertDiv = document.createElement('div');
+                                    alertDiv.className = `alert alert-${type}`;
+                                    alertDiv.textContent = message;
+
+                                    // Estilização básica para o popup
+                                    alertDiv.style.position = 'fixed';
+                                    alertDiv.style.top = '20px';
+                                    alertDiv.style.left = '50%';
+                                    alertDiv.style.transform = 'translateX(-50%)';
+                                    alertDiv.style.padding = '10px';
+                                    alertDiv.style.zIndex = 1000;
+                                    alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+                                    alertDiv.style.color = 'white';
+                                    alertDiv.style.borderRadius = '5px';
+                                    alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
+                                    alertDiv.style.fontSize = '16px';
+
+                                    document.body.appendChild(alertDiv);
+
+                                    // Remover o popup após 3 segundos
+                                    setTimeout(() => {{
+                                        document.body.removeChild(alertDiv);
+                                    }}, 3000);
+                                }}
+
+                                function getFilteredTableData() {{
+                                    var table = document.getElementById("time_entries_table");
+                                    var tr = table.getElementsByTagName("tr");
+                                    var data = [];
+                                    var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
+
+                                    if (checkboxes.length > 0) {{
+                                        for (var checkbox of checkboxes) {{
+                                            var row = checkbox.closest("tr");
+                                            var td = row.getElementsByTagName("td");
+
+                                            var entry = {{
+                                                id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                                date: td[1] ? td[1].textContent : "N/A",
+                                                user: td[2] ? td[2].textContent : "N/A",
+                                                activity: td[3] ? td[3].textContent : "N/A",
+                                                project: td[4] ? td[4].textContent : "N/A",
+                                                comments: td[5] ? td[5].textContent : "N/A",
+                                                start_time: td[6] ? td[6].textContent : "N/A",
+                                                end_time: td[7] ? td[7].textContent : "N/A",
+                                                hours: td[8] ? td[8].textContent : "N/A"
+                                            }};
+
+                                            data.push(entry);
+                                        }}
+                                    }} else {{
+                                        for (var i = 1; i < tr.length; i++) {{
+                                            if (tr[i].style.display !== "none") {{
+                                                var td = tr[i].getElementsByTagName("td");
+
+                                                var entry = {{
+                                                    id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                                    date: td[1] ? td[1].textContent : "N/A",
+                                                    user: td[2] ? td[2].textContent : "N/A",
+                                                    activity: td[3] ? td[3].textContent : "N/A",
+                                                    project: td[4] ? td[4].textContent : "N/A",
+                                                    comments: td[5] ? td[5].textContent : "N/A",
+                                                    start_time: td[6] ? td[6].textContent : "N/A",
+                                                    end_time: td[7] ? td[7].textContent : "N/A",
+                                                    hours: td[8] ? td[8].textContent : "N/A"
+                                                }};
+
+                                                data.push(entry);
+                                            }}
+                                        }}
+                                    }}
+
+                                    return data;
+                                }}
+
+                                function approveAll(token, entryIds, isClient) {{
+                                    fetch("{API_URL}aprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
+                                    .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+                                    .then(result => {{
+                                        const status = result.status;
+                                        const body = result.body;
+                                        if (status === 200) {{
+                                            showAlert(body.message, 'success');
+                                            updateRowsApproval(body.approved_entries, true);
+                                            location.reload();
+                                        }} else {{
+                                            showAlert(body.message, 'error');
+                                        }}
+                                    }})
+                                    .catch(error => {{
+                                        console.error('Erro:', error);
+                                        showAlert('Erro ao aprovar horas.', 'error');
+                                    }});
+                                }}
+
+                                function rejectAll(token, entryIds, isClient) {{
+                                    fetch("{API_URL}reprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
+                                    .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+                                    .then(result => {{
+                                        const status = result.status;
+                                        const body = result.body;
+                                        if (status === 200) {{
+                                            showAlert(body.message, 'success');
+                                            updateRowsApproval(body.rejected_entries, false);
+                                            location.reload();
+                                        }} else {{
+                                            showAlert(body.message, 'error');
+                                        }}
+                                    }})
+                                    .catch(error => {{
+                                        console.error('Erro:', error);
+                                        showAlert('Erro ao reprovar horas.', 'error');
+                                    }});
+                                }}
+
+                                function updateRowsApproval(entries, isApproved) {{
+                                    if (!entries || entries.length === 0) {{
+                                        return;
+                                    }}
+
+                                    let totalHours = parseFloat(document.querySelector('.hours-total').textContent);
+                                    let approvedHours = parseFloat(document.querySelector('.hours-approved').textContent);
+                                    let repprovedHours = parseFloat(document.querySelector('.hours-repproved').textContent);
+                                    let unapprovedHours = parseFloat(document.querySelector('.hours-unapproved').textContent);
+
+                                    entries.forEach(entryId => {{
+                                        var row = document.getElementById("entry-row-" + entryId);
+                                        if (row) {{
+                                            var td = row.getElementsByTagName("td");
+                                            var entryHours = parseFloat(td[8].textContent);
+
+                                            if (isApproved) {{
+                                                td[9].textContent = "Sim";
+                                                approvedHours += entryHours;
+                                                unapprovedHours -= entryHours;
+                                            }} else {{
+                                                td[9].textContent = "Não";
+                                                repprovedHours += entryHours;
+                                                unapprovedHours -= entryHours;
+                                            }}
+
+                                            totalHours += entryHours;
+
+                                            disableRow(td[0].querySelector("input").value);
+                                        }}
+                                    }});
+
+                                    document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                                    document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                                    document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                                    document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
+                                }}
+
+                                function disableRow(entryId) {{
+                                    var row = document.getElementById("entry-row-" + entryId);
+                                    var checkBox = row.querySelector('input[type="checkbox"]');
+                                    var approveButton = row.querySelector('.btn-approve-table');
+                                    var rejectButton = row.querySelector('.btn-reject-table');
+
+                                    if (checkBox) {{
+                                        checkBox.disabled = true;
+                                    }}
+                                    if (approveButton) {{
+                                        approveButton.classList.add('disabled');
+                                    }}
+                                    if (rejectButton) {{
+                                        rejectButton.classList.add('disabled');
+                                    }}
+                                }}
+                            </script>
                         </body>
                         </html>
                         '''
