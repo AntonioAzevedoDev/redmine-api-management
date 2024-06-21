@@ -992,7 +992,7 @@ def relatorio_horas_client(user_id):
                 )
                 reject_entry_ids = ','.join(
                     [str(entry['id']) for entry in unapproved_entries if
-                     any(field['name'] == 'TS - Aprovado - CLI' and field['value'] == '1' for field in entry.get('custom_fields', []))]
+                     any(field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '1' or field['value'] == '') for field in entry.get('custom_fields', []))]
                 )
 
                 # Extrai usuários e projetos para os filtros
