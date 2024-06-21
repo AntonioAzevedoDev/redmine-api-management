@@ -442,7 +442,7 @@ def send_email_report_client_geral():
                     field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '0' or field['value'] == '')
                     for field in entry.get('custom_fields', [])
                 ) and any(
-                    field['name'] == 'TS - Aprovador - EVT' and (field['value'] == '1' or field['value'] == '')
+                    field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '1' or field['value'] == '')
                     for field in entry.get('custom_fields', [])
                 )
             ]
@@ -2768,10 +2768,11 @@ def relatorio_horas(user_id):
 def relatorio_horas_geral():
     try:
         # Define o período de 30 dias
-        today = datetime.today() + timedelta(days=1)
-        thirty_days_ago = today - timedelta(days=90)
-        start_date = thirty_days_ago.strftime('%Y-%m-%d')
-        end_date = today.strftime('%Y-%m-%d')
+        today = datetime.today()
+        first_day_of_month = today.replace(day=1)
+        last_day_of_month = today.replace(day=calendar.monthrange(today.year, today.month)[1])
+        start_date = first_day_of_month.strftime('%Y-%m-%d')
+        end_date = last_day_of_month.strftime('%Y-%m-%d')
 
         # Faz uma requisição para obter as entradas de tempo do Redmine
         url = f'{REDMINE_URL}/time_entries.json?from={start_date}&to={end_date}'
