@@ -3033,6 +3033,7 @@ def relatorio_horas_geral():
                             if (status === 200) {{
                                 showAlert(body.message, 'success');
                                 updateRowsApproval(body.approved_entries, true);
+                                location.reload();
                             }} else {{
                                 showAlert(body.message, 'error');
                             }}
@@ -3052,6 +3053,7 @@ def relatorio_horas_geral():
                             if (status === 200) {{
                                 showAlert(body.message, 'success');
                                 updateRowsApproval(body.rejected_entries, false);
+                                location.reload();
                             }} else {{
                                 showAlert(body.message, 'error');
                             }}
