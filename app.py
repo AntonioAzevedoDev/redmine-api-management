@@ -1086,13 +1086,15 @@ def relatorio_horas_client(user_id):
                                         totalHours += entryHours;
                                         if (approvalValue === 'Sim') {{
                                             approvedHours += entryHours;
-                                            filteredApproveIds.push(entryId);
+                                            
                                         }} else if (approvalValue === 'Não') {{
                                             repprovedHours += entryHours;
-                                            filteredRejectIds.push(entryId);
+                                            filteredApproveIds.push(entryId);
+                                            
                                         }} else if (approvalValue === 'Pendente') {{
                                             unapprovedHours += entryHours;
                                             filteredApproveIds.push(entryId);
+                                            filteredRejectIds.push(entryId);
                                         }}
                                     }}
                                 }}
@@ -2023,27 +2025,35 @@ def relatorio_horas(user_id):
                                                 var entryId = tr[i].getElementsByTagName("td")[0].querySelector("input").value;
                                                 totalHours += entryHours;
                                                 if (approvalValue === 'Sim') {{
-                                                    approvedHours += entryHours;
-                                                    approveIds.push(entryId);
-                                                }} else if (approvalValue === 'Não') {{
-                                                    repprovedHours += entryHours;
-                                                    rejectIds.push(entryId);
-                                                }} else if (approvalValue === 'Pendente') {{
-                                                    unapprovedHours += entryHours;
-                                                    approveIds.push(entryId);
-                                                }}
-                                            }}
-                                        }}
+                                        approvedHours += entryHours;
+                                    }} else if (approvalValue === 'Não') {{
+                                        repprovedHours += entryHours;
+                                    }} else if (approvalValue === 'Pendente') {{
+                                        unapprovedHours += entryHours;
                                     }}
 
-                                    document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
-                                    document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
-                                    document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
-                                    document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
-
-                                    document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{approveIds.join(',')}}', {is_client})`);
-                                    document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{rejectIds.join(',')}}', {is_client})`);
+                                    if (approvalValue === 'Não' || approvalValue === 'Pendente') {{
+                                        approveIds.push(entryId);
+                                    }}elif (approvalValue === 'Pendente'){{
+                                        rejectIds.push(entryId);
+                                    }}
+                                     else {{
+                                        
+                                    }}
                                 }}
+                            }}
+                        }}
+
+                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                        document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
+
+                        // Atualiza os botões Aprovar Todos e Reprovar Todos com os IDs filtrados
+                        document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{approveIds.join(',')}}', {is_client})`);
+                        document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{rejectIds.join(',')}}', {is_client})`);
+                    }}
+
 
                                 function toggleAll(source) {{
                                     checkboxes = document.getElementsByName('selected_entries');
@@ -2157,6 +2167,7 @@ def relatorio_horas(user_id):
                                         if (status === 200) {{
                                             showAlert(body.message, 'success');
                                             updateRowsApproval(body.approved_entries, true);
+                                            location.reload();
                                         }} else {{
                                             showAlert(body.message, 'error');
                                         }}
@@ -2176,6 +2187,7 @@ def relatorio_horas(user_id):
                                         if (status === 200) {{
                                             showAlert(body.message, 'success');
                                             updateRowsApproval(body.rejected_entries, false);
+                                            location.reload();
                                         }} else {{
                                             showAlert(body.message, 'error');
                                         }}
@@ -2491,7 +2503,17 @@ def relatorio_horas_geral():
             # Extrai usuários e projetos para os filtros
             usuarios = {entry['user']['name'] for entry in time_entries}
             projetos = {entry['project']['name'] for entry in time_entries}
-
+            # Constrói a lista de IDs das entradas
+            approve_entry_ids = ','.join(
+                [str(entry['id']) for entry in unapproved_entries if
+                 any(field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '0' or field['value'] == '') for
+                     field in entry.get('custom_fields', []))]
+            )
+            reject_entry_ids = ','.join(
+                [str(entry['id']) for entry in unapproved_entries if
+                 any(field['name'] == 'TS - Aprovado - EVT' and field['value'] == '1' for field in
+                     entry.get('custom_fields', []))]
+            )
             # Template HTML para renderizar a página
             html_template = f'''
             <!DOCTYPE html>
@@ -2502,6 +2524,64 @@ def relatorio_horas_geral():
                 <title>Tempo gasto</title>
                 <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
                 <script>
+                    function filterBySelect() {{
+                        var userSelect = document.getElementById("userSelect").value.toUpperCase();
+                        var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
+                        var approvalSelect = document.getElementById("approvalSelect").value.toUpperCase();
+                        var table = document.getElementById("time_entries_table");
+                        var tr = table.getElementsByTagName("tr");
+
+                        let totalHours = 0;
+                        let approvedHours = 0;
+                        let repprovedHours = 0;
+                        let unapprovedHours = 0;
+
+                        let approveIds = [];
+                        let rejectIds = [];
+
+                        for (var i = 1; i < tr.length; i++) {{
+                            tr[i].style.display = "none";
+                            var userTd = tr[i].getElementsByTagName("td")[2];
+                            var projectTd = tr[i].getElementsByTagName("td")[4];
+                            var approvalTd = tr[i].getElementsByTagName("td")[9];
+                            var entryId = tr[i].getElementsByTagName("td")[0].querySelector("input").value;
+                            if (userTd && projectTd && approvalTd) {{
+                                var userValue = userTd.textContent || userTd.innerText;
+                                var projectValue = projectTd.textContent || projectTd.innerText;
+                                var approvalValue = approvalTd.textContent || approvalTd.innerText;
+                                if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
+                                    (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect) &&
+                                    (approvalSelect === "ALL" || approvalValue.toUpperCase() === approvalSelect)) {{
+                                    tr[i].style.display = "";
+                                    var entryHours = parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
+                                    totalHours += entryHours;
+                                    if (approvalValue === 'Sim') {{
+                                        approvedHours += entryHours;
+                                    }} else if (approvalValue === 'Não') {{
+                                        repprovedHours += entryHours;
+                                        rejectIds.push(entryId);
+                                    }} else if (approvalValue === 'Pendente') {{
+                                        unapprovedHours += entryHours;
+                                        rejectIds.push(entryId);
+                                    }}
+
+                                    if (approvalValue === 'Não' || approvalValue === 'Pendente') {{
+                                        approveIds.push(entryId);
+                                    }}
+                                }}
+                            }}
+                        }}
+
+                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                        document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
+
+                        // Atualiza os botões Aprovar Todos e Reprovar Todos com os IDs filtrados
+                        document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{approveIds.join(',')}}', {is_client})`);
+                        document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{rejectIds.join(',')}}', {is_client})`);
+                    }}
+
                     function toggleFieldset(legend) {{
                         var fieldset = legend.parentElement;
                         var isCollapsed = fieldset.classList.toggle('collapsed');
@@ -2544,64 +2624,6 @@ def relatorio_horas_geral():
 
                     function filterTable() {{
                         filterBySelect();
-                    }}
-
-                    function filterBySelect() {{
-                        var userSelect = document.getElementById("userSelect").value.toUpperCase();
-                        var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
-                        var approvalSelect = document.getElementById("approvalSelect").value.toUpperCase();
-                        var table = document.getElementById("time_entries_table");
-                        var tr = table.getElementsByTagName("tr");
-
-                        let totalHours = 0;
-                        let approvedHours = 0;
-                        let repprovedHours = 0;
-                        let unapprovedHours = 0;
-
-                        let approveIds = [];
-                        let rejectIds = [];
-
-                        for (var i = 1; i < tr.length; i++) {{
-                            tr[i].style.display = "none";
-                            var userTd = tr[i].getElementsByTagName("td")[2];
-                            var projectTd = tr[i].getElementsByTagName("td")[4];
-                            var approvalTd = tr[i].getElementsByTagName("td")[9];
-                            var entryId = tr[i].getElementsByTagName("td")[0].querySelector("input").value;
-                            if (userTd && projectTd && approvalTd) {{
-                                var userValue = userTd.textContent || userTd.innerText;
-                                var projectValue = projectTd.textContent || projectTd.innerText;
-                                var approvalValue = approvalTd.textContent || approvalTd.innerText;
-                                if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
-                                    (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect) &&
-                                    (approvalSelect === "ALL" || approvalValue.toUpperCase() === approvalSelect)) {{
-                                    tr[i].style.display = "";
-                                    var entryHours = parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
-                                    totalHours += entryHours;
-                                    if (approvalValue === 'Sim') {{
-                                        approvedHours += entryHours;
-                                    }} else if (approvalValue === 'Não') {{
-                                        repprovedHours += entryHours;
-                                    }} else if (approvalValue === 'Pendente') {{
-                                        unapprovedHours += entryHours;
-                                    }}
-
-                                    if (approvalValue === 'Sim' || approvalValue === 'Pendente') {{
-                                        approveIds.push(entryId);
-                                    }} else {{
-                                        rejectIds.push(entryId);
-                                    }}
-                                }}
-                            }}
-                        }}
-
-                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
-                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
-                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
-                        document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
-
-                        // Atualiza os botões Aprovar Todos e Reprovar Todos com os IDs filtrados
-                        document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{approveIds.join(',')}}', {is_client})`);
-                        document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{rejectIds.join(',')}}', {is_client})`);
                     }}
 
                     function toggleAll(source) {{
@@ -2997,8 +3019,8 @@ def relatorio_horas_geral():
                     <div class="table-container">
                         {table_html}
                         <div id="all-actions" class="btn-group">
-                            <button type="button" onclick="approveAll('{token}', '{entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
-                            <button type="button" onclick="rejectAll('{token}', '{entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
+                           <button type="button" onclick="approveAll('{token}', '{approve_entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
+                            <button type="button" onclick="rejectAll('{token}', '{reject_entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
                             <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
                         </div>
                         <div id="selected-actions" class="btn-group">
