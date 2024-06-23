@@ -945,8 +945,6 @@ def relatorio_horas_client(user_id):
 
         # Construir URL de requisição com filtros
         url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
-        #if project_id:
-        #   url += f'&project_id={project_id}'
 
         entries_response = requests.get(url, headers={
             'X-Redmine-API-Key': REDMINE_API_KEY,
@@ -1037,15 +1035,21 @@ def relatorio_horas_client(user_id):
                                 arrow.innerHTML = '▶';  // Seta para baixo
                             }}
                         }}
-                        
-                        // Garantir que o filtro comece colapsado
+
                         document.addEventListener('DOMContentLoaded', function() {{
-                            var fieldset = document.querySelector('fieldset.collapsible');
-                            if (fieldset) {{
-                                var div = fieldset.querySelector('div');
-                                var arrow = fieldset.querySelector('.arrow');
-                                div.style.display = 'none';
-                                arrow.innerHTML = '▼';
+                            // Lógica de seleção automática de projetos e filtros
+                            
+                            const projectSelect = document.getElementById('projectSelect');
+                            const project_name = "{project_name}";
+                            if (projectSelect && project_name) {{
+                                const options = projectSelect.options;
+                                for (let i = 0; i < options.length; i++) {{
+                                    if (options[i].text.toUpperCase() === project_name.toUpperCase()) {{
+                                        projectSelect.selectedIndex = i;
+                                        filterBySelect();
+                                        break;
+                                    }}
+                                }}
                             }}
 
                             document.getElementById("filterInput").addEventListener("keyup", function() {{
@@ -1174,16 +1178,10 @@ def relatorio_horas_client(user_id):
                             document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
                             document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
 
-                            // Atualiza os botões de Aprovar Todos e Reprovar Todos no modo desktop via XPath
-                            var approveAllButton = document.evaluate('//*[@id="all-actions"]/button[1]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                            var rejectAllButton = document.evaluate('//*[@id="all-actions"]/button[2]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                        
-                            if (approveAllButton) {{
-                                approveAllButton.setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
-                            }}
-                            if (rejectAllButton) {{
-                                rejectAllButton.setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
-                            }}
+                            // Atualiza os botões no modo desktop
+                            document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
+                            document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
+
                             // Atualiza os botões no modo mobile
                             document.querySelector('.mobile-actions .btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
                             document.querySelector('.mobile-actions .btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
@@ -1445,14 +1443,23 @@ def relatorio_horas_client(user_id):
                         document.addEventListener('DOMContentLoaded', function() {{
                             updateMobileSummary();
                             if (window.innerWidth <= 768) {{ // Verifica se a largura da janela é de 768px ou menos (modo mobile)
-                                var columnsToHide = [ 4,5, 6, 11]; // Índices das colunas a serem escondidas
-                                //*[@id="time_entries_table"]/thead/tr/th[3]
+                                var thHoraInicial = document.querySelector('#time_entries_table thead tr th:nth-child(7)');
+                                if (thHoraInicial) {{
+                                    thHoraInicial.textContent = 'Hora Inicial';
+                                }}
+                            
+                                var thHoraFinal = document.querySelector('#time_entries_table thead tr th:nth-child(8)');
+                                if (thHoraFinal) {{
+                                    thHoraFinal.textContent = 'Hora Final';
+                                }}
+                                var thTotalHoras = document.querySelector('#time_entries_table thead tr th:nth-child(9)');
+                                if (thTotalHoras) {{
+                                    thTotalHoras.textContent = 'Total Horas';
+                                }}
+                                var columnsToHide = [4, 5, 6, 11]; // Índices das colunas a serem escondidas
                                 columnsToHide.forEach(function(index) {{
-                                    //*[@id="time_entries_table"]/thead/tr/th[3]
                                     var thXPath = `//*[@id="time_entries_table"]/thead/tr/th[${{index}}]`;
-                                    console.log('thXPath'+thXPath);
                                     var th = document.evaluate(thXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                                    console.log('th'+th);
                                     if (th) th.style.display = 'none';
                     
                                     var tdXPath = `//*[@id="time_entries_table"]/tbody/tr/td[${{index}}]`;
@@ -1463,338 +1470,324 @@ def relatorio_horas_client(user_id):
                                 }});
                             }}
                         }});
-                         
                     </script>
                     <style>
-    body {{
-        overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
-        margin: 0;
-        padding: 0;
-    }}
-    #header {{
-        position: fixed;
-        top: 0;
-        width: 100%;
-        z-index: 10; /* Garante que o header fique sobre outros elementos */
-        background-color: #333333; /* Defina a cor de fundo original aqui */
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
-    }}
-    .container {{
-        display: flex;
-        flex-direction: column;
-        margin-top: 60px; /* Espaço para o header fixo */
-    }}
-    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-        width: 100px; /* Define uma largura menor para a coluna "Ações" */
-        text-align: center; /* Centraliza o texto e os botões na coluna */
-    }}
-    .filters-container {{
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-        width: 100%;
-    }}
+                        body {{
+                            overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
+                            margin: 0;
+                            padding: 0;
+                        }}
+                        #header {{
+                            position: fixed;
+                            top: 0;
+                            width: 100%;
+                            z-index: 10; /* Garante que o header fique sobre outros elementos */
+                            background-color: #333333; /* Defina a cor de fundo original aqui */
+                            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
+                        }}
+                        .container {{
+                            display: flex;
+                            flex-direction: column;
+                            margin-top: 60px; /* Espaço para o header fixo */
+                        }}
+                        .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                            width: 100px; /* Define uma largura menor para a coluna "Ações" */
+                            text-align: center; /* Centraliza o texto e os botões na coluna */
+                        }}
+                        .filters-container {{
+                            display: flex;
+                            flex-direction: column;
+                            align-items: stretch;
+                            width: 100%;
+                        }}
 
-    .toggle-filters {{
-        background-color: #1E90FF;
-        color: white;
-        padding: 10px;
-        text-align: center;
-        border: none;
-        border-radius: 5px;
-        margin-bottom: 10px;
-        width: 100%;
-        max-width: 200px;
-        align-self: center;
-    }}
+                        .toggle-filters {{
+                            background-color: #1E90FF;
+                            color: white;
+                            padding: 10px;
+                            text-align: center;
+                            border: none;
+                            border-radius: 5px;
+                            margin-bottom: 10px;
+                            width: 100%;
+                            max-width: 200px;
+                            align-self: center;
+                        }}
 
-    #time_entries_form {{
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        width: 100%;
-    }}
+                        #time_entries_form {{
+                            display: flex;
+                            flex-direction: column;
+                            gap: 10px;
+                            width: 100%;
+                        }}
 
-    #filter-fields {{
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }}
+                        #filter-fields {{
+                            display: flex;
+                            flex-direction: column;
+                            gap: 10px;
+                        }}
 
-    .filters label {{
-        font-weight: bold;
-        margin-bottom: 5px;
-    }}
+                        .filters label {{
+                            font-weight: bold;
+                            margin-bottom: 5px;
+                        }}
 
-    .filters input, .filters select {{
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-    }}
+                        .filters input, .filters select {{
+                            width: 100%;
+                            padding: 10px;
+                            border: 1px solid #ddd;
+                            border-radius: 5px;
+                        }}
 
-    .legend-text {{
-        display: none; /* Oculta a legenda no modo mobile */
-    }}
+                        .legend-text {{
+                            display: none; /* Oculta a legenda no modo mobile */
+                        }}
 
-    .arrow {{
-        display: none; /* Oculta a seta no modo mobile */
-    }}
-    .table-container {{
-        width: 100%;
-        max-height: 450px; /* Define uma altura máxima para a tabela */
-    }}
-    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-        width: 120px; /* Define uma largura menor para a coluna "Ações" */
-        text-align: center; /* Centraliza o texto e os botões na coluna */
-    }}
-    .table-container td {{
-        padding: 4px; /* Diminui a altura dos td */
-        text-align: left;
-        border-bottom: 1px solid #ddd;
-        vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
-        white-space: nowrap; /* Impede quebra de linha em células */
-        overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
-        text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
-    }}
-    .table-container th {{
-        background-color: #f2f2f2;
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        text-align: center; /* Centraliza o texto do thead */
-    }}
-    .table-container {{
-        font-size: 0.9em;
-    }}
-    .btn-relatorio {{
-        background-color: #1E90FF; /* Cor azul padrão */
-        color: white; /* Texto branco */
-        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
-        border-radius: 5px; /* Bordas arredondadas */
-        border: none; /* Remover borda */
-        transition: background-color 0.3s; /* Suavização da transição de cor */
-    }}
-    .btn-relatorio:hover {{
-        background-color: #63B8FF; /* Azul claro ao passar o mouse */
-    }}
-    .btn-group {{
-        display: flex;
-        justify-content: center;
-        margin-top: 20px;
-    }}
-    .btn-approve-table, .btn-reject-table {{
-        display: inline-block;
-        width: 90px;
-        margin-right: 5px; /* Adiciona espaçamento entre os botões */
-        text-align: center; /* Centraliza o texto do botão */
-    }}
-    .btn-approve-table {{
-        background-color: #28a745;
-        color: white;
-        margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
-    }}
-    .btn-reject-table {{
-        background-color: #dc3545;
-        color: white;
-        margin-top: 5px;
-    }}
-    .btn-approve-table.disabled, .btn-reject-table.disabled {{
-        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
-    }}
-    .btn-relatorio:hover {{
-        background-color: #63B8FF; /* Azul claro ao passar o mouse */
-    }}
-
-    @media (max-width: 768px) {{
-        .filters-container {{
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            width: 100%;
-        }}
-
-        .toggle-filters {{
-            background-color: #1E90FF;
-            color: white;
-            padding: 10px;
-            text-align: center;
-            border: none;
-            border-radius: 5px;
-            margin: 10px 0;
-            width: 80%;
-            max-width: 130px;
-            align-self: center;
-        }}
-
-        #time_entries_form {{
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            width: 100%;
-        }}
-
-        #filter-fields {{
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }}
-
-        .filters label {{
-            font-weight: bold;
-            margin-bottom: 5px;
-        }}
-
-        .filters input, .filters select {{
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }}
-
-        .legend-text {{
-            display: none; /* Oculta a legenda no modo mobile */
-        }}
-
-        .arrow {{
-            display: none; /* Oculta a seta no modo mobile */
-        }}
-        .container {{
-            padding: 10px;
-            overflow-y: auto;
-            max-height: 80vh;
-        }}
-        .header-logo h1 {{
-            font-size: 1.5em;
-        }}
-        .filters {{
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin: 0; /* Remove margem */
-            padding: 0; /* Remove padding */
-        }}
-        .table-wrapper {{
-            overflow-x: auto;
-        }}
-        .table-container {{
-            font-size: 0.9em;
-            overflow-x: scroll;
-        }}
-        .btn-group {{
-            flex-direction: column;
-            align-items: center;
-        }}
-        .btn-group .btn-relatorio {{
-            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
-            height: 40px; /* Garante que a altura do botão seja mantida */
-            margin: 0px 0;
-        }}
-        #hours-summary {{
-            display: block; /* Mostrar no modo mobile */
-        }}
-    }}
-
-    @media (min-width: 769px) {{
-        .toggle-filters {{
-            display: none;
-        }}
-        #time_entries_form {{
-            display: block !important;
-        }}
-        #hours-summary {{
-            display: none; /* Esconder no modo desktop */
-        }}
-        .legend-text {{
-            display: block; /* Mostrar a legenda no modo desktop */
-        }}
-        .arrow {{
-            display: inline; /* Mostrar a seta no modo desktop */
-        }}
-    }}
-
-    .filters label, .legend-button {{
-        color: black;
-    }}
-    table {{
-        width: 100%;
-    }}
-    #detailsPopup {{
-        display: none;
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background-color: white;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-        z-index: 1000;
-        padding: 20px;
-        border-radius: 5px;
-        max-width: 90%;
-        max-height: 90%;
-        overflow-y: auto;
-    }}
-    #detailsPopup .btn-group {{
-        display: flex;
-        justify-content: space-between;
-        margin-top: 20px;
-    }}
-    .close-button {{
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: none;
-        border: none;
-        font-size: 1.5rem;
-        cursor: pointer;
-    }}
-    .close-button:hover {{
-        color: red;
-    }}
-
-    @media (max-width: 768px) {{
-        #all-actions {{
-            display: none;
-        }}
-        #hours-summary-table {{
-            display: none;
-        }}
-        .mobile-actions {{
-            display: block;
-        }}
-        #hours-summary {{
-            display: block;
-        }}
-        .hours-summary {{
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #333;
-            margin-top: 10px;
-        }}
-        .hours-summary p {{
-            margin: 5px 0;
-        }}
-        .hours-total-mobile, .hours-approved-mobile, .hours-unapproved-mobile {{
-            color: #1E90FF;
-        }}
-        .hours-approved-mobile {{
-            color: #28a745;
-        }}
-        .hours-repproved-mobile {{
-            color: #dc3545;
-        }}
-        .hours-unapproved-mobile {{
-            color: #bbdb03;
-        }}
-    }}
-
-    @media (min-width: 769px) {{
-        #mobile-actions-buttons {{
-            display: none; /* Tornar invisível no modo desktop */
-        }}
-    }}
-</style>
-
+                        .arrow {{
+                            display: none; /* Oculta a seta no modo mobile */
+                        }}
+                        .table-container {{
+                            width: 100%;
+                            max-height: 450px; /* Define uma altura máxima para a tabela */
+                        }}
+                        .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                            width: 120px; /* Define uma largura menor para a coluna "Ações" */
+                            text-align: center; /* Centraliza o texto e os botões na coluna */
+                        }}
+                        .table-container td {{
+                            padding: 4px; /* Diminui a altura dos td */
+                            text-align: left;
+                            border-bottom: 1px solid #ddd;
+                            vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
+                            white-space: nowrap; /* Impede quebra de linha em células */
+                            overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
+                            text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
+                        }}
+                        .table-container th {{
+                            background-color: #f2f2f2;
+                            position: sticky;
+                            top: 0;
+                            z-index: 1;
+                            text-align: center; /* Centraliza o texto do thead */
+                        }}
+                        .table-container {{
+                            font-size: 0.9em;
+                        }}
+                        .btn-relatorio {{
+                            background-color: #1E90FF; /* Cor azul padrão */
+                            color: white; /* Texto branco */
+                            width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+                            border-radius: 5px; /* Bordas arredondadas */
+                            border: none; /* Remover borda */
+                            transition: background-color 0.3s; /* Suavização da transição de cor */
+                        }}
+                        .btn-relatorio:hover {{
+                            background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                        }}
+                        .btn-group {{
+                            display: flex;
+                            justify-content: center;
+                            margin-top: 20px;
+                        }}
+                        .btn-approve-table, .btn-reject-table {{
+                            display: inline-block;
+                            width: 90px;
+                            margin-right: 5px; /* Adiciona espaçamento entre os botões */
+                            text-align: center; /* Centraliza o texto do botão */
+                        }}
+                        .btn-approve-table {{
+                            background-color: #28a745;
+                            color: white;
+                            margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
+                        }}
+                        .btn-reject-table {{
+                            background-color: #dc3545;
+                            color: white;
+                            margin-top: 5px;
+                        }}
+                        .btn-approve-table.disabled, .btn-reject-table.disabled {{
+                            visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+                        }}
+                        .btn-relatorio:hover {{
+                            background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                        }}
+                        @media (max-width: 768px) {{
+                            .filters-container {{
+                                display: flex;
+                                flex-direction: column;
+                                align-items: stretch;
+                                width: 100%;
+                            }}
+                            .toggle-filters {{
+                                background-color: #1E90FF;
+                                color: white;
+                                padding: 10px;
+                                text-align: center;
+                                border: none;
+                                border-radius: 5px;
+                                margin: 10px 0;
+                                width: 80%;
+                                max-width: 130px;
+                                align-self: center;
+                            }}
+                            #time_entries_form {{
+                                display: flex;
+                                flex-direction: column;
+                                gap: 10px;
+                                width: 100%;
+                            }}
+                            #filter-fields {{
+                                display: flex;
+                                flex-direction: column;
+                                gap: 10px;
+                            }}
+                            .filters label {{
+                                font-weight: bold;
+                                margin-bottom: 5px;
+                            }}
+                            .filters input, .filters select {{
+                                width: 100%;
+                                padding: 10px;
+                                border: 1px solid #ddd;
+                                border-radius: 5px;
+                            }}
+                            .legend-text {{
+                                display: none; /* Oculta a legenda no modo mobile */
+                            }}
+                            .arrow {{
+                                display: none; /* Oculta a seta no modo mobile */
+                            }}
+                            .container {{
+                                padding: 10px;
+                                overflow-y: auto;
+                                max-height: 80vh;
+                            }}
+                            .header-logo h1 {{
+                                font-size: 1.5em;
+                            }}
+                            .filters {{
+                                display: flex;
+                                align-items: center;
+                                gap: 10px;
+                                margin: 0; /* Remove margem */
+                                padding: 0; /* Remove padding */
+                            }}
+                            .table-wrapper {{
+                                overflow-x: auto;
+                            }}
+                            .table-container {{
+                                font-size: 0.9em;
+                                overflow-x: scroll;
+                            }}
+                            .btn-group {{
+                                flex-direction: column;
+                                align-items: center;
+                            }}
+                            .btn-group .btn-relatorio {{
+                                width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
+                                height: 40px; /* Garante que a altura do botão seja mantida */
+                                margin: 0px 0;
+                            }}
+                            #hours-summary {{
+                                display: block; /* Mostrar no modo mobile */
+                            }}
+                        }}
+                        @media (min-width: 769px) {{
+                            .toggle-filters {{
+                                display: none;
+                            }}
+                            #time_entries_form {{
+                                display: block !important;
+                            }}
+                            #hours-summary {{
+                                display: none; /* Esconder no modo desktop */
+                            }}
+                            .legend-text {{
+                                display: block; /* Mostrar a legenda no modo desktop */
+                            }}
+                            .arrow {{
+                                display: inline; /* Mostrar a seta no modo desktop */
+                            }}
+                        }}
+                        .filters label, .legend-button {{
+                            color: black;
+                        }}
+                        table {{
+                            width: 100%;
+                        }}
+                        #detailsPopup {{
+                            display: none;
+                            position: fixed;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            background-color: white;
+                            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+                            z-index: 1000;
+                            padding: 20px;
+                            border-radius: 5px;
+                            max-width: 90%;
+                            max-height: 90%;
+                            overflow-y: auto;
+                        }}
+                        #detailsPopup .btn-group {{
+                            display: flex;
+                            justify-content: space-between;
+                            margin-top: 20px;
+                        }}
+                        .close-button {{
+                            position: absolute;
+                            top: 10px;
+                            right: 10px;
+                            background: none;
+                            border: none;
+                            font-size: 1.5rem;
+                            cursor: pointer;
+                        }}
+                        .close-button:hover {{
+                            color: red;
+                        }}
+                        @media (max-width: 768px) {{
+                            #all-actions {{
+                                display: none;
+                            }}
+                            #hours-summary-table {{
+                                display: none;
+                            }}
+                            .mobile-actions {{
+                                display: block;
+                            }}
+                            #hours-summary {{
+                                display: block;
+                            }}
+                            .hours-summary {{
+                                font-size: 1.2em;
+                                font-weight: bold;
+                                color: #333;
+                                margin-top: 10px;
+                            }}
+                            .hours-summary p {{
+                                margin: 5px 0;
+                            }}
+                            .hours-total-mobile, .hours-approved-mobile, .hours-unapproved-mobile {{
+                                color: #1E90FF;
+                            }}
+                            .hours-approved-mobile {{
+                                color: #28a745;
+                            }}
+                            .hours-repproved-mobile {{
+                                color: #dc3545;
+                            }}
+                            .hours-unapproved-mobile {{
+                                color: #bbdb03;
+                            }}
+                        }}
+                        @media (min-width: 769px) {{
+                            #mobile-actions-buttons {{
+                                display: none; /* Tornar invisível no modo desktop */
+                            }}
+                        }}
+                    </style>
                 </head>
                 <body>
                     <div id="header">
@@ -1818,28 +1811,28 @@ def relatorio_horas_client(user_id):
                         </div>
                         <div class="filters-container">
                             <button class="toggle-filters" onclick="toggleFilters()">Filtros</button>
-                            <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}" style="display: none;">
-                                <fieldset class="collapsible collapsed" style="border: none;">
+                            <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
+                                <fieldset class="collapsible" style="border: none;">
                                     <legend class="legend-text" onclick="toggleFieldset(this);">
                                         <span class="legend-button">
                                             <span class="arrow">▶</span>
                                             Filtros
                                         </span>
                                     </legend>
-                                    <div id="filter-fields" class="filter-fields-style">
+                                    <div id="filter-fields" class="filter-fields-style" style="display: block;">
                                         <label for="filterInput">Buscar:</label>
                                         <input type="text" id="filterInput" onkeyup="filterBySelect()" placeholder="Digite para buscar...">
                                         <label for="userSelect">Usuário:</label>
                                         <select id="userSelect" onchange="filterBySelect()">
                                             <option value="ALL">Todos</option>
                                             {''.join(
-                                            [f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
+                    [f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
                                         </select>
                                         <label for="projectSelect">Projeto:</label>
                                         <select id="projectSelect" onchange="filterBySelect()">
                                             <option value="ALL">Todos</option>
                                             {''.join(
-                                            [f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
+                    [f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
                                         </select>
                                         <label for="approvalSelect">Aprovado:</label>
                                         <select id="approvalSelect" onchange="filterBySelect()">
@@ -1861,7 +1854,7 @@ def relatorio_horas_client(user_id):
                             <div id="selected-actions" class="btn-group">
                                 <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
                                 <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
-                                
+
                             </div>
                         </div>
                     </div>
@@ -1871,12 +1864,15 @@ def relatorio_horas_client(user_id):
                     </div>
                     <script>
                         document.addEventListener('DOMContentLoaded', function() {{
-                            var fieldset = document.querySelector('fieldset.collapsible');
-                            if (fieldset) {{
-                                var div = fieldset.querySelector('div');
-                                var arrow = fieldset.querySelector('.arrow');
-                                div.style.display = 'none';
-                                arrow.innerHTML = '▼';
+                            const projectSelect = document.getElementById('projectSelect');
+                            if (projectSelect && project_name) {{
+                                const options = projectSelect.options;
+                                for (let i = 0; i < options.length; i++) {{
+                                    if (options[i].text === project_name) {{
+                                        projectSelect.selectedIndex = i;
+                                        break;
+                                    }}
+                                }}
                             }}
 
                             document.getElementById("filterInput").addEventListener("keyup", function() {{
@@ -1935,10 +1931,10 @@ def relatorio_horas_client(user_id):
                                             <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
                                             <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
                                             <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
-                                            <p><strong>Aprovado:</strong> ${{approved_value}}</p>
+                                            <p><strong>Aprovado:</strong> ${{aprovado}}</p>
                                             <div class="btn-group">
-                                                <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
-                                                <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
+                                                <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Reprovar</a>
                                             </div>
                                         `;
                                         popup.style.display = 'block';
@@ -2053,7 +2049,7 @@ def relatorio_horas_client(user_id):
                             alertDiv.style.position = 'fixed';
                             alertDiv.style.top = '20px';
                             alertDiv.style.left = '50%';
-                            alertDiv.style.transform: 'translateX(-50%)';
+                            alertDiv.style.transform = 'translateX(-50%)';
                             alertDiv.style.padding = '10px';
                             alertDiv.style.zIndex = 1000;
                             alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
@@ -2280,7 +2276,8 @@ def relatorio_horas_client(user_id):
 
 
         else:
-            logger.error(f"Erro ao buscar entradas de tempo para o usuário ID {user_id}: {entries_response.status_code}")
+            logger.error(
+                f"Erro ao buscar entradas de tempo para o usuário ID {user_id}: {entries_response.status_code}")
             return render_response("Erro ao buscar entradas de tempo", 500)
 
     except requests.exceptions.RequestException as e:
@@ -2777,7 +2774,7 @@ def relatorio_horas(user_id):
         user_name = user['user']['firstname'] + ' ' + user['user']['lastname']
 
         # Obter parâmetros de filtro
-        project_id = request.args.get('project_id')
+        project_name = request.args.get('project')
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
         is_client = 1 if 'client' in request.full_path else 0
@@ -2792,8 +2789,7 @@ def relatorio_horas(user_id):
 
         # Construir URL de requisição com filtros
         url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
-        if project_id:
-            url += f'&project_id={project_id}'
+
 
         entries_response = requests.get(url, headers={
             'X-Redmine-API-Key': REDMINE_API_KEY,
@@ -2854,14 +2850,20 @@ def relatorio_horas(user_id):
                                         }}
                                     }}
 
-                                    // Garantir que o filtro comece colapsado
                                     document.addEventListener('DOMContentLoaded', function() {{
-                                        var fieldset = document.querySelector('fieldset.collapsible');
-                                        if (fieldset) {{
-                                            var div = fieldset.querySelector('div');
-                                            var arrow = fieldset.querySelector('.arrow');
-                                            div.style.display = 'none';
-                                            arrow.innerHTML = '▼';
+                                        // Lógica de seleção automática de projetos e filtros
+
+                                        const projectSelect = document.getElementById('projectSelect');
+                                        const project_name = "{project_name}";
+                                        if (projectSelect && project_name) {{
+                                            const options = projectSelect.options;
+                                            for (let i = 0; i < options.length; i++) {{
+                                                if (options[i].text.toUpperCase() === project_name.toUpperCase()) {{
+                                                    projectSelect.selectedIndex = i;
+                                                    filterBySelect();
+                                                    break;
+                                                }}
+                                            }}
                                         }}
 
                                         document.getElementById("filterInput").addEventListener("keyup", function() {{
@@ -2920,10 +2922,10 @@ def relatorio_horas(user_id):
                                                         <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
                                                         <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
                                                         <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
-                                                        <p><strong>Aprovado:</strong> ${{approved_value}}</p>
+                                                        <p><strong>Aprovado:</strong> ${{aprovado}}</p>
                                                         <div class="btn-group">
-                                                            <a href="#" onclick="approveHour({{entry['id']}}, '{request.args.get('token')}', {is_client}, {{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
-                                                            <a href="#" onclick="rejectHour({{entry['id']}}, '{request.args.get('token')}', {is_client}, {{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
+                                                            <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                            <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Reprovar</a>
                                                         </div>
                                                     `;
                                                     popup.style.display = 'block';
@@ -2990,16 +2992,10 @@ def relatorio_horas(user_id):
                                         document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
                                         document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
 
-                                        // Atualiza os botões de Aprovar Todos e Reprovar Todos no modo desktop via XPath
-                                        var approveAllButton = document.evaluate('//*[@id="all-actions"]/button[1]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                                        var rejectAllButton = document.evaluate('//*[@id="all-actions"]/button[2]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                        // Atualiza os botões no modo desktop
+                                        document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
+                                        document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
 
-                                        if (approveAllButton) {{
-                                            approveAllButton.setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
-                                        }}
-                                        if (rejectAllButton) {{
-                                            rejectAllButton.setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
-                                        }}
                                         // Atualiza os botões no modo mobile
                                         document.querySelector('.mobile-actions .btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
                                         document.querySelector('.mobile-actions .btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
@@ -3060,20 +3056,7 @@ def relatorio_horas(user_id):
                                             document.body.removeChild(alertDiv);
                                         }}, 3000);
                                     }}
-                                    function toggleFilters() {{
-                                        var form = document.getElementById("time_entries_form");
-                                                        var xpath = "//*[@id='filter-fields']";
-                                                        var result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                                                        var filterFields = result.singleNodeValue;
-                            
-                                                        if (form.style.display === "none" || form.style.display === "") {{
-                                                            form.style.display = "block";
-                                                            filterFields.style.display = "block";  // Certifique-se de que os campos de filtro também estejam visíveis
-                                                        }} else {{
-                                                            form.style.display = "none";
-                                                            filterFields.style.display = "none";  // Certifique-se de que os campos de filtro também estejam escondidos
-                                                        }}
-                                    }}
+
                                     function getFilteredTableData() {{
                                         var table = document.getElementById("time_entries_table");
                                         var tr = table.getElementsByTagName("tr");
@@ -3274,14 +3257,23 @@ def relatorio_horas(user_id):
                                     document.addEventListener('DOMContentLoaded', function() {{
                                         updateMobileSummary();
                                         if (window.innerWidth <= 768) {{ // Verifica se a largura da janela é de 768px ou menos (modo mobile)
-                                            var columnsToHide = [ 4,5, 6, 11]; // Índices das colunas a serem escondidas
-                                            //*[@id="time_entries_table"]/thead/tr/th[3]
+                                            var thHoraInicial = document.querySelector('#time_entries_table thead tr th:nth-child(7)');
+                                            if (thHoraInicial) {{
+                                                thHoraInicial.textContent = 'Hora Inicial';
+                                            }}
+
+                                            var thHoraFinal = document.querySelector('#time_entries_table thead tr th:nth-child(8)');
+                                            if (thHoraFinal) {{
+                                                thHoraFinal.textContent = 'Hora Final';
+                                            }}
+                                            var thTotalHoras = document.querySelector('#time_entries_table thead tr th:nth-child(9)');
+                                            if (thTotalHoras) {{
+                                                thTotalHoras.textContent = 'Total Horas';
+                                            }}
+                                            var columnsToHide = [4, 5, 6, 11]; // Índices das colunas a serem escondidas
                                             columnsToHide.forEach(function(index) {{
-                                                //*[@id="time_entries_table"]/thead/tr/th[3]
                                                 var thXPath = `//*[@id="time_entries_table"]/thead/tr/th[${{index}}]`;
-                                                console.log('thXPath'+thXPath);
                                                 var th = document.evaluate(thXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                                                console.log('th'+th);
                                                 if (th) th.style.display = 'none';
 
                                                 var tdXPath = `//*[@id="time_entries_table"]/tbody/tr/td[${{index}}]`;
@@ -3292,338 +3284,324 @@ def relatorio_horas(user_id):
                                             }});
                                         }}
                                     }});
-
                                 </script>
                                 <style>
-                body {{
-                    overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
-                    margin: 0;
-                    padding: 0;
-                }}
-                #header {{
-                    position: fixed;
-                    top: 0;
-                    width: 100%;
-                    z-index: 10; /* Garante que o header fique sobre outros elementos */
-                    background-color: #333333; /* Defina a cor de fundo original aqui */
-                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
-                }}
-                .container {{
-                    display: flex;
-                    flex-direction: column;
-                    margin-top: 60px; /* Espaço para o header fixo */
-                }}
-                .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-                    width: 100px; /* Define uma largura menor para a coluna "Ações" */
-                    text-align: center; /* Centraliza o texto e os botões na coluna */
-                }}
-                .filters-container {{
-                    display: flex;
-                    flex-direction: column;
-                    align-items: stretch;
-                    width: 100%;
-                }}
+                                    body {{
+                                        overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
+                                        margin: 0;
+                                        padding: 0;
+                                    }}
+                                    #header {{
+                                        position: fixed;
+                                        top: 0;
+                                        width: 100%;
+                                        z-index: 10; /* Garante que o header fique sobre outros elementos */
+                                        background-color: #333333; /* Defina a cor de fundo original aqui */
+                                        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
+                                    }}
+                                    .container {{
+                                        display: flex;
+                                        flex-direction: column;
+                                        margin-top: 60px; /* Espaço para o header fixo */
+                                    }}
+                                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                                        width: 100px; /* Define uma largura menor para a coluna "Ações" */
+                                        text-align: center; /* Centraliza o texto e os botões na coluna */
+                                    }}
+                                    .filters-container {{
+                                        display: flex;
+                                        flex-direction: column;
+                                        align-items: stretch;
+                                        width: 100%;
+                                    }}
 
-                .toggle-filters {{
-                    background-color: #1E90FF;
-                    color: white;
-                    padding: 10px;
-                    text-align: center;
-                    border: none;
-                    border-radius: 5px;
-                    margin-bottom: 10px;
-                    width: 100%;
-                    max-width: 200px;
-                    align-self: center;
-                }}
+                                    .toggle-filters {{
+                                        background-color: #1E90FF;
+                                        color: white;
+                                        padding: 10px;
+                                        text-align: center;
+                                        border: none;
+                                        border-radius: 5px;
+                                        margin-bottom: 10px;
+                                        width: 100%;
+                                        max-width: 200px;
+                                        align-self: center;
+                                    }}
 
-                #time_entries_form {{
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                    width: 100%;
-                }}
+                                    #time_entries_form {{
+                                        display: flex;
+                                        flex-direction: column;
+                                        gap: 10px;
+                                        width: 100%;
+                                    }}
 
-                #filter-fields {{
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                }}
+                                    #filter-fields {{
+                                        display: flex;
+                                        flex-direction: column;
+                                        gap: 10px;
+                                    }}
 
-                .filters label {{
-                    font-weight: bold;
-                    margin-bottom: 5px;
-                }}
+                                    .filters label {{
+                                        font-weight: bold;
+                                        margin-bottom: 5px;
+                                    }}
 
-                .filters input, .filters select {{
-                    width: 100%;
-                    padding: 10px;
-                    border: 1px solid #ddd;
-                    border-radius: 5px;
-                }}
+                                    .filters input, .filters select {{
+                                        width: 100%;
+                                        padding: 10px;
+                                        border: 1px solid #ddd;
+                                        border-radius: 5px;
+                                    }}
 
-                .legend-text {{
-                    display: none; /* Oculta a legenda no modo mobile */
-                }}
+                                    .legend-text {{
+                                        display: none; /* Oculta a legenda no modo mobile */
+                                    }}
 
-                .arrow {{
-                    display: none; /* Oculta a seta no modo mobile */
-                }}
-                .table-container {{
-                    width: 100%;
-                    max-height: 450px; /* Define uma altura máxima para a tabela */
-                }}
-                .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-                    width: 120px; /* Define uma largura menor para a coluna "Ações" */
-                    text-align: center; /* Centraliza o texto e os botões na coluna */
-                }}
-                .table-container td {{
-                    padding: 4px; /* Diminui a altura dos td */
-                    text-align: left;
-                    border-bottom: 1px solid #ddd;
-                    vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
-                    white-space: nowrap; /* Impede quebra de linha em células */
-                    overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
-                    text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
-                }}
-                .table-container th {{
-                    background-color: #f2f2f2;
-                    position: sticky;
-                    top: 0;
-                    z-index: 1;
-                    text-align: center; /* Centraliza o texto do thead */
-                }}
-                .table-container {{
-                    font-size: 0.9em;
-                }}
-                .btn-relatorio {{
-                    background-color: #1E90FF; /* Cor azul padrão */
-                    color: white; /* Texto branco */
-                    width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
-                    border-radius: 5px; /* Bordas arredondadas */
-                    border: none; /* Remover borda */
-                    transition: background-color 0.3s; /* Suavização da transição de cor */
-                }}
-                .btn-relatorio:hover {{
-                    background-color: #63B8FF; /* Azul claro ao passar o mouse */
-                }}
-                .btn-group {{
-                    display: flex;
-                    justify-content: center;
-                    margin-top: 20px;
-                }}
-                .btn-approve-table, .btn-reject-table {{
-                    display: inline-block;
-                    width: 90px;
-                    margin-right: 5px; /* Adiciona espaçamento entre os botões */
-                    text-align: center; /* Centraliza o texto do botão */
-                }}
-                .btn-approve-table {{
-                    background-color: #28a745;
-                    color: white;
-                    margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
-                }}
-                .btn-reject-table {{
-                    background-color: #dc3545;
-                    color: white;
-                    margin-top: 5px;
-                }}
-                .btn-approve-table.disabled, .btn-reject-table.disabled {{
-                    visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
-                }}
-                .btn-relatorio:hover {{
-                    background-color: #63B8FF; /* Azul claro ao passar o mouse */
-                }}
-
-                @media (max-width: 768px) {{
-                    .filters-container {{
-                        display: flex;
-                        flex-direction: column;
-                        align-items: stretch;
-                        width: 100%;
-                    }}
-
-                    .toggle-filters {{
-                        background-color: #1E90FF;
-                        color: white;
-                        padding: 10px;
-                        text-align: center;
-                        border: none;
-                        border-radius: 5px;
-                        margin: 10px 0;
-                        width: 80%;
-                        max-width: 130px;
-                        align-self: center;
-                    }}
-
-                    #time_entries_form {{
-                        display: flex;
-                        flex-direction: column;
-                        gap: 10px;
-                        width: 100%;
-                    }}
-
-                    #filter-fields {{
-                        display: flex;
-                        flex-direction: column;
-                        gap: 10px;
-                    }}
-
-                    .filters label {{
-                        font-weight: bold;
-                        margin-bottom: 5px;
-                    }}
-
-                    .filters input, .filters select {{
-                        width: 100%;
-                        padding: 10px;
-                        border: 1px solid #ddd;
-                        border-radius: 5px;
-                    }}
-
-                    .legend-text {{
-                        display: none; /* Oculta a legenda no modo mobile */
-                    }}
-
-                    .arrow {{
-                        display: none; /* Oculta a seta no modo mobile */
-                    }}
-                    .container {{
-                        padding: 10px;
-                        overflow-y: auto;
-                        max-height: 80vh;
-                    }}
-                    .header-logo h1 {{
-                        font-size: 1.5em;
-                    }}
-                    .filters {{
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
-                        margin: 0; /* Remove margem */
-                        padding: 0; /* Remove padding */
-                    }}
-                    .table-wrapper {{
-                        overflow-x: auto;
-                    }}
-                    .table-container {{
-                        font-size: 0.9em;
-                        overflow-x: scroll;
-                    }}
-                    .btn-group {{
-                        flex-direction: column;
-                        align-items: center;
-                    }}
-                    .btn-group .btn-relatorio {{
-                        width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
-                        height: 40px; /* Garante que a altura do botão seja mantida */
-                        margin: 0px 0;
-                    }}
-                    #hours-summary {{
-                        display: block; /* Mostrar no modo mobile */
-                    }}
-                }}
-
-                @media (min-width: 769px) {{
-                    .toggle-filters {{
-                        display: none;
-                    }}
-                    #time_entries_form {{
-                        display: block !important;
-                    }}
-                    #hours-summary {{
-                        display: none; /* Esconder no modo desktop */
-                    }}
-                    .legend-text {{
-                        display: block; /* Mostrar a legenda no modo desktop */
-                    }}
-                    .arrow {{
-                        display: inline; /* Mostrar a seta no modo desktop */
-                    }}
-                }}
-
-                .filters label, .legend-button {{
-                    color: black;
-                }}
-                table {{
-                    width: 100%;
-                }}
-                #detailsPopup {{
-                    display: none;
-                    position: fixed;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    background-color: white;
-                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-                    z-index: 1000;
-                    padding: 20px;
-                    border-radius: 5px;
-                    max-width: 90%;
-                    max-height: 90%;
-                    overflow-y: auto;
-                }}
-                #detailsPopup .btn-group {{
-                    display: flex;
-                    justify-content: space-between;
-                    margin-top: 20px;
-                }}
-                .close-button {{
-                    position: absolute;
-                    top: 10px;
-                    right: 10px;
-                    background: none;
-                    border: none;
-                    font-size: 1.5rem;
-                    cursor: pointer;
-                }}
-                .close-button:hover {{
-                    color: red;
-                }}
-
-                @media (max-width: 768px) {{
-                    #all-actions {{
-                        display: none;
-                    }}
-                    #hours-summary-table {{
-                        display: none;
-                    }}
-                    .mobile-actions {{
-                        display: block;
-                    }}
-                    #hours-summary {{
-                        display: block;
-                    }}
-                    .hours-summary {{
-                        font-size: 1.2em;
-                        font-weight: bold;
-                        color: #333;
-                        margin-top: 10px;
-                    }}
-                    .hours-summary p {{
-                        margin: 5px 0;
-                    }}
-                    .hours-total-mobile, .hours-approved-mobile, .hours-unapproved-mobile {{
-                        color: #1E90FF;
-                    }}
-                    .hours-approved-mobile {{
-                        color: #28a745;
-                    }}
-                    .hours-repproved-mobile {{
-                        color: #dc3545;
-                    }}
-                    .hours-unapproved-mobile {{
-                        color: #bbdb03;
-                    }}
-                }}
-
-                @media (min-width: 769px) {{
-                    #mobile-actions-buttons {{
-                        display: none; /* Tornar invisível no modo desktop */
-                    }}
-                }}
-            </style>
-
+                                    .arrow {{
+                                        display: none; /* Oculta a seta no modo mobile */
+                                    }}
+                                    .table-container {{
+                                        width: 100%;
+                                        max-height: 450px; /* Define uma altura máxima para a tabela */
+                                    }}
+                                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                                        width: 120px; /* Define uma largura menor para a coluna "Ações" */
+                                        text-align: center; /* Centraliza o texto e os botões na coluna */
+                                    }}
+                                    .table-container td {{
+                                        padding: 4px; /* Diminui a altura dos td */
+                                        text-align: left;
+                                        border-bottom: 1px solid #ddd;
+                                        vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
+                                        white-space: nowrap; /* Impede quebra de linha em células */
+                                        overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
+                                        text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
+                                    }}
+                                    .table-container th {{
+                                        background-color: #f2f2f2;
+                                        position: sticky;
+                                        top: 0;
+                                        z-index: 1;
+                                        text-align: center; /* Centraliza o texto do thead */
+                                    }}
+                                    .table-container {{
+                                        font-size: 0.9em;
+                                    }}
+                                    .btn-relatorio {{
+                                        background-color: #1E90FF; /* Cor azul padrão */
+                                        color: white; /* Texto branco */
+                                        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+                                        border-radius: 5px; /* Bordas arredondadas */
+                                        border: none; /* Remover borda */
+                                        transition: background-color 0.3s; /* Suavização da transição de cor */
+                                    }}
+                                    .btn-relatorio:hover {{
+                                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                                    }}
+                                    .btn-group {{
+                                        display: flex;
+                                        justify-content: center;
+                                        margin-top: 20px;
+                                    }}
+                                    .btn-approve-table, .btn-reject-table {{
+                                        display: inline-block;
+                                        width: 90px;
+                                        margin-right: 5px; /* Adiciona espaçamento entre os botões */
+                                        text-align: center; /* Centraliza o texto do botão */
+                                    }}
+                                    .btn-approve-table {{
+                                        background-color: #28a745;
+                                        color: white;
+                                        margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
+                                    }}
+                                    .btn-reject-table {{
+                                        background-color: #dc3545;
+                                        color: white;
+                                        margin-top: 5px;
+                                    }}
+                                    .btn-approve-table.disabled, .btn-reject-table.disabled {{
+                                        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+                                    }}
+                                    .btn-relatorio:hover {{
+                                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                                    }}
+                                    @media (max-width: 768px) {{
+                                        .filters-container {{
+                                            display: flex;
+                                            flex-direction: column;
+                                            align-items: stretch;
+                                            width: 100%;
+                                        }}
+                                        .toggle-filters {{
+                                            background-color: #1E90FF;
+                                            color: white;
+                                            padding: 10px;
+                                            text-align: center;
+                                            border: none;
+                                            border-radius: 5px;
+                                            margin: 10px 0;
+                                            width: 80%;
+                                            max-width: 130px;
+                                            align-self: center;
+                                        }}
+                                        #time_entries_form {{
+                                            display: flex;
+                                            flex-direction: column;
+                                            gap: 10px;
+                                            width: 100%;
+                                        }}
+                                        #filter-fields {{
+                                            display: flex;
+                                            flex-direction: column;
+                                            gap: 10px;
+                                        }}
+                                        .filters label {{
+                                            font-weight: bold;
+                                            margin-bottom: 5px;
+                                        }}
+                                        .filters input, .filters select {{
+                                            width: 100%;
+                                            padding: 10px;
+                                            border: 1px solid #ddd;
+                                            border-radius: 5px;
+                                        }}
+                                        .legend-text {{
+                                            display: none; /* Oculta a legenda no modo mobile */
+                                        }}
+                                        .arrow {{
+                                            display: none; /* Oculta a seta no modo mobile */
+                                        }}
+                                        .container {{
+                                            padding: 10px;
+                                            overflow-y: auto;
+                                            max-height: 80vh;
+                                        }}
+                                        .header-logo h1 {{
+                                            font-size: 1.5em;
+                                        }}
+                                        .filters {{
+                                            display: flex;
+                                            align-items: center;
+                                            gap: 10px;
+                                            margin: 0; /* Remove margem */
+                                            padding: 0; /* Remove padding */
+                                        }}
+                                        .table-wrapper {{
+                                            overflow-x: auto;
+                                        }}
+                                        .table-container {{
+                                            font-size: 0.9em;
+                                            overflow-x: scroll;
+                                        }}
+                                        .btn-group {{
+                                            flex-direction: column;
+                                            align-items: center;
+                                        }}
+                                        .btn-group .btn-relatorio {{
+                                            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
+                                            height: 40px; /* Garante que a altura do botão seja mantida */
+                                            margin: 0px 0;
+                                        }}
+                                        #hours-summary {{
+                                            display: block; /* Mostrar no modo mobile */
+                                        }}
+                                    }}
+                                    @media (min-width: 769px) {{
+                                        .toggle-filters {{
+                                            display: none;
+                                        }}
+                                        #time_entries_form {{
+                                            display: block !important;
+                                        }}
+                                        #hours-summary {{
+                                            display: none; /* Esconder no modo desktop */
+                                        }}
+                                        .legend-text {{
+                                            display: block; /* Mostrar a legenda no modo desktop */
+                                        }}
+                                        .arrow {{
+                                            display: inline; /* Mostrar a seta no modo desktop */
+                                        }}
+                                    }}
+                                    .filters label, .legend-button {{
+                                        color: black;
+                                    }}
+                                    table {{
+                                        width: 100%;
+                                    }}
+                                    #detailsPopup {{
+                                        display: none;
+                                        position: fixed;
+                                        top: 50%;
+                                        left: 50%;
+                                        transform: translate(-50%, -50%);
+                                        background-color: white;
+                                        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+                                        z-index: 1000;
+                                        padding: 20px;
+                                        border-radius: 5px;
+                                        max-width: 90%;
+                                        max-height: 90%;
+                                        overflow-y: auto;
+                                    }}
+                                    #detailsPopup .btn-group {{
+                                        display: flex;
+                                        justify-content: space-between;
+                                        margin-top: 20px;
+                                    }}
+                                    .close-button {{
+                                        position: absolute;
+                                        top: 10px;
+                                        right: 10px;
+                                        background: none;
+                                        border: none;
+                                        font-size: 1.5rem;
+                                        cursor: pointer;
+                                    }}
+                                    .close-button:hover {{
+                                        color: red;
+                                    }}
+                                    @media (max-width: 768px) {{
+                                        #all-actions {{
+                                            display: none;
+                                        }}
+                                        #hours-summary-table {{
+                                            display: none;
+                                        }}
+                                        .mobile-actions {{
+                                            display: block;
+                                        }}
+                                        #hours-summary {{
+                                            display: block;
+                                        }}
+                                        .hours-summary {{
+                                            font-size: 1.2em;
+                                            font-weight: bold;
+                                            color: #333;
+                                            margin-top: 10px;
+                                        }}
+                                        .hours-summary p {{
+                                            margin: 5px 0;
+                                        }}
+                                        .hours-total-mobile, .hours-approved-mobile, .hours-unapproved-mobile {{
+                                            color: #1E90FF;
+                                        }}
+                                        .hours-approved-mobile {{
+                                            color: #28a745;
+                                        }}
+                                        .hours-repproved-mobile {{
+                                            color: #dc3545;
+                                        }}
+                                        .hours-unapproved-mobile {{
+                                            color: #bbdb03;
+                                        }}
+                                    }}
+                                    @media (min-width: 769px) {{
+                                        #mobile-actions-buttons {{
+                                            display: none; /* Tornar invisível no modo desktop */
+                                        }}
+                                    }}
+                                </style>
                             </head>
                             <body>
                                 <div id="header">
@@ -3647,15 +3625,15 @@ def relatorio_horas(user_id):
                                     </div>
                                     <div class="filters-container">
                                         <button class="toggle-filters" onclick="toggleFilters()">Filtros</button>
-                                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}" style="display: none;">
-                                            <fieldset class="collapsible collapsed" style="border: none;">
+                                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
+                                            <fieldset class="collapsible" style="border: none;">
                                                 <legend class="legend-text" onclick="toggleFieldset(this);">
                                                     <span class="legend-button">
                                                         <span class="arrow">▶</span>
                                                         Filtros
                                                     </span>
                                                 </legend>
-                                                <div id="filter-fields" class="filter-fields-style">
+                                                <div id="filter-fields" class="filter-fields-style" style="display: block;">
                                                     <label for="filterInput">Buscar:</label>
                                                     <input type="text" id="filterInput" onkeyup="filterBySelect()" placeholder="Digite para buscar...">
                                                     <label for="userSelect">Usuário:</label>
@@ -3700,12 +3678,15 @@ def relatorio_horas(user_id):
                                 </div>
                                 <script>
                                     document.addEventListener('DOMContentLoaded', function() {{
-                                        var fieldset = document.querySelector('fieldset.collapsible');
-                                        if (fieldset) {{
-                                            var div = fieldset.querySelector('div');
-                                            var arrow = fieldset.querySelector('.arrow');
-                                            div.style.display = 'none';
-                                            arrow.innerHTML = '▼';
+                                        const projectSelect = document.getElementById('projectSelect');
+                                        if (projectSelect && project_name) {{
+                                            const options = projectSelect.options;
+                                            for (let i = 0; i < options.length; i++) {{
+                                                if (options[i].text === project_name) {{
+                                                    projectSelect.selectedIndex = i;
+                                                    break;
+                                                }}
+                                            }}
                                         }}
 
                                         document.getElementById("filterInput").addEventListener("keyup", function() {{
@@ -3764,10 +3745,10 @@ def relatorio_horas(user_id):
                                                         <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
                                                         <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
                                                         <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
-                                                        <p><strong>Aprovado:</strong> ${{approved_value}}</p>
+                                                        <p><strong>Aprovado:</strong> ${{aprovado}}</p>
                                                         <div class="btn-group">
-                                                            <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
-                                                            <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
+                                                            <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                            <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Reprovar</a>
                                                         </div>
                                                     `;
                                                     popup.style.display = 'block';
@@ -3781,7 +3762,7 @@ def relatorio_horas(user_id):
                                     function filterTable() {{
                                         filterBySelect();
                                     }}
-
+                                    
                                     function filterBySelect() {{
                                         var userSelect = document.getElementById("userSelect").value.toUpperCase();
                                         var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
@@ -3882,7 +3863,7 @@ def relatorio_horas(user_id):
                                         alertDiv.style.position = 'fixed';
                                         alertDiv.style.top = '20px';
                                         alertDiv.style.left = '50%';
-                                        alertDiv.style.transform: 'translateX(-50%)';
+                                        alertDiv.style.transform = 'translateX(-50%)';
                                         alertDiv.style.padding = '10px';
                                         alertDiv.style.zIndex = 1000;
                                         alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
@@ -4099,6 +4080,20 @@ def relatorio_horas(user_id):
                                     document.addEventListener('DOMContentLoaded', function() {{
                                         updateMobileSummary();
                                     }});
+                                    function toggleFilters() {{
+                                        var form = document.getElementById("time_entries_form");
+                                                        var xpath = "//*[@id='filter-fields']";
+                                                        var result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                                                        var filterFields = result.singleNodeValue;
+                            
+                                                        if (form.style.display === "none" || form.style.display === "") {{
+                                                            form.style.display = "block";
+                                                            filterFields.style.display = "block";  // Certifique-se de que os campos de filtro também estejam visíveis
+                                                        }} else {{
+                                                            form.style.display = "none";
+                                                            filterFields.style.display = "none";  // Certifique-se de que os campos de filtro também estejam escondidos
+                                                        }}
+                                    }}
                                 </script>
                             </body>
                             </html>
@@ -4143,7 +4138,7 @@ def relatorio_horas_geral():
             user_id = user['user']['id']
             token = get_or_create_token(user_id, user['user']['mail'])
             # Constrói a lista de IDs das entradas
-
+            project_name = request.args.get('project')
             is_client = 1 if 'client' in request.full_path else 0
             # Extrai usuários e projetos para os filtros
             usuarios = {entry['user']['name'] for entry in time_entries}
@@ -4183,14 +4178,20 @@ def relatorio_horas_geral():
                                         }}
                                     }}
 
-                                    // Garantir que o filtro comece colapsado
                                     document.addEventListener('DOMContentLoaded', function() {{
-                                        var fieldset = document.querySelector('fieldset.collapsible');
-                                        if (fieldset) {{
-                                            var div = fieldset.querySelector('div');
-                                            var arrow = fieldset.querySelector('.arrow');
-                                            div.style.display = 'none';
-                                            arrow.innerHTML = '▼';
+                                        // Lógica de seleção automática de projetos e filtros
+
+                                        const projectSelect = document.getElementById('projectSelect');
+                                        const project_name = "{project_name}";
+                                        if (projectSelect && project_name) {{
+                                            const options = projectSelect.options;
+                                            for (let i = 0; i < options.length; i++) {{
+                                                if (options[i].text.toUpperCase() === project_name.toUpperCase()) {{
+                                                    projectSelect.selectedIndex = i;
+                                                    filterBySelect();
+                                                    break;
+                                                }}
+                                            }}
                                         }}
 
                                         document.getElementById("filterInput").addEventListener("keyup", function() {{
@@ -4249,10 +4250,10 @@ def relatorio_horas_geral():
                                                         <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
                                                         <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
                                                         <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
-                                                        <p><strong>Aprovado:</strong> ${{approved_value}}</p>
+                                                        <p><strong>Aprovado:</strong> ${{aprovado}}</p>
                                                         <div class="btn-group">
-                                                            <a href="#" onclick="approveHour({{entry['id']}}, '{request.args.get('token')}', {is_client}, {{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
-                                                            <a href="#" onclick="rejectHour({{entry['id']}}, '{request.args.get('token')}', {is_client}, {{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
+                                                            <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                            <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Reprovar</a>
                                                         </div>
                                                     `;
                                                     popup.style.display = 'block';
@@ -4266,20 +4267,7 @@ def relatorio_horas_geral():
                                     function filterTable() {{
                                         filterBySelect();
                                     }}
-                                    function toggleFilters() {{
-                                                var form = document.getElementById("time_entries_form");
-                                                                var xpath = "//*[@id='filter-fields']";
-                                                                var result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                                                                var filterFields = result.singleNodeValue;
-                                    
-                                                                if (form.style.display === "none" || form.style.display === "") {{
-                                                                    form.style.display = "block";
-                                                                    filterFields.style.display = "block";  // Certifique-se de que os campos de filtro também estejam visíveis
-                                                                }} else {{
-                                                                    form.style.display = "none";
-                                                                    filterFields.style.display = "none";  // Certifique-se de que os campos de filtro também estejam escondidos
-                                                                }}
-                                            }}
+
                                     function filterBySelect() {{
                                         var userSelect = document.getElementById("userSelect").value.toUpperCase();
                                         var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
@@ -4332,16 +4320,10 @@ def relatorio_horas_geral():
                                         document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
                                         document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
 
-                                        // Atualiza os botões de Aprovar Todos e Reprovar Todos no modo desktop via XPath
-                                        var approveAllButton = document.evaluate('//*[@id="all-actions"]/button[1]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                                        var rejectAllButton = document.evaluate('//*[@id="all-actions"]/button[2]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                        // Atualiza os botões no modo desktop
+                                        document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
+                                        document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
 
-                                        if (approveAllButton) {{
-                                            approveAllButton.setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
-                                        }}
-                                        if (rejectAllButton) {{
-                                            rejectAllButton.setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
-                                        }}
                                         // Atualiza os botões no modo mobile
                                         document.querySelector('.mobile-actions .btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
                                         document.querySelector('.mobile-actions .btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
@@ -4603,14 +4585,23 @@ def relatorio_horas_geral():
                                     document.addEventListener('DOMContentLoaded', function() {{
                                         updateMobileSummary();
                                         if (window.innerWidth <= 768) {{ // Verifica se a largura da janela é de 768px ou menos (modo mobile)
-                                            var columnsToHide = [ 4,5, 6, 11]; // Índices das colunas a serem escondidas
-                                            //*[@id="time_entries_table"]/thead/tr/th[3]
+                                            var thHoraInicial = document.querySelector('#time_entries_table thead tr th:nth-child(7)');
+                                            if (thHoraInicial) {{
+                                                thHoraInicial.textContent = 'Hora Inicial';
+                                            }}
+
+                                            var thHoraFinal = document.querySelector('#time_entries_table thead tr th:nth-child(8)');
+                                            if (thHoraFinal) {{
+                                                thHoraFinal.textContent = 'Hora Final';
+                                            }}
+                                            var thTotalHoras = document.querySelector('#time_entries_table thead tr th:nth-child(9)');
+                                            if (thTotalHoras) {{
+                                                thTotalHoras.textContent = 'Total Horas';
+                                            }}
+                                            var columnsToHide = [4, 5, 6, 11]; // Índices das colunas a serem escondidas
                                             columnsToHide.forEach(function(index) {{
-                                                //*[@id="time_entries_table"]/thead/tr/th[3]
                                                 var thXPath = `//*[@id="time_entries_table"]/thead/tr/th[${{index}}]`;
-                                                console.log('thXPath'+thXPath);
                                                 var th = document.evaluate(thXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                                                console.log('th'+th);
                                                 if (th) th.style.display = 'none';
 
                                                 var tdXPath = `//*[@id="time_entries_table"]/tbody/tr/td[${{index}}]`;
@@ -4621,338 +4612,324 @@ def relatorio_horas_geral():
                                             }});
                                         }}
                                     }});
-
                                 </script>
                                 <style>
-                body {{
-                    overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
-                    margin: 0;
-                    padding: 0;
-                }}
-                #header {{
-                    position: fixed;
-                    top: 0;
-                    width: 100%;
-                    z-index: 10; /* Garante que o header fique sobre outros elementos */
-                    background-color: #333333; /* Defina a cor de fundo original aqui */
-                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
-                }}
-                .container {{
-                    display: flex;
-                    flex-direction: column;
-                    margin-top: 60px; /* Espaço para o header fixo */
-                }}
-                .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-                    width: 100px; /* Define uma largura menor para a coluna "Ações" */
-                    text-align: center; /* Centraliza o texto e os botões na coluna */
-                }}
-                .filters-container {{
-                    display: flex;
-                    flex-direction: column;
-                    align-items: stretch;
-                    width: 100%;
-                }}
+                                    body {{
+                                        overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
+                                        margin: 0;
+                                        padding: 0;
+                                    }}
+                                    #header {{
+                                        position: fixed;
+                                        top: 0;
+                                        width: 100%;
+                                        z-index: 10; /* Garante que o header fique sobre outros elementos */
+                                        background-color: #333333; /* Defina a cor de fundo original aqui */
+                                        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
+                                    }}
+                                    .container {{
+                                        display: flex;
+                                        flex-direction: column;
+                                        margin-top: 60px; /* Espaço para o header fixo */
+                                    }}
+                                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                                        width: 100px; /* Define uma largura menor para a coluna "Ações" */
+                                        text-align: center; /* Centraliza o texto e os botões na coluna */
+                                    }}
+                                    .filters-container {{
+                                        display: flex;
+                                        flex-direction: column;
+                                        align-items: stretch;
+                                        width: 100%;
+                                    }}
 
-                .toggle-filters {{
-                    background-color: #1E90FF;
-                    color: white;
-                    padding: 10px;
-                    text-align: center;
-                    border: none;
-                    border-radius: 5px;
-                    margin-bottom: 10px;
-                    width: 100%;
-                    max-width: 200px;
-                    align-self: center;
-                }}
+                                    .toggle-filters {{
+                                        background-color: #1E90FF;
+                                        color: white;
+                                        padding: 10px;
+                                        text-align: center;
+                                        border: none;
+                                        border-radius: 5px;
+                                        margin-bottom: 10px;
+                                        width: 100%;
+                                        max-width: 200px;
+                                        align-self: center;
+                                    }}
 
-                #time_entries_form {{
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                    width: 100%;
-                }}
+                                    #time_entries_form {{
+                                        display: flex;
+                                        flex-direction: column;
+                                        gap: 10px;
+                                        width: 100%;
+                                    }}
 
-                #filter-fields {{
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                }}
+                                    #filter-fields {{
+                                        display: flex;
+                                        flex-direction: column;
+                                        gap: 10px;
+                                    }}
 
-                .filters label {{
-                    font-weight: bold;
-                    margin-bottom: 5px;
-                }}
+                                    .filters label {{
+                                        font-weight: bold;
+                                        margin-bottom: 5px;
+                                    }}
 
-                .filters input, .filters select {{
-                    width: 100%;
-                    padding: 10px;
-                    border: 1px solid #ddd;
-                    border-radius: 5px;
-                }}
+                                    .filters input, .filters select {{
+                                        width: 100%;
+                                        padding: 10px;
+                                        border: 1px solid #ddd;
+                                        border-radius: 5px;
+                                    }}
 
-                .legend-text {{
-                    display: none; /* Oculta a legenda no modo mobile */
-                }}
+                                    .legend-text {{
+                                        display: none; /* Oculta a legenda no modo mobile */
+                                    }}
 
-                .arrow {{
-                    display: none; /* Oculta a seta no modo mobile */
-                }}
-                .table-container {{
-                    width: 100%;
-                    max-height: 450px; /* Define uma altura máxima para a tabela */
-                }}
-                .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-                    width: 120px; /* Define uma largura menor para a coluna "Ações" */
-                    text-align: center; /* Centraliza o texto e os botões na coluna */
-                }}
-                .table-container td {{
-                    padding: 4px; /* Diminui a altura dos td */
-                    text-align: left;
-                    border-bottom: 1px solid #ddd;
-                    vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
-                    white-space: nowrap; /* Impede quebra de linha em células */
-                    overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
-                    text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
-                }}
-                .table-container th {{
-                    background-color: #f2f2f2;
-                    position: sticky;
-                    top: 0;
-                    z-index: 1;
-                    text-align: center; /* Centraliza o texto do thead */
-                }}
-                .table-container {{
-                    font-size: 0.9em;
-                }}
-                .btn-relatorio {{
-                    background-color: #1E90FF; /* Cor azul padrão */
-                    color: white; /* Texto branco */
-                    width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
-                    border-radius: 5px; /* Bordas arredondadas */
-                    border: none; /* Remover borda */
-                    transition: background-color 0.3s; /* Suavização da transição de cor */
-                }}
-                .btn-relatorio:hover {{
-                    background-color: #63B8FF; /* Azul claro ao passar o mouse */
-                }}
-                .btn-group {{
-                    display: flex;
-                    justify-content: center;
-                    margin-top: 20px;
-                }}
-                .btn-approve-table, .btn-reject-table {{
-                    display: inline-block;
-                    width: 90px;
-                    margin-right: 5px; /* Adiciona espaçamento entre os botões */
-                    text-align: center; /* Centraliza o texto do botão */
-                }}
-                .btn-approve-table {{
-                    background-color: #28a745;
-                    color: white;
-                    margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
-                }}
-                .btn-reject-table {{
-                    background-color: #dc3545;
-                    color: white;
-                    margin-top: 5px;
-                }}
-                .btn-approve-table.disabled, .btn-reject-table.disabled {{
-                    visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
-                }}
-                .btn-relatorio:hover {{
-                    background-color: #63B8FF; /* Azul claro ao passar o mouse */
-                }}
-
-                @media (max-width: 768px) {{
-                    .filters-container {{
-                        display: flex;
-                        flex-direction: column;
-                        align-items: stretch;
-                        width: 100%;
-                    }}
-
-                    .toggle-filters {{
-                        background-color: #1E90FF;
-                        color: white;
-                        padding: 10px;
-                        text-align: center;
-                        border: none;
-                        border-radius: 5px;
-                        margin: 10px 0;
-                        width: 80%;
-                        max-width: 130px;
-                        align-self: center;
-                    }}
-
-                    #time_entries_form {{
-                        display: flex;
-                        flex-direction: column;
-                        gap: 10px;
-                        width: 100%;
-                    }}
-
-                    #filter-fields {{
-                        display: flex;
-                        flex-direction: column;
-                        gap: 10px;
-                    }}
-
-                    .filters label {{
-                        font-weight: bold;
-                        margin-bottom: 5px;
-                    }}
-
-                    .filters input, .filters select {{
-                        width: 100%;
-                        padding: 10px;
-                        border: 1px solid #ddd;
-                        border-radius: 5px;
-                    }}
-
-                    .legend-text {{
-                        display: none; /* Oculta a legenda no modo mobile */
-                    }}
-
-                    .arrow {{
-                        display: none; /* Oculta a seta no modo mobile */
-                    }}
-                    .container {{
-                        padding: 10px;
-                        overflow-y: auto;
-                        max-height: 80vh;
-                    }}
-                    .header-logo h1 {{
-                        font-size: 1.5em;
-                    }}
-                    .filters {{
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
-                        margin: 0; /* Remove margem */
-                        padding: 0; /* Remove padding */
-                    }}
-                    .table-wrapper {{
-                        overflow-x: auto;
-                    }}
-                    .table-container {{
-                        font-size: 0.9em;
-                        overflow-x: scroll;
-                    }}
-                    .btn-group {{
-                        flex-direction: column;
-                        align-items: center;
-                    }}
-                    .btn-group .btn-relatorio {{
-                        width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
-                        height: 40px; /* Garante que a altura do botão seja mantida */
-                        margin: 0px 0;
-                    }}
-                    #hours-summary {{
-                        display: block; /* Mostrar no modo mobile */
-                    }}
-                }}
-
-                @media (min-width: 769px) {{
-                    .toggle-filters {{
-                        display: none;
-                    }}
-                    #time_entries_form {{
-                        display: block !important;
-                    }}
-                    #hours-summary {{
-                        display: none; /* Esconder no modo desktop */
-                    }}
-                    .legend-text {{
-                        display: block; /* Mostrar a legenda no modo desktop */
-                    }}
-                    .arrow {{
-                        display: inline; /* Mostrar a seta no modo desktop */
-                    }}
-                }}
-
-                .filters label, .legend-button {{
-                    color: black;
-                }}
-                table {{
-                    width: 100%;
-                }}
-                #detailsPopup {{
-                    display: none;
-                    position: fixed;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    background-color: white;
-                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-                    z-index: 1000;
-                    padding: 20px;
-                    border-radius: 5px;
-                    max-width: 90%;
-                    max-height: 90%;
-                    overflow-y: auto;
-                }}
-                #detailsPopup .btn-group {{
-                    display: flex;
-                    justify-content: space-between;
-                    margin-top: 20px;
-                }}
-                .close-button {{
-                    position: absolute;
-                    top: 10px;
-                    right: 10px;
-                    background: none;
-                    border: none;
-                    font-size: 1.5rem;
-                    cursor: pointer;
-                }}
-                .close-button:hover {{
-                    color: red;
-                }}
-
-                @media (max-width: 768px) {{
-                    #all-actions {{
-                        display: none;
-                    }}
-                    #hours-summary-table {{
-                        display: none;
-                    }}
-                    .mobile-actions {{
-                        display: block;
-                    }}
-                    #hours-summary {{
-                        display: block;
-                    }}
-                    .hours-summary {{
-                        font-size: 1.2em;
-                        font-weight: bold;
-                        color: #333;
-                        margin-top: 10px;
-                    }}
-                    .hours-summary p {{
-                        margin: 5px 0;
-                    }}
-                    .hours-total-mobile, .hours-approved-mobile, .hours-unapproved-mobile {{
-                        color: #1E90FF;
-                    }}
-                    .hours-approved-mobile {{
-                        color: #28a745;
-                    }}
-                    .hours-repproved-mobile {{
-                        color: #dc3545;
-                    }}
-                    .hours-unapproved-mobile {{
-                        color: #bbdb03;
-                    }}
-                }}
-
-                @media (min-width: 769px) {{
-                    #mobile-actions-buttons {{
-                        display: none; /* Tornar invisível no modo desktop */
-                    }}
-                }}
-            </style>
-
+                                    .arrow {{
+                                        display: none; /* Oculta a seta no modo mobile */
+                                    }}
+                                    .table-container {{
+                                        width: 100%;
+                                        max-height: 450px; /* Define uma altura máxima para a tabela */
+                                    }}
+                                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                                        width: 120px; /* Define uma largura menor para a coluna "Ações" */
+                                        text-align: center; /* Centraliza o texto e os botões na coluna */
+                                    }}
+                                    .table-container td {{
+                                        padding: 4px; /* Diminui a altura dos td */
+                                        text-align: left;
+                                        border-bottom: 1px solid #ddd;
+                                        vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
+                                        white-space: nowrap; /* Impede quebra de linha em células */
+                                        overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
+                                        text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
+                                    }}
+                                    .table-container th {{
+                                        background-color: #f2f2f2;
+                                        position: sticky;
+                                        top: 0;
+                                        z-index: 1;
+                                        text-align: center; /* Centraliza o texto do thead */
+                                    }}
+                                    .table-container {{
+                                        font-size: 0.9em;
+                                    }}
+                                    .btn-relatorio {{
+                                        background-color: #1E90FF; /* Cor azul padrão */
+                                        color: white; /* Texto branco */
+                                        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+                                        border-radius: 5px; /* Bordas arredondadas */
+                                        border: none; /* Remover borda */
+                                        transition: background-color 0.3s; /* Suavização da transição de cor */
+                                    }}
+                                    .btn-relatorio:hover {{
+                                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                                    }}
+                                    .btn-group {{
+                                        display: flex;
+                                        justify-content: center;
+                                        margin-top: 20px;
+                                    }}
+                                    .btn-approve-table, .btn-reject-table {{
+                                        display: inline-block;
+                                        width: 90px;
+                                        margin-right: 5px; /* Adiciona espaçamento entre os botões */
+                                        text-align: center; /* Centraliza o texto do botão */
+                                    }}
+                                    .btn-approve-table {{
+                                        background-color: #28a745;
+                                        color: white;
+                                        margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
+                                    }}
+                                    .btn-reject-table {{
+                                        background-color: #dc3545;
+                                        color: white;
+                                        margin-top: 5px;
+                                    }}
+                                    .btn-approve-table.disabled, .btn-reject-table.disabled {{
+                                        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+                                    }}
+                                    .btn-relatorio:hover {{
+                                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                                    }}
+                                    @media (max-width: 768px) {{
+                                        .filters-container {{
+                                            display: flex;
+                                            flex-direction: column;
+                                            align-items: stretch;
+                                            width: 100%;
+                                        }}
+                                        .toggle-filters {{
+                                            background-color: #1E90FF;
+                                            color: white;
+                                            padding: 10px;
+                                            text-align: center;
+                                            border: none;
+                                            border-radius: 5px;
+                                            margin: 10px 0;
+                                            width: 80%;
+                                            max-width: 130px;
+                                            align-self: center;
+                                        }}
+                                        #time_entries_form {{
+                                            display: flex;
+                                            flex-direction: column;
+                                            gap: 10px;
+                                            width: 100%;
+                                        }}
+                                        #filter-fields {{
+                                            display: flex;
+                                            flex-direction: column;
+                                            gap: 10px;
+                                        }}
+                                        .filters label {{
+                                            font-weight: bold;
+                                            margin-bottom: 5px;
+                                        }}
+                                        .filters input, .filters select {{
+                                            width: 100%;
+                                            padding: 10px;
+                                            border: 1px solid #ddd;
+                                            border-radius: 5px;
+                                        }}
+                                        .legend-text {{
+                                            display: none; /* Oculta a legenda no modo mobile */
+                                        }}
+                                        .arrow {{
+                                            display: none; /* Oculta a seta no modo mobile */
+                                        }}
+                                        .container {{
+                                            padding: 10px;
+                                            overflow-y: auto;
+                                            max-height: 80vh;
+                                        }}
+                                        .header-logo h1 {{
+                                            font-size: 1.5em;
+                                        }}
+                                        .filters {{
+                                            display: flex;
+                                            align-items: center;
+                                            gap: 10px;
+                                            margin: 0; /* Remove margem */
+                                            padding: 0; /* Remove padding */
+                                        }}
+                                        .table-wrapper {{
+                                            overflow-x: auto;
+                                        }}
+                                        .table-container {{
+                                            font-size: 0.9em;
+                                            overflow-x: scroll;
+                                        }}
+                                        .btn-group {{
+                                            flex-direction: column;
+                                            align-items: center;
+                                        }}
+                                        .btn-group .btn-relatorio {{
+                                            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
+                                            height: 40px; /* Garante que a altura do botão seja mantida */
+                                            margin: 0px 0;
+                                        }}
+                                        #hours-summary {{
+                                            display: block; /* Mostrar no modo mobile */
+                                        }}
+                                    }}
+                                    @media (min-width: 769px) {{
+                                        .toggle-filters {{
+                                            display: none;
+                                        }}
+                                        #time_entries_form {{
+                                            display: block !important;
+                                        }}
+                                        #hours-summary {{
+                                            display: none; /* Esconder no modo desktop */
+                                        }}
+                                        .legend-text {{
+                                            display: block; /* Mostrar a legenda no modo desktop */
+                                        }}
+                                        .arrow {{
+                                            display: inline; /* Mostrar a seta no modo desktop */
+                                        }}
+                                    }}
+                                    .filters label, .legend-button {{
+                                        color: black;
+                                    }}
+                                    table {{
+                                        width: 100%;
+                                    }}
+                                    #detailsPopup {{
+                                        display: none;
+                                        position: fixed;
+                                        top: 50%;
+                                        left: 50%;
+                                        transform: translate(-50%, -50%);
+                                        background-color: white;
+                                        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+                                        z-index: 1000;
+                                        padding: 20px;
+                                        border-radius: 5px;
+                                        max-width: 90%;
+                                        max-height: 90%;
+                                        overflow-y: auto;
+                                    }}
+                                    #detailsPopup .btn-group {{
+                                        display: flex;
+                                        justify-content: space-between;
+                                        margin-top: 20px;
+                                    }}
+                                    .close-button {{
+                                        position: absolute;
+                                        top: 10px;
+                                        right: 10px;
+                                        background: none;
+                                        border: none;
+                                        font-size: 1.5rem;
+                                        cursor: pointer;
+                                    }}
+                                    .close-button:hover {{
+                                        color: red;
+                                    }}
+                                    @media (max-width: 768px) {{
+                                        #all-actions {{
+                                            display: none;
+                                        }}
+                                        #hours-summary-table {{
+                                            display: none;
+                                        }}
+                                        .mobile-actions {{
+                                            display: block;
+                                        }}
+                                        #hours-summary {{
+                                            display: block;
+                                        }}
+                                        .hours-summary {{
+                                            font-size: 1.2em;
+                                            font-weight: bold;
+                                            color: #333;
+                                            margin-top: 10px;
+                                        }}
+                                        .hours-summary p {{
+                                            margin: 5px 0;
+                                        }}
+                                        .hours-total-mobile, .hours-approved-mobile, .hours-unapproved-mobile {{
+                                            color: #1E90FF;
+                                        }}
+                                        .hours-approved-mobile {{
+                                            color: #28a745;
+                                        }}
+                                        .hours-repproved-mobile {{
+                                            color: #dc3545;
+                                        }}
+                                        .hours-unapproved-mobile {{
+                                            color: #bbdb03;
+                                        }}
+                                    }}
+                                    @media (min-width: 769px) {{
+                                        #mobile-actions-buttons {{
+                                            display: none; /* Tornar invisível no modo desktop */
+                                        }}
+                                    }}
+                                </style>
                             </head>
                             <body>
                                 <div id="header">
@@ -4976,15 +4953,15 @@ def relatorio_horas_geral():
                                     </div>
                                     <div class="filters-container">
                                         <button class="toggle-filters" onclick="toggleFilters()">Filtros</button>
-                                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}" style="display: none;">
-                                            <fieldset class="collapsible collapsed" style="border: none;">
+                                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
+                                            <fieldset class="collapsible" style="border: none;">
                                                 <legend class="legend-text" onclick="toggleFieldset(this);">
                                                     <span class="legend-button">
                                                         <span class="arrow">▶</span>
                                                         Filtros
                                                     </span>
                                                 </legend>
-                                                <div id="filter-fields" class="filter-fields-style">
+                                                <div id="filter-fields" class="filter-fields-style" style="display: block;">
                                                     <label for="filterInput">Buscar:</label>
                                                     <input type="text" id="filterInput" onkeyup="filterBySelect()" placeholder="Digite para buscar...">
                                                     <label for="userSelect">Usuário:</label>
@@ -5029,14 +5006,29 @@ def relatorio_horas_geral():
                                 </div>
                                 <script>
                                     document.addEventListener('DOMContentLoaded', function() {{
-                                        var fieldset = document.querySelector('fieldset.collapsible');
-                                        if (fieldset) {{
-                                            var div = fieldset.querySelector('div');
-                                            var arrow = fieldset.querySelector('.arrow');
-                                            div.style.display = 'none';
-                                            arrow.innerHTML = '▼';
+                                        const projectSelect = document.getElementById('projectSelect');
+                                        if (projectSelect && project_name) {{
+                                            const options = projectSelect.options;
+                                            for (let i = 0; i < options.length; i++) {{
+                                                if (options[i].text === project_name) {{
+                                                    projectSelect.selectedIndex = i;
+                                                    break;
+                                                }}
+                                            }}
                                         }}
-
+                                        function toggleFilters() {{
+                                        var form = document.getElementById("time_entries_form");
+                                                        var xpath = "//*[@id='filter-fields']";
+                                                        var result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                                                        var filterFields = result.singleNodeValue;
+                            
+                                                        if (form.style.display === "none" || form.style.display === "") {{
+                                                            form.style.display = "block";
+                                                            filterFields.style.display = "block";  // Certifique-se de que os campos de filtro também estejam visíveis
+                                                        }} else {{
+                                                            form.style.display = "none";
+                                                            filterFields.style.display = "none";  // Certifique-se de que os campos de filtro também estejam escondidos
+                                        
                                         document.getElementById("filterInput").addEventListener("keyup", function() {{
                                             filterBySelect();
                                         }});
@@ -5093,10 +5085,10 @@ def relatorio_horas_geral():
                                                         <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
                                                         <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
                                                         <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
-                                                        <p><strong>Aprovado:</strong> ${{approved_value}}</p>
+                                                        <p><strong>Aprovado:</strong> ${{aprovado}}</p>
                                                         <div class="btn-group">
-                                                            <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
-                                                            <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
+                                                            <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                            <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Reprovar</a>
                                                         </div>
                                                     `;
                                                     popup.style.display = 'block';
@@ -5211,7 +5203,7 @@ def relatorio_horas_geral():
                                         alertDiv.style.position = 'fixed';
                                         alertDiv.style.top = '20px';
                                         alertDiv.style.left = '50%';
-                                        alertDiv.style.transform: 'translateX(-50%)';
+                                        alertDiv.style.transform = 'translateX(-50%)';
                                         alertDiv.style.padding = '10px';
                                         alertDiv.style.zIndex = 1000;
                                         alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
