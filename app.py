@@ -1035,6 +1035,7 @@ def relatorio_horas_client(user_id):
                                 arrow.innerHTML = '▶';  // Seta para baixo
                             }}
                         }}
+                        
                         // Garantir que o filtro comece colapsado
                         document.addEventListener('DOMContentLoaded', function() {{
                             var fieldset = document.querySelector('fieldset.collapsible');
@@ -1441,235 +1442,357 @@ def relatorio_horas_client(user_id):
                         // Ensure initial values are set for mobile view
                         document.addEventListener('DOMContentLoaded', function() {{
                             updateMobileSummary();
+                            if (window.innerWidth <= 768) {{ // Verifica se a largura da janela é de 768px ou menos (modo mobile)
+                                var columnsToHide = [ 4,5, 6, 11]; // Índices das colunas a serem escondidas
+                                //*[@id="time_entries_table"]/thead/tr/th[3]
+                                columnsToHide.forEach(function(index) {{
+                                    //*[@id="time_entries_table"]/thead/tr/th[3]
+                                    var thXPath = `//*[@id="time_entries_table"]/thead/tr/th[${{index}}]`;
+                                    console.log('thXPath'+thXPath);
+                                    var th = document.evaluate(thXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                    console.log('th'+th);
+                                    if (th) th.style.display = 'none';
+                    
+                                    var tdXPath = `//*[@id="time_entries_table"]/tbody/tr/td[${{index}}]`;
+                                    var tds = document.evaluate(tdXPath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+                                    for (var i = 0; i < tds.snapshotLength; i++) {{
+                                        tds.snapshotItem(i).style.display = 'none';
+                                    }}
+                                }});
+                            }}
                         }});
+                         
                     </script>
                     <style>
-                        body {{
-                            overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
-                            margin: 0;
-                            padding: 0;
-                        }}
-                        #header {{
-                            position: fixed;
-                            top: 0;
-                            width: 100%;
-                            z-index: 10; /* Garante que o header fique sobre outros elementos */
-                            background-color: #333333; /* Defina a cor de fundo original aqui */
-                            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
-                        }}
-                        .container {{
-                            display: flex;
-                            flex-direction: column;
-                            margin-top: 60px; /* Espaço para o header fixo */
-                        }}
-                        .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-                            width: 100px; /* Define uma largura menor para a coluna "Ações" */
-                            text-align: center; /* Centraliza o texto e os botões na coluna */
-                        }}
-                        .filters-container {{
-                            display: flex;
-                            justify-content: center; /* Alinha os itens no início */
-                            margin-bottom: 10px;
-                            width: 100%; /* Garante que ocupe a largura total */
-                        }}
-                        fieldset {{
-                            border: none;
-                            margin: 0; /* Remove margem */
-                            padding: 0; /* Remove padding */
-                        }}
-                        .filters {{
-                            display: flex;
-                            align-items: center;
-                            gap: 10px;
-                            margin: 0; /* Remove margem */
-                            padding: 0; /* Remove padding */
-                        }}
-                        .table-container {{
-                            width: 100%;
-                            max-height: 450px; /* Define uma altura máxima para a tabela */
-                        }}
-                        .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-                            width: 120px; /* Define uma largura menor para a coluna "Ações" */
-                            text-align: center; /* Centraliza o texto e os botões na coluna */
-                        }}
-                        .table-container td {{
-                            padding: 4px; /* Diminui a altura dos td */
-                            text-align: left;
-                            border-bottom: 1px solid #ddd;
-                            vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
-                            white-space: nowrap; /* Impede quebra de linha em células */
-                            overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
-                            text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
-                        }}
-                        .table-container th {{
-                            background-color: #f2f2f2;
-                            position: sticky;
-                            top: 0;
-                            z-index: 1;
-                            text-align: center; /* Centraliza o texto do thead */
-                        }}
-                        .table-container {{
-                            font-size: 0.9em;
-                        }}
-                        .btn-relatorio {{
-                            background-color: #1E90FF; /* Cor azul padrão */
-                            color: white; /* Texto branco */
-                            width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
-                            border-radius: 5px; /* Bordas arredondadas */
-                            border: none; /* Remover borda */
-                            transition: background-color 0.3s; /* Suavização da transição de cor */
-                        }}
-                        .btn-relatorio:hover {{
-                            background-color: #63B8FF; /* Azul claro ao passar o mouse */
-                        }}
-                        .btn-group {{
-                            display: flex;
-                            justify-content: center;
-                            margin-top: 20px;
-                        }}
-                        .btn-approve-table, .btn-reject-table {{
-                            display: inline-block;
-                            width: 90px;
-                            margin-right: 5px; /* Adiciona espaçamento entre os botões */
-                            text-align: center; /* Centraliza o texto do botão */
-                        }}
-                        .btn-approve-table {{
-                            background-color: #28a745;
-                            color: white;
-                            margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
-                        }}
-                        .btn-reject-table {{
-                            background-color: #dc3545;
-                            color: white;
-                            margin-top: 5px;
-                        }}
-                        .btn-approve-table.disabled, .btn-reject-table.disabled {{
-                            visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
-                        }}
-                        .btn-relatorio:hover {{
-                            background-color: #63B8FF; /* Azul claro ao passar o mouse */
-                        }}
-                        @media (max-width: 768px) {{
-                            .container {{
-                                padding: 10px;
-                                overflow-y: auto;
-                                max-height: 80vh;
-                            }}
-                            .header-logo h1 {{
-                                font-size: 1.5em;
-                            }}
-                            .filters {{
-                                display: flex;
-                                align-items: center;
-                                gap: 10px;
-                                margin: 0; /* Remove margem */
-                                padding: 0; /* Remove padding */
-                            }}
-                            .table-wrapper {{
-                                overflow-x: auto;
-                            }}
-                            .table-container {{
-                                font-size: 0.9em;
-                                overflow-x: scroll;
-                            }}
-                            .btn-group {{
-                                flex-direction: column;
-                                align-items: center;
-                            }}
-                            .btn-group .btn-relatorio {{
-                                width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
-                                height: 40px; /* Garante que a altura do botão seja mantida */
-                                margin: 0px 0;
-                            }}
-                            .table-container th:nth-child(n+3):not(:nth-child(3)):not(:nth-child(4)):not(:nth-child(9)):not(:nth-child(10)), .table-container td:nth-child(n+3):not(:nth-child(3)):not(:nth-child(4)):not(:nth-child(9)):not(:nth-child(10)) {{
-                                display: none;
-                            }}
-                        }}
-                        .filters label, .legend-button {{
-                            color: black;
-                        }}
-                        table {{
-                            width: 100%;
-                        }}
-                        @media (min-width: 769px) {{
-                            #mobile-actions-buttons {{
-                                display: none; /* Tornar invisível no modo desktop */
-                            }}
-                        }}
-                        #detailsPopup {{
-                            display: none;
-                            position: fixed;
-                            top: 50%;
-                            left: 50%;
-                            transform: translate(-50%, -50%);
-                            background-color: white;
-                            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-                            z-index: 1000;
-                            padding: 20px;
-                            border-radius: 5px;
-                            max-width: 90%;
-                            max-height: 90%;
-                            overflow-y: auto;
-                        }}
-                        #detailsPopup .btn-group {{
-                            display: flex;
-                            justify-content: space-between;
-                            margin-top: 20px;
-                        }}
-                        .close-button {{
-                            position: absolute;
-                            top: 10px;
-                            right: 10px;
-                            background: none;
-                            border: none;
-                            font-size: 1.5rem;
-                            cursor: pointer;
-                        }}
-                        .close-button:hover {{
-                            color: red;
-                        }}
-                        @media (max-width: 768px) {{
-                            #all-actions {{
-                                display: none;
-                            }}
-                            #hours-summary-table {{
-                                display: none;
-                            }}
-                            .mobile-actions {{
-                                display: block;
-                            }}
-                            #hours-summary {{
-                                display: block;
-                            }}
-                            .hours-summary {{
-                                font-size: 1.2em;
-                                font-weight: bold;
-                                color: #333;
-                                margin-top: 10px;
-                              }}
-                              .hours-summary p {{
-                                margin: 5px 0;
-                              }}
-                              .hours-total-mobile, .hours-approved-mobile, .hours-unapproved-mobile {{
-                                color: #1E90FF;
-                              }}
-                              .hours-approved-mobile {{
-                                color: #28a745;
-                              }}
-                              .hours-repproved-mobile {{
-                                color: #dc3545;
-                              }}
-                              .hours-unapproved-mobile {{
-                                color: #bbdb03;
-                              }}
-                        }}
-                        @media (min-width: 769px) {{
-                            #hours-summary {{
-                                display: none;
-                            }}
-                        }}
+    body {{
+        overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
+        margin: 0;
+        padding: 0;
+    }}
+    #header {{
+        position: fixed;
+        top: 0;
+        width: 100%;
+        z-index: 10; /* Garante que o header fique sobre outros elementos */
+        background-color: #333333; /* Defina a cor de fundo original aqui */
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
+    }}
+    .container {{
+        display: flex;
+        flex-direction: column;
+        margin-top: 60px; /* Espaço para o header fixo */
+    }}
+    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+        width: 100px; /* Define uma largura menor para a coluna "Ações" */
+        text-align: center; /* Centraliza o texto e os botões na coluna */
+    }}
+    .filters-container {{
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+    }}
 
-                    </style>
+    .toggle-filters {{
+        background-color: #1E90FF;
+        color: white;
+        padding: 10px;
+        text-align: center;
+        border: none;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        width: 100%;
+        max-width: 200px;
+        align-self: center;
+    }}
+
+    #time_entries_form {{
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+    }}
+
+    #filter-fields {{
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }}
+
+    .filters label {{
+        font-weight: bold;
+        margin-bottom: 5px;
+    }}
+
+    .filters input, .filters select {{
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+    }}
+
+    .legend-text {{
+        display: none; /* Oculta a legenda no modo mobile */
+    }}
+
+    .arrow {{
+        display: none; /* Oculta a seta no modo mobile */
+    }}
+    .table-container {{
+        width: 100%;
+        max-height: 450px; /* Define uma altura máxima para a tabela */
+    }}
+    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+        width: 120px; /* Define uma largura menor para a coluna "Ações" */
+        text-align: center; /* Centraliza o texto e os botões na coluna */
+    }}
+    .table-container td {{
+        padding: 4px; /* Diminui a altura dos td */
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+        vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
+        white-space: nowrap; /* Impede quebra de linha em células */
+        overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
+        text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
+    }}
+    .table-container th {{
+        background-color: #f2f2f2;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        text-align: center; /* Centraliza o texto do thead */
+    }}
+    .table-container {{
+        font-size: 0.9em;
+    }}
+    .btn-relatorio {{
+        background-color: #1E90FF; /* Cor azul padrão */
+        color: white; /* Texto branco */
+        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+        border-radius: 5px; /* Bordas arredondadas */
+        border: none; /* Remover borda */
+        transition: background-color 0.3s; /* Suavização da transição de cor */
+    }}
+    .btn-relatorio:hover {{
+        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+    }}
+    .btn-group {{
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+    }}
+    .btn-approve-table, .btn-reject-table {{
+        display: inline-block;
+        width: 90px;
+        margin-right: 5px; /* Adiciona espaçamento entre os botões */
+        text-align: center; /* Centraliza o texto do botão */
+    }}
+    .btn-approve-table {{
+        background-color: #28a745;
+        color: white;
+        margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
+    }}
+    .btn-reject-table {{
+        background-color: #dc3545;
+        color: white;
+        margin-top: 5px;
+    }}
+    .btn-approve-table.disabled, .btn-reject-table.disabled {{
+        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+    }}
+    .btn-relatorio:hover {{
+        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+    }}
+
+    @media (max-width: 768px) {{
+        .filters-container {{
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            width: 100%;
+        }}
+
+        .toggle-filters {{
+            background-color: #1E90FF;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            border: none;
+            border-radius: 5px;
+            margin: 10px 0;
+            width: 80%;
+            max-width: 130px;
+            align-self: center;
+        }}
+
+        #time_entries_form {{
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }}
+
+        #filter-fields {{
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }}
+
+        .filters label {{
+            font-weight: bold;
+            margin-bottom: 5px;
+        }}
+
+        .filters input, .filters select {{
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }}
+
+        .legend-text {{
+            display: none; /* Oculta a legenda no modo mobile */
+        }}
+
+        .arrow {{
+            display: none; /* Oculta a seta no modo mobile */
+        }}
+        .container {{
+            padding: 10px;
+            overflow-y: auto;
+            max-height: 80vh;
+        }}
+        .header-logo h1 {{
+            font-size: 1.5em;
+        }}
+        .filters {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0; /* Remove margem */
+            padding: 0; /* Remove padding */
+        }}
+        .table-wrapper {{
+            overflow-x: auto;
+        }}
+        .table-container {{
+            font-size: 0.9em;
+            overflow-x: scroll;
+        }}
+        .btn-group {{
+            flex-direction: column;
+            align-items: center;
+        }}
+        .btn-group .btn-relatorio {{
+            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
+            height: 40px; /* Garante que a altura do botão seja mantida */
+            margin: 0px 0;
+        }}
+        #hours-summary {{
+            display: block; /* Mostrar no modo mobile */
+        }}
+    }}
+
+    @media (min-width: 769px) {{
+        .toggle-filters {{
+            display: none;
+        }}
+        #time_entries_form {{
+            display: block !important;
+        }}
+        #hours-summary {{
+            display: none; /* Esconder no modo desktop */
+        }}
+        .legend-text {{
+            display: block; /* Mostrar a legenda no modo desktop */
+        }}
+        .arrow {{
+            display: inline; /* Mostrar a seta no modo desktop */
+        }}
+    }}
+
+    .filters label, .legend-button {{
+        color: black;
+    }}
+    table {{
+        width: 100%;
+    }}
+    #detailsPopup {{
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        z-index: 1000;
+        padding: 20px;
+        border-radius: 5px;
+        max-width: 90%;
+        max-height: 90%;
+        overflow-y: auto;
+    }}
+    #detailsPopup .btn-group {{
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }}
+    .close-button {{
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+    }}
+    .close-button:hover {{
+        color: red;
+    }}
+
+    @media (max-width: 768px) {{
+        #all-actions {{
+            display: none;
+        }}
+        #hours-summary-table {{
+            display: none;
+        }}
+        .mobile-actions {{
+            display: block;
+        }}
+        #hours-summary {{
+            display: block;
+        }}
+        .hours-summary {{
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin-top: 10px;
+        }}
+        .hours-summary p {{
+            margin: 5px 0;
+        }}
+        .hours-total-mobile, .hours-approved-mobile, .hours-unapproved-mobile {{
+            color: #1E90FF;
+        }}
+        .hours-approved-mobile {{
+            color: #28a745;
+        }}
+        .hours-repproved-mobile {{
+            color: #dc3545;
+        }}
+        .hours-unapproved-mobile {{
+            color: #bbdb03;
+        }}
+    }}
+
+    @media (min-width: 769px) {{
+        #mobile-actions-buttons {{
+            display: none; /* Tornar invisível no modo desktop */
+        }}
+    }}
+</style>
+
                 </head>
                 <body>
                     <div id="header">
@@ -1692,28 +1815,29 @@ def relatorio_horas_client(user_id):
                             </div>
                         </div>
                         <div class="filters-container">
-                            <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
-                                <fieldset class="collapsible collapsed">
+                            <button class="toggle-filters" onclick="toggleFilters()">Filtros</button>
+                            <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}" style="display: none;">
+                                <fieldset class="collapsible collapsed" style="border: none;">
                                     <legend class="legend-text" onclick="toggleFieldset(this);">
                                         <span class="legend-button">
                                             <span class="arrow">▶</span>
                                             Filtros
                                         </span>
                                     </legend>
-                                    <div>
+                                    <div id="filter-fields" class="filter-fields-style">
                                         <label for="filterInput">Buscar:</label>
                                         <input type="text" id="filterInput" onkeyup="filterBySelect()" placeholder="Digite para buscar...">
                                         <label for="userSelect">Usuário:</label>
                                         <select id="userSelect" onchange="filterBySelect()">
                                             <option value="ALL">Todos</option>
                                             {''.join(
-                    [f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
+                                            [f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
                                         </select>
                                         <label for="projectSelect">Projeto:</label>
                                         <select id="projectSelect" onchange="filterBySelect()">
                                             <option value="ALL">Todos</option>
                                             {''.join(
-                    [f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
+                                            [f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
                                         </select>
                                         <label for="approvalSelect">Aprovado:</label>
                                         <select id="approvalSelect" onchange="filterBySelect()">
@@ -1731,12 +1855,11 @@ def relatorio_horas_client(user_id):
                             <div id="all-actions" class="btn-group">
                                 <button type="button" onclick="approveAll('{token}', '{approve_entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
                                 <button type="button" onclick="rejectAll('{token}', '{reject_entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
-                                <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
                             </div>
                             <div id="selected-actions" class="btn-group">
                                 <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
                                 <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
-                                <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
+                                
                             </div>
                         </div>
                     </div>
@@ -2263,7 +2386,7 @@ def create_html_table_client(time_entries, recipient):
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
         <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
         <p>Total de Horas Reprovadas: <span class="hours-repproved">{repproved_hours}</span></p>
-        <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
+        <p>Total de Horas Pendentes de Aprovação: <span class="hours-unapproved">{unapproved_hours}</span></p>
       </div>
     '''
 
@@ -2340,7 +2463,67 @@ def create_html_table_client(time_entries, recipient):
       .btn.disabled {{
         visibility: hidden;
       }}
+      .filter-fields-style {{
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-top: 15px;
+        }}
+        
+        .filter-fields-style label {{
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }}
+        
+        .filter-fields-style input[type="text"],
+        .filter-fields-style select {{
+            width: 20%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }}
+        
+        .filter-fields-style select {{
+            appearance: none;
+            background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iNSIgdmlld0JveD0iMCAwIDEwIDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZmlsbD0iI0NDQyIgZD0iTTAgMGw1IDUgNS01eiIgLz48L3N2Zz4=') no-repeat right 10px center;
+            background-size: 10px 5px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }}
+        
+        .filter-fields-style input[type="text"]::placeholder {{
+            color: #aaa;
+            font-style: italic;
+        }}
       @media (max-width: 768px) {{
+     
+
+        #time_entries_form {{
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }}
+
+        .filters label {{
+            font-weight: bold;
+            margin-bottom: 5px;
+        }}
+
+        .filters input, .filters select {{
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }}
         .container {{
             padding: 10px;
             overflow-y: auto;
@@ -2372,12 +2555,78 @@ def create_html_table_client(time_entries, recipient):
             height: 40px;
             margin: 0px 0;
         }}
+        .filter-fields-style {{
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-top: 15px;
+        }}
+        
+        .filter-fields-style label {{
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }}
+        
+        .filter-fields-style input[type="text"],
+        .filter-fields-style select {{
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }}
+        
+        .filter-fields-style select {{
+            appearance: none;
+            background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iNSIgdmlld0JveD0iMCAwIDEwIDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZmlsbD0iI0NDQyIgZD0iTTAgMGw1IDUgNS01eiIgLz48L3N2Zz4=') no-repeat right 10px center;
+            background-size: 10px 5px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }}
+        
+        .filter-fields-style input[type="text"]::placeholder {{
+            color: #aaa;
+            font-style: italic;
+        }}
+
     }}
+    
     </style>
     '''
 
     table += f'''
     <script>
+        function toggleFilters() {{
+            var form = document.getElementById("time_entries_form");
+                            var xpath = "//*[@id='filter-fields']";
+                            var result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                            var filterFields = result.singleNodeValue;
+
+                            if (form.style.display === "none" || form.style.display === "") {{
+                                form.style.display = "block";
+                                filterFields.style.display = "block";  // Certifique-se de que os campos de filtro também estejam visíveis
+                            }} else {{
+                                form.style.display = "none";
+                                filterFields.style.display = "none";  // Certifique-se de que os campos de filtro também estejam escondidos
+                            }}
+        }}
+    
+        function toggleFieldset(legend) {{
+            var fieldset = legend.parentElement;
+            var div = fieldset.querySelector('div');
+            if (div.style.display === "none" || div.style.display === "") {{
+                div.style.display = "block";
+            }} else {{
+                div.style.display = "none";
+            }}
+        }}
       function approveHour(entryId, token, isClient, entryHours, currentStatus) {{
         fetch("{API_URL}aprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
@@ -2566,203 +2815,273 @@ def relatorio_horas(user_id):
             token = request.args.get('token')
             # Constrói a lista de IDs das entradas
             entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
-
+            approve_entry_ids = ','.join(
+                [str(entry['id']) for entry in unapproved_entries if
+                 any(field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '0' or field['value'] == '') for
+                     field in entry.get('custom_fields', []))]
+            )
+            reject_entry_ids = ','.join(
+                [str(entry['id']) for entry in unapproved_entries if
+                 any(field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '1' or field['value'] == '') for
+                     field in entry.get('custom_fields', []))]
+            )
             # Extrai usuários e projetos para os filtros
             usuarios = {entry['user']['name'] for entry in time_entries}
             projetos = {entry['project']['name'] for entry in time_entries}
 
             html_template = f'''
-                        <!DOCTYPE html>
-                        <html lang="en">
-                        <head>
-                            <meta charset="UTF-8">
-                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                            <title>Tempo gasto</title>
-                            <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
-                            <script>
-                                function toggleFieldset(legend) {{
-                                    var fieldset = legend.parentElement;
-                                    var isCollapsed = fieldset.classList.toggle('collapsed');
-                                    var div = fieldset.querySelector('div');
-                                    var arrow = legend.querySelector('.arrow');
-                                    if (isCollapsed) {{
-                                        div.style.display = 'none';
-                                        arrow.innerHTML = '▼';  // Seta para a direita
-                                    }} else {{
-                                        div.style.display = 'block';
-                                        arrow.innerHTML = '▶';  // Seta para baixo
-                                    }}
-                                }}
-                                // Garantir que o filtro comece colapsado
-                                document.addEventListener('DOMContentLoaded', function() {{
-                                    var fieldset = document.querySelector('fieldset.collapsible');
-                                    if (fieldset) {{
+                            <!DOCTYPE html>
+                            <html lang="en">
+                            <head>
+                                <meta charset="UTF-8">
+                                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                                <title>Tempo gasto</title>
+                                <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
+                                <script>
+                                    function toggleFieldset(legend) {{
+                                        var fieldset = legend.parentElement;
+                                        var isCollapsed = fieldset.classList.toggle('collapsed');
                                         var div = fieldset.querySelector('div');
-                                        var arrow = fieldset.querySelector('.arrow');
-                                        div.style.display = 'none';
-                                        arrow.innerHTML = '▼';
+                                        var arrow = legend.querySelector('.arrow');
+                                        if (isCollapsed) {{
+                                            div.style.display = 'none';
+                                            arrow.innerHTML = '▼';  // Seta para a direita
+                                        }} else {{
+                                            div.style.display = 'block';
+                                            arrow.innerHTML = '▶';  // Seta para baixo
+                                        }}
                                     }}
 
-                                    document.getElementById("filterInput").addEventListener("keyup", function() {{
-                                        filterTable();
-                                    }});
+                                    // Garantir que o filtro comece colapsado
+                                    document.addEventListener('DOMContentLoaded', function() {{
+                                        var fieldset = document.querySelector('fieldset.collapsible');
+                                        if (fieldset) {{
+                                            var div = fieldset.querySelector('div');
+                                            var arrow = fieldset.querySelector('.arrow');
+                                            div.style.display = 'none';
+                                            arrow.innerHTML = '▼';
+                                        }}
 
-                                    document.getElementById("userSelect").addEventListener("change", function() {{
-                                        filterBySelect();
-                                    }});
+                                        document.getElementById("filterInput").addEventListener("keyup", function() {{
+                                            filterBySelect();
+                                        }});
 
-                                    document.getElementById("projectSelect").addEventListener("change", function() {{
-                                        filterBySelect();
-                                    }});
+                                        document.getElementById("userSelect").addEventListener("change", function() {{
+                                            filterBySelect();
+                                        }});
 
-                                    document.getElementById("approvalSelect").addEventListener("change", function() {{
-                                        filterBySelect();
-                                    }});
-                                }});
+                                        document.getElementById("projectSelect").addEventListener("change", function() {{
+                                            filterBySelect();
+                                        }});
 
-                                function filterTable() {{
-                                    filterBySelect();
-                                }}
+                                        document.getElementById("approvalSelect").addEventListener("change", function() {{
+                                            filterBySelect();
+                                        }});
 
-                                function filterBySelect() {{
-                                    var userSelect = document.getElementById("userSelect").value.toUpperCase();
-                                    var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
-                                    var approvalSelect = document.getElementById("approvalSelect").value.toUpperCase();
-                                    var table = document.getElementById("time_entries_table");
-                                    var tr = table.getElementsByTagName("tr");
+                                        const tableRows = document.querySelectorAll('#time_entries_table tbody tr');
 
-                                    let totalHours = 0;
-                                    let approvedHours = 0;
-                                    let repprovedHours = 0;
-                                    let unapprovedHours = 0;
-                                    let approveIds = [];
-                                    let rejectIds = [];
+                                        tableRows.forEach(row => {{
+                                            row.addEventListener('click', function() {{
+                                                var entryData = {{
+                                                    spent_on: row.cells[1].textContent.trim(),
+                                                    user: {{ name: row.cells[2].textContent.trim() }},
+                                                    activity: {{ name: row.cells[3].textContent.trim() }},
+                                                    project: {{ name: row.cells[4].textContent.trim() }},
+                                                    comments: row.cells[5].textContent.trim(),
+                                                    custom_fields: [
+                                                        {{ name: 'Hora inicial (HH:MM)', value: row.cells[6].textContent.trim() }},
+                                                        {{ name: 'Hora final (HH:MM)', value: row.cells[7].textContent.trim() }},
+                                                        {{ name: 'Local de trabalho', value: 'Indisponível' }},
+                                                        {{ name: 'TS - Aprovado - CLI', value: row.cells[9].textContent.trim() }}
+                                                    ],
+                                                    hours: row.cells[8].textContent.trim(),
+                                                    id: row.id.split('-')[2]
+                                                }};
+                                                if (entryData) {{
+                                                    var entry = entryData;
 
-                                    for (var i = 1; i < tr.length; i++) {{
-                                        tr[i].style.display = "none";
-                                        var userTd = tr[i].getElementsByTagName("td")[2];
-                                        var projectTd = tr[i].getElementsByTagName("td")[4];
-                                        var approvalTd = tr[i].getElementsByTagName("td")[9];
-                                        if (userTd && projectTd && approvalTd) {{
-                                            var userValue = userTd.textContent || userTd.innerText;
-                                            var projectValue = projectTd.textContent || projectTd.innerText;
-                                            var approvalValue = approvalTd.textContent || approvalTd.innerText;
-                                            if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
-                                                (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect) &&
-                                                (approvalSelect === "ALL" || approvalValue.toUpperCase() === approvalSelect)) {{
-                                                tr[i].style.display = "";
-                                                var entryHours = parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
-                                                var entryId = tr[i].getElementsByTagName("td")[0].querySelector("input").value;
-                                                totalHours += entryHours;
-                                                if (approvalValue === 'Sim') {{
-                                                    approvedHours += entryHours;
-                                                }} else if (approvalValue === 'Não') {{
-                                                    repprovedHours += entryHours;
-                                                }} else if (approvalValue === 'Pendente') {{
-                                                    unapprovedHours += entryHours;
+                                                    var popup = document.getElementById('detailsPopup');
+                                                    var content = document.getElementById('popupContent');
+
+                                                    var horaInicial = entry.custom_fields.find(field => field.name === 'Hora inicial (HH:MM)').value;
+                                                    var horaFinal = entry.custom_fields.find(field => field.name === 'Hora final (HH:MM)').value;
+                                                    var localTrabalho = entry.custom_fields.find(field => field.name === 'Local de trabalho').value;
+                                                    var aprovado = entry.custom_fields.find(field => field.name === 'TS - Aprovado - CLI').value;
+                                                    var approved_value = (aprovado === '1') ? 'Sim' : (aprovado === '0') ? 'Não' : 'Pendente';
+
+                                                    content.innerHTML = `
+                                                        <p><strong>Data:</strong> ${{entry['spent_on']}}</p>
+                                                        <p><strong>Usuário:</strong> ${{entry['user']['name']}}</p>
+                                                        <p><strong>Atividade:</strong> ${{entry['activity']['name']}}</p>
+                                                        <p><strong>Projeto:</strong> ${{entry['project']['name']}}</p>
+                                                        <p><strong>Comentários:</strong> ${{entry['comments']}}</p>
+                                                        <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
+                                                        <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
+                                                        <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
+                                                        <p><strong>Aprovado:</strong> ${{approved_value}}</p>
+                                                        <div class="btn-group">
+                                                            <a href="#" onclick="approveHour({{entry['id']}}, '{request.args.get('token')}', {is_client}, {{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                            <a href="#" onclick="rejectHour({{entry['id']}}, '{request.args.get('token')}', {is_client}, {{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
+                                                        </div>
+                                                    `;
+                                                    popup.style.display = 'block';
+                                                }} else {{
+                                                    console.error('Dados da entrada não encontrados.');
                                                 }}
+                                            }});
+                                        }});
+                                    }});
 
-                                                if (approvalValue === 'Não' || approvalValue === 'Pendente') {{
-                                                    approveIds.push(entryId);
-                                                }} else if (approvalValue === 'Pendente') {{
-                                                    rejectIds.push(entryId);
+                                    function filterTable() {{
+                                        filterBySelect();
+                                    }}
+
+                                    function filterBySelect() {{
+                                        var userSelect = document.getElementById("userSelect").value.toUpperCase();
+                                        var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
+                                        var approvalSelect = document.getElementById("approvalSelect").value.toUpperCase();
+                                        var table = document.getElementById("time_entries_table");
+                                        var tr = table.getElementsByTagName("tr");
+
+                                        let totalHours = 0;
+                                        let approvedHours = 0;
+                                        let repprovedHours = 0;
+                                        let unapprovedHours = 0;
+
+                                        let filteredApproveIds = [];
+                                        let filteredRejectIds = [];
+
+                                        for (var i = 1; i < tr.length; i++) {{
+                                            tr[i].style.display = "none";
+                                            var userTd = tr[i].getElementsByTagName("td")[2];
+                                            var projectTd = tr[i].getElementsByTagName("td")[4];
+                                            var approvalTd = tr[i].getElementsByTagName("td")[9];
+                                            if (userTd && projectTd && approvalTd) {{
+                                                var userValue = userTd.textContent || userTd.innerText;
+                                                var projectValue = projectTd.textContent || projectTd.innerText;
+                                                var approvalValue = approvalTd.textContent || approvalTd.innerText;
+                                                if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
+                                                    (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect) &&
+                                                    (approvalSelect === "ALL" || approvalValue.toUpperCase() === approvalSelect)) {{
+                                                    tr[i].style.display = "";
+                                                    var entryId = tr[i].getElementsByTagName("td")[0].querySelector("input").value;
+                                                    var entryHours = parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
+                                                    totalHours += entryHours;
+                                                    if (approvalValue === 'Sim') {{
+                                                        approvedHours += entryHours;
+
+                                                    }} else if (approvalValue === 'Não') {{
+                                                        repprovedHours += entryHours;
+                                                        filteredApproveIds.push(entryId);
+
+                                                    }} else if (approvalValue === 'Pendente') {{
+                                                        unapprovedHours += entryHours;
+                                                        filteredApproveIds.push(entryId);
+                                                        filteredRejectIds.push(entryId);
+                                                    }}
                                                 }}
+                                            }}
+                                        }}
+
+                                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                                        document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
+
+                                        // Atualiza os botões de Aprovar Todos e Reprovar Todos no modo desktop via XPath
+                                        var approveAllButton = document.evaluate('//*[@id="all-actions"]/button[1]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                        var rejectAllButton = document.evaluate('//*[@id="all-actions"]/button[2]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+
+                                        if (approveAllButton) {{
+                                            approveAllButton.setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
+                                        }}
+                                        if (rejectAllButton) {{
+                                            rejectAllButton.setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
+                                        }}
+                                        // Atualiza os botões no modo mobile
+                                        document.querySelector('.mobile-actions .btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
+                                        document.querySelector('.mobile-actions .btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
+
+                                        // Update mobile summary
+                                        updateMobileSummary();
+                                    }}
+
+                                    function toggleAll(source) {{
+                                        checkboxes = document.getElementsByName('selected_entries');
+                                        for(var i=0, n=checkboxes.length;i<n;i++) {{
+                                            if (!checkboxes[i].disabled) {{
+                                                checkboxes[i].checked = source.checked;
                                             }}
                                         }}
                                     }}
 
-                                    document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
-                                    document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
-                                    document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
-                                    document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
-
-                                    // Atualiza os botões Aprovar Todos e Reprovar Todos com os IDs filtrados
-                                    document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{approveIds.join(',')}}', {is_client})`);
-                                    document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{rejectIds.join(',')}}', {is_client})`);
-                                }}
-
-                                function toggleAll(source) {{
-                                    checkboxes = document.getElementsByName('selected_entries');
-                                    for(var i=0, n=checkboxes.length;i<n;i++) {{
-                                        if (!checkboxes[i].disabled) {{
-                                            checkboxes[i].checked = source.checked;
-                                        }}
+                                    function sendFilteredData() {{
+                                        var data = getFilteredTableData();
+                                        fetch('/send_email_report_client_geral', {{
+                                            method: 'POST',
+                                            headers: {{
+                                                'Content-Type': 'application/json'
+                                            }},
+                                            body: JSON.stringify({{ entries: data }})
+                                        }})
+                                        .then(response => response.json())
+                                        .then(data => {{
+                                            showAlert('Relatório enviado com sucesso', 'success');
+                                        }})
+                                        .catch((error) => {{
+                                            showAlert('Erro ao enviar o relatório: ' + error, 'error');
+                                        }});
                                     }}
-                                }}
 
-                                function sendFilteredData() {{
-                                    var data = getFilteredTableData();
-                                    fetch('/send_email_report_client_geral', {{
-                                        method: 'POST',
-                                        headers: {{
-                                            'Content-Type': 'application/json'
-                                        }},
-                                        body: JSON.stringify({{ entries: data }})
-                                    }})
-                                    .then(response => response.json())
-                                    .then(data => {{
-                                        showAlert('Relatório enviado com sucesso', 'success');
-                                    }})
-                                    .catch((error) => {{
-                                        showAlert('Erro ao enviar o relatório: ' + error, 'error');
-                                    }});
-                                }}
+                                    function showAlert(message, type) {{
+                                        var alertDiv = document.createElement('div');
+                                        alertDiv.className = `alert alert-${type}`;
+                                        alertDiv.textContent = message;
 
-                                function showAlert(message, type) {{
-                                    var alertDiv = document.createElement('div');
-                                    alertDiv.className = `alert alert-${type}`;
-                                    alertDiv.textContent = message;
+                                        // Estilização básica para o popup
+                                        alertDiv.style.position = 'fixed';
+                                        alertDiv.style.top = '20px';
+                                        alertDiv.style.left = '50%';
+                                        alertDiv.style.transform = 'translateX(-50%)';
+                                        alertDiv.style.padding = '10px';
+                                        alertDiv.style.zIndex = 1000;
+                                        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+                                        alertDiv.style.color = 'white';
+                                        alertDiv.style.borderRadius = '5px';
+                                        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
+                                        alertDiv.style.fontSize = '16px';
 
-                                    // Estilização básica para o popup
-                                    alertDiv.style.position = 'fixed';
-                                    alertDiv.style.top = '20px';
-                                    alertDiv.style.left = '50%';
-                                    alertDiv.style.transform = 'translateX(-50%)';
-                                    alertDiv.style.padding = '10px';
-                                    alertDiv.style.zIndex = 1000;
-                                    alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
-                                    alertDiv.style.color = 'white';
-                                    alertDiv.style.borderRadius = '5px';
-                                    alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
-                                    alertDiv.style.fontSize = '16px';
+                                        document.body.appendChild(alertDiv);
 
-                                    document.body.appendChild(alertDiv);
+                                        // Remover o popup após 3 segundos
+                                        setTimeout(() => {{
+                                            document.body.removeChild(alertDiv);
+                                        }}, 3000);
+                                    }}
+                                    function toggleFilters() {{
+                                        var form = document.getElementById("time_entries_form");
+                                                        var xpath = "//*[@id='filter-fields']";
+                                                        var result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                                                        var filterFields = result.singleNodeValue;
+                            
+                                                        if (form.style.display === "none" || form.style.display === "") {{
+                                                            form.style.display = "block";
+                                                            filterFields.style.display = "block";  // Certifique-se de que os campos de filtro também estejam visíveis
+                                                        }} else {{
+                                                            form.style.display = "none";
+                                                            filterFields.style.display = "none";  // Certifique-se de que os campos de filtro também estejam escondidos
+                                                        }}
+                                    }}
+                                    function getFilteredTableData() {{
+                                        var table = document.getElementById("time_entries_table");
+                                        var tr = table.getElementsByTagName("tr");
+                                        var data = [];
+                                        var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
 
-                                    // Remover o popup após 3 segundos
-                                    setTimeout(() => {{
-                                        document.body.removeChild(alertDiv);
-                                    }}, 3000);
-                                }}
-
-                                function getFilteredTableData() {{
-                                    var table = document.getElementById("time_entries_table");
-                                    var tr = table.getElementsByTagName("tr");
-                                    var data = [];
-                                    var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
-
-                                    if (checkboxes.length > 0) {{
-                                        for (var checkbox of checkboxes) {{
-                                            var row = checkbox.closest("tr");
-                                            var td = row.getElementsByTagName("td");
-
-                                            var entry = {{
-                                                id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
-                                                date: td[1] ? td[1].textContent : "N/A",
-                                                user: td[2] ? td[2].textContent : "N/A",
-                                                activity: td[3] ? td[3].textContent : "N/A",
-                                                project: td[4] ? td[4].textContent : "N/A",
-                                                comments: td[5] ? td[5].textContent : "N/A",
-                                                start_time: td[6] ? td[6].textContent : "N/A",
-                                                end_time: td[7] ? td[7].textContent : "N/A",
-                                                hours: td[8] ? td[8].textContent : "N/A"
-                                            }};
-
-                                            data.push(entry);
-                                        }}
-                                    }} else {{
-                                        for (var i = 1; i < tr.length; i++) {{
-                                            if (tr[i].style.display !== "none") {{
-                                                var td = tr[i].getElementsByTagName("td");
+                                        if (checkboxes.length > 0) {{
+                                            for (var checkbox of checkboxes) {{
+                                                var row = checkbox.closest("tr");
+                                                var td = row.getElementsByTagName("td");
 
                                                 var entry = {{
                                                     id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
@@ -2778,493 +3097,816 @@ def relatorio_horas(user_id):
 
                                                 data.push(entry);
                                             }}
+                                        }} else {{
+                                            for (var i = 1; i < tr.length; i++) {{
+                                                if (tr[i].style.display !== "none") {{
+                                                    var td = tr[i].getElementsByTagName("td");
+
+                                                    var entry = {{
+                                                        id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                                        date: td[1] ? td[1].textContent : "N/A",
+                                                        user: td[2] ? td[2].textContent : "N/A",
+                                                        activity: td[3] ? td[3].textContent : "N/A",
+                                                        project: td[4] ? td[4].textContent : "N/A",
+                                                        comments: td[5] ? td[5].textContent : "N/A",
+                                                        start_time: td[6] ? td[6].textContent : "N/A",
+                                                        end_time: td[7] ? td[7].textContent : "N/A",
+                                                        hours: td[8] ? td[8].textContent : "N/A"
+                                                    }};
+
+                                                    data.push(entry);
+                                                }}
+                                            }}
                                         }}
+
+                                        return data;
                                     }}
 
-                                    return data;
-                                }}
-
-                                function approveAll(token, entryIds, isClient) {{
-                                    fetch("{API_URL}aprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
-                                    .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
-                                    .then(result => {{
-                                        const status = result.status;
-                                        const body = result.body;
-                                        if (status === 200) {{
-                                            showAlert(body.message, 'success');
-                                            updateRowsApproval(body.approved_entries, true);
-                                            location.reload();
-                                        }} else {{
-                                            showAlert(body.message, 'error');
-                                        }}
-                                    }})
-                                    .catch(error => {{
-                                        console.error('Erro:', error);
-                                        showAlert('Erro ao aprovar horas.', 'error');
-                                    }});
-                                }}
-
-                                function rejectAll(token, entryIds, isClient) {{
-                                    fetch("{API_URL}reprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
-                                    .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
-                                    .then(result => {{
-                                        const status = result.status;
-                                        const body = result.body;
-                                        if (status === 200) {{
-                                            showAlert(body.message, 'success');
-                                            updateRowsApproval(body.rejected_entries, false);
-                                            location.reload();
-                                        }} else {{
-                                            showAlert(body.message, 'error');
-                                        }}
-                                    }})
-                                    .catch(error => {{
-                                        console.error('Erro:', error);
-                                        showAlert('Erro ao reprovar horas.', 'error');
-                                    }});
-                                }}
-
-                                function updateRowsApproval(entries, isApproved) {{
-                                    if (!entries || entries.length === 0) {{
-                                        return;
+                                    function approveAll(token, entryIds, isClient) {{
+                                        fetch("{API_URL}aprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
+                                        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+                                        .then(result => {{
+                                            const status = result.status;
+                                            const body = result.body;
+                                            showAlert(body.message, status === 200 ? 'success' : 'error');
+                                            if (status === 200) {{
+                                                location.reload();
+                                            }}
+                                        }})
+                                        .catch(error => {{
+                                            console.error('Erro:', error);
+                                            showAlert('Erro ao aprovar horas.', 'error');
+                                        }});
                                     }}
 
-                                    let totalHours = parseFloat(document.querySelector('.hours-total').textContent);
-                                    let approvedHours = parseFloat(document.querySelector('.hours-approved').textContent);
-                                    let repprovedHours = parseFloat(document.querySelector('.hours-repproved').textContent);
-                                    let unapprovedHours = parseFloat(document.querySelector('.hours-unapproved').textContent);
+                                    function rejectAll(token, entryIds, isClient) {{
+                                        fetch("{API_URL}reprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
+                                        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+                                        .then(result => {{
+                                            const status = result.status;
+                                            const body = result.body;
+                                            showAlert(body.message, status === 200 ? 'success' : 'error');
+                                            if (status === 200) {{
+                                                location.reload();
+                                            }}
+                                        }})
+                                        .catch(error => {{
+                                            console.error('Erro:', error);
+                                            showAlert('Erro ao reprovar horas.', 'error');
+                                        }});
+                                    }}
 
-                                    entries.forEach(entryId => {{
-                                        var row = document.getElementById("entry-row-" + entryId);
-                                        if (row) {{
+                                    function updateRowsApproval(entryIds, isApproved) {{
+                                        var table = document.getElementById("time_entries_table");
+                                        var tr = table.getElementsByTagName("tr");
+
+                                        let totalHours = 0;
+                                        let approvedHours = 0;
+                                        let repprovedHours = 0;
+                                        let pendingHours = 0;
+
+                                        for (var i = 1; i < tr.length; i++) {{
+                                            var row = tr[i];
+                                            var entryId = row.getElementsByTagName("td")[0].querySelector("input").value;
                                             var td = row.getElementsByTagName("td");
                                             var entryHours = parseFloat(td[8].textContent);
+                                            var approvalValue = td[9].textContent;
 
-                                            if (isApproved) {{
-                                                td[9].textContent = "Sim";
-                                                approvedHours += entryHours;
-                                                unapprovedHours -= entryHours;
+                                            if (entryIds.includes(entryId)) {{
+                                                if (isApproved && approvalValue !== "Sim") {{
+                                                    td[9].textContent = "Sim";
+                                                    approvedHours += entryHours;
+                                                    if (approvalValue === "Não") {{
+                                                        repprovedHours -= entryHours;
+                                                    }} else if (approvalValue === "Pendente") {{
+                                                        pendingHours -= entryHours;
+                                                    }}
+                                                }} else if (!isApproved && approvalValue !== "Não") {{
+                                                    td[9].textContent = "Não";
+                                                    repprovedHours += entryHours;
+                                                    if (approvalValue === "Sim") {{
+                                                        approvedHours -= entryHours;
+                                                    }} else if (approvalValue === "Pendente") {{
+                                                        pendingHours -= entryHours;
+                                                    }}
+                                                }}
+                                                disableRow(entryId);
                                             }} else {{
-                                                td[9].textContent = "Não";
-                                                repprovedHours += entryHours;
-                                                unapprovedHours -= entryHours;
+                                                if (approvalValue === "Sim") {{
+                                                    approvedHours += entryHours;
+                                                }} else if (approvalValue === "Não") {{
+                                                    repprovedHours += entryHours;
+                                                }} else if (approvalValue === "Pendente") {{
+                                                    pendingHours += entryHours;
+                                                }}
                                             }}
-
                                             totalHours += entryHours;
-
-                                            disableRow(td[0].querySelector("input").value);
                                         }}
-                                    }});
 
-                                    document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
-                                    document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
-                                    document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
-                                    document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
-                                }}
+                                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                                        document.querySelector('.hours-unapproved').textContent = pendingHours.toFixed(1);
 
-                                function disableRow(entryId) {{
-                                    var row = document.getElementById("entry-row-" + entryId);
-                                    var checkBox = row.querySelector('input[type="checkbox"]');
-                                    var approveButton = row.querySelector('.btn-approve-table');
-                                    var rejectButton = row.querySelector('.btn-reject-table');
+                                        // Update mobile summary
+                                        updateMobileSummary();
+                                    }}
 
-                                    if (checkBox) {{
-                                        checkBox.disabled = true;
+                                    function disableRow(entryId) {{
+                                        var row = document.getElementById("entry-row-" + entryId);
+                                        var checkBox = row.querySelector('input[type="checkbox"]');
+                                        var approveButton = row.querySelector('.btn-approve-table');
+                                        var rejectButton = row.querySelector('.btn-reject-table');
+
+                                        if (checkBox) {{
+                                            checkBox.disabled = true;
+                                        }}
+                                        if (approveButton) {{
+                                            approveButton.classList.add('disabled');
+                                        }}
+                                        if (rejectButton) {{
+                                            rejectButton.classList.add('disabled');
+                                        }}
                                     }}
-                                    if (approveButton) {{
-                                        approveButton.classList.add('disabled');
-                                    }}
-                                    if (rejectButton) {{
-                                        rejectButton.classList.add('disabled');
-                                    }}
-                                }}
-                            </script>
-                            <style>
-                                body {{
-                                    overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
-                                    margin: 0;
-                                    padding: 0;
-                                }}
-                                #header {{
-                                    position: fixed;
-                                    top: 0;
-                                    width: 100%;
-                                    z-index: 10; /* Garante que o header fique sobre outros elementos */
-                                    background-color: #333333; /* Defina a cor de fundo original aqui */
-                                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
-                                }}
-                                .container {{
-                                    display: flex;
-                                    flex-direction: column;
-                                    margin-top: 60px; /* Espaço para o header fixo */
-                                }}
-                                .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-                                    width: 100px; /* Define uma largura menor para a coluna "Ações" */
-                                    text-align: center; /* Centraliza o texto e os botões na coluna */
-                                }}
-                                .filters-container {{
-                                    display: flex;
-                                    justify-content: center; /* Alinha os itens no início */
-                                    margin-bottom: 10px;
-                                    width: 100%; /* Garante que ocupe a largura total */
-                                }}
-                                fieldset {{
-                                    border: none;
-                                    margin: 0; /* Remove margem */
-                                    padding: 0; /* Remove padding */
-                                }}
-                                .filters {{
-                                    display: flex;
-                                    align-items: center;
-                                    gap: 10px;
-                                    margin: 0; /* Remove margem */
-                                    padding: 0; /* Remove padding */
-                                }}
-                                .table-container {{
-                                    width: 100%;
-                                    max-height: 450px; /* Define uma altura máxima para a tabela */
-                                }}
-                                .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-                                    width: 120px; /* Define uma largura menor para a coluna "Ações" */
-                                    text-align: center; /* Centraliza o texto e os botões na coluna */
-                                }}
-                                .table-container td {{
-                                    padding: 4px; /* Diminui a altura dos td */
-                                    text-align: left;
-                                    border-bottom: 1px solid #ddd;
-                                    vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
-                                    white-space: nowrap; /* Impede quebra de linha em células */
-                                    overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
-                                    text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
-                                }}
-                                .table-container th {{
-                                    background-color: #f2f2f2;
-                                    position: sticky;
-                                    top: 0;
-                                    z-index: 1;
-                                    text-align: center; /* Centraliza o texto do thead */
-                                }}
-                                .table-container {{
-                                    font-size: 0.9em;
-                                }}
-                                .btn-relatorio {{
-                                    background-color: #1E90FF; /* Cor azul padrão */
-                                    color: white; /* Texto branco */
-                                    width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
-                                    border-radius: 5px; /* Bordas arredondadas */
-                                    border: none; /* Remover borda */
-                                    transition: background-color 0.3s; /* Suavização da transição de cor */
-                                }}
-                                .btn-relatorio:hover {{
-                                    background-color: #63B8FF; /* Azul claro ao passar o mouse */
-                                }}
-                                .btn-group {{
-                                    display: flex;
-                                    justify-content: center;
-                                    margin-top: 20px;
-                                }}
-                                .btn-approve-table, .btn-reject-table {{
-                                    display: inline-block;
-                                    width: 90px;
-                                    margin-right: 5px; /* Adiciona espaçamento entre os botões */
-                                    text-align: center; /* Centraliza o texto do botão */
-                                }}
-                                .btn-approve-table {{
-                                    background-color: #28a745;
-                                    color: white;
-                                    margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
-                                }}
-                                .btn-reject-table {{
-                                    background-color: #dc3545;
-                                    color: white;
-                                    margin-top: 5px;
-                                }}
-                                .btn-approve-table.disabled, .btn-reject-table.disabled {{
-                                    visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
-                                }}
-                                .btn-relatorio:hover {{
-                                    background-color: #63B8FF; /* Azul claro ao passar o mouse */
-                                }}
-                                @media (max-width: 768px) {{
-                                    .container {{
-                                        padding: 10px;
-                                        overflow-y: auto;
-                                        max-height: 80vh;
-                                    }}
-                                    .header-logo h1 {{
-                                        font-size: 1.5em;
-                                    }}
-                                    .filters {{
-                                        display: flex;
-                                        align-items: center;
-                                        gap: 10px;
-                                        margin: 0; /* Remove margem */
-                                        padding: 0; /* Remove padding */
-                                    }}
-                                    .table-wrapper {{
-                                        overflow-x: auto;
-                                    }}
-                                    .table-container {{
-                                        font-size: 0.9em;
-                                        overflow-x: scroll;
-                                    }}
-                                    .btn-group {{
-                                        flex-direction: column;
-                                        align-items: center;
-                                    }}
-                                    .btn-group .btn-relatorio {{
-                                        width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
-                                        height: 40px; /* Garante que a altura do botão seja mantida */
-                                        margin: 0px 0;
-                                    }}
-                                }}
-                                .filters label, .legend-button {{
-                                    color: black;
-                                }}
-                                table {{
-                                    width: 100%;
-                                }}
-                            </style>
-                        </head>
-                        <body>
-                            <div id="header">
-                                <div class="header-logo">
-                                    <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
-                                    <h1>EVT - Aprovação de Horas</h1>
-                                </div>
-                            </div>
-                            <div class="container">
-                                <div class="filters-container">
-                                    <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
-                                        <fieldset class="collapsible collapsed">
-                                            <legend class="legend-text" onclick="toggleFieldset(this);">
-                                                <span class="legend-button">
-                                                    <span class="arrow">▶</span>
-                                                    Filtros
-                                                </span>
-                                            </legend>
-                                            <div>
-                                                <label for="filterInput">Buscar:</label>
-                                                <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
-                                                <label for="userSelect">Usuário:</label>
-                                                <select id="userSelect" onchange="filterBySelect()">
-                                                    <option value="ALL">Todos</option>
-                                                    {''.join([f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
-                                                </select>
-                                                <label for="projectSelect">Projeto:</label>
-                                                <select id="projectSelect" onchange="filterBySelect()">
-                                                    <option value="ALL">Todos</option>
-                                                    {''.join([f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
-                                                </select>
-                                                <label for="approvalSelect">Aprovado:</label>
-                                                <select id="approvalSelect" onchange="filterBySelect()">
-                                                    <option value="ALL">Todos</option>
-                                                    <option value="SIM">Aprovadas</option>
-                                                    <option value="NÃO">Reprovadas</option>
-                                                    <option value="PENDENTE">Pendentes</option>
-                                                </select>
+
+                                    function showDetailsPopup(entry) {{
+                                        var popup = document.getElementById('detailsPopup');
+                                        var content = document.getElementById('popupContent');
+                                        var horaInicial = entry.custom_fields.find(field => field.name === 'Hora inicial (HH:MM)').value;
+                                        var horaFinal = entry.custom_fields.find(field => field.name === 'Hora final (HH:MM)').value;
+                                        var localTrabalho = entry.custom_fields.find(field => field.name === 'Local de trabalho').value;
+                                        var aprovado = entry.custom_fields.find(field => field.name === 'TS - Aprovado - CLI').value;
+                                        var approved_value = (aprovado === 'Sim') ? 'Sim' : (aprovado === 'Não') ? 'Não' : 'Pendente';
+
+                                        content.innerHTML = `
+                                            <p><strong>Data:</strong> ${{entry['spent_on']}}</p>
+                                            <p><strong>Usuário:</strong> ${{entry['user']['name']}}</p>
+                                            <p><strong>Atividade:</strong> ${{entry['activity']['name']}}</p>
+                                            <p><strong>Projeto:</strong> ${{entry['project']['name']}}</p>
+                                            <p><strong>Comentários:</strong> ${{entry['comments']}}</p>
+                                            <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
+                                            <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
+                                            <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
+                                            <p><strong>Aprovado:</strong> ${{approved_value}}</p>
+                                            <div class="btn-group">
+                                                <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
                                             </div>
-                                        </fieldset>
-                                    </form>
-                                </div>
-                                <div class="table-container">
-                                    {table_html}
-                                    <div id="all-actions" class="btn-group">
-                                        <button type="button" onclick="approveAll('{token}', '{entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
-                                        <button type="button" onclick="rejectAll('{token}', '{entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
-                                        <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
-                                    </div>
-                                    <div id="selected-actions" class="btn-group">
-                                        <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
-                                        <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
-                                        <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <script>
-                                function toggleFieldset(legend) {{
-                                    var fieldset = legend.parentElement;
-                                    var isCollapsed = fieldset.classList.toggle('collapsed');
-                                    var div = fieldset.querySelector('div');
-                                    var arrow = legend.querySelector('.arrow');
-                                    if (isCollapsed) {{
-                                        div.style.display = 'none';
-                                        arrow.innerHTML = '▼';  // Seta para a direita
-                                    }} else {{
-                                        div.style.display = 'block';
-                                        arrow.innerHTML = '▶';  // Seta para baixo
-                                    }}
-                                }}
-                                // Garantir que o filtro comece colapsado
-                                document.addEventListener('DOMContentLoaded', function() {{
-                                    var fieldset = document.querySelector('fieldset.collapsible');
-                                    if (fieldset) {{
-                                        var div = fieldset.querySelector('div');
-                                        var arrow = fieldset.querySelector('.arrow');
-                                        div.style.display = 'none';
-                                        arrow.innerHTML = '▼';
+                                        `;
+                                        popup.style.display = 'block';
                                     }}
 
-                                    document.getElementById("filterInput").addEventListener("keyup", function() {{
-                                        filterTable();
-                                    }});
+                                    function hideDetailsPopup() {{
+                                        var popup = document.getElementById('detailsPopup');
+                                        popup.style.display = 'none';
+                                    }}
 
-                                    document.getElementById("userSelect").addEventListener("change", function() {{
-                                        filterBySelect();
-                                    }});
+                                    function updateMobileSummary() {{
+                                        document.querySelector('.hours-total-mobile').textContent = document.querySelector('.hours-total').textContent;
+                                        document.querySelector('.hours-approved-mobile').textContent = document.querySelector('.hours-approved').textContent;
+                                        document.querySelector('.hours-repproved-mobile').textContent = document.querySelector('.hours-repproved').textContent;
+                                        document.querySelector('.hours-unapproved-mobile').textContent = document.querySelector('.hours-unapproved').textContent;
+                                    }}
 
-                                    document.getElementById("projectSelect").addEventListener("change", function() {{
-                                        filterBySelect();
-                                    }});
+                                    // Ensure initial values are set for mobile view
+                                    document.addEventListener('DOMContentLoaded', function() {{
+                                        updateMobileSummary();
+                                        if (window.innerWidth <= 768) {{ // Verifica se a largura da janela é de 768px ou menos (modo mobile)
+                                            var columnsToHide = [ 4,5, 6, 11]; // Índices das colunas a serem escondidas
+                                            //*[@id="time_entries_table"]/thead/tr/th[3]
+                                            columnsToHide.forEach(function(index) {{
+                                                //*[@id="time_entries_table"]/thead/tr/th[3]
+                                                var thXPath = `//*[@id="time_entries_table"]/thead/tr/th[${{index}}]`;
+                                                console.log('thXPath'+thXPath);
+                                                var th = document.evaluate(thXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                                console.log('th'+th);
+                                                if (th) th.style.display = 'none';
 
-                                    document.getElementById("approvalSelect").addEventListener("change", function() {{
-                                        filterBySelect();
-                                    }});
-                                }});
-
-                                function filterTable() {{
-                                    filterBySelect();
-                                }}
-
-                                function filterBySelect() {{
-                                    var userSelect = document.getElementById("userSelect").value.toUpperCase();
-                                    var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
-                                    var approvalSelect = document.getElementById("approvalSelect").value.toUpperCase();
-                                    var table = document.getElementById("time_entries_table");
-                                    var tr = table.getElementsByTagName("tr");
-
-                                    let totalHours = 0;
-                                    let approvedHours = 0;
-                                    let repprovedHours = 0;
-                                    let unapprovedHours = 0;
-                                    let approveIds = [];
-                                    let rejectIds = [];
-
-                                    for (var i = 1; i < tr.length; i++) {{
-                                        tr[i].style.display = "none";
-                                        var userTd = tr[i].getElementsByTagName("td")[2];
-                                        var projectTd = tr[i].getElementsByTagName("td")[4];
-                                        var approvalTd = tr[i].getElementsByTagName("td")[9];
-                                        if (userTd && projectTd && approvalTd) {{
-                                            var userValue = userTd.textContent || userTd.innerText;
-                                            var projectValue = projectTd.textContent || projectTd.innerText;
-                                            var approvalValue = approvalTd.textContent || approvalTd.innerText;
-                                            if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
-                                                (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect) &&
-                                                (approvalSelect === "ALL" || approvalValue.toUpperCase() === approvalSelect)) {{
-                                                tr[i].style.display = "";
-                                                var entryHours = parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
-                                                var entryId = tr[i].getElementsByTagName("td")[0].querySelector("input").value;
-                                                totalHours += entryHours;
-                                                if (approvalValue === 'Sim') {{
-                                                    approvedHours += entryHours;
-                                                }} else if (approvalValue === 'Não') {{
-                                                    repprovedHours += entryHours;
-                                                }} else if (approvalValue === 'Pendente') {{
-                                                    unapprovedHours += entryHours;
+                                                var tdXPath = `//*[@id="time_entries_table"]/tbody/tr/td[${{index}}]`;
+                                                var tds = document.evaluate(tdXPath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+                                                for (var i = 0; i < tds.snapshotLength; i++) {{
+                                                    tds.snapshotItem(i).style.display = 'none';
                                                 }}
+                                            }});
+                                        }}
+                                    }});
 
-                                                if (approvalValue === 'Não' || approvalValue === 'Pendente') {{
-                                                    approveIds.push(entryId);
-                                                }} else if (approvalValue === 'Pendente') {{
-                                                    rejectIds.push(entryId);
+                                </script>
+                                <style>
+                body {{
+                    overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
+                    margin: 0;
+                    padding: 0;
+                }}
+                #header {{
+                    position: fixed;
+                    top: 0;
+                    width: 100%;
+                    z-index: 10; /* Garante que o header fique sobre outros elementos */
+                    background-color: #333333; /* Defina a cor de fundo original aqui */
+                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
+                }}
+                .container {{
+                    display: flex;
+                    flex-direction: column;
+                    margin-top: 60px; /* Espaço para o header fixo */
+                }}
+                .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                    width: 100px; /* Define uma largura menor para a coluna "Ações" */
+                    text-align: center; /* Centraliza o texto e os botões na coluna */
+                }}
+                .filters-container {{
+                    display: flex;
+                    flex-direction: column;
+                    align-items: stretch;
+                    width: 100%;
+                }}
+
+                .toggle-filters {{
+                    background-color: #1E90FF;
+                    color: white;
+                    padding: 10px;
+                    text-align: center;
+                    border: none;
+                    border-radius: 5px;
+                    margin-bottom: 10px;
+                    width: 100%;
+                    max-width: 200px;
+                    align-self: center;
+                }}
+
+                #time_entries_form {{
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                    width: 100%;
+                }}
+
+                #filter-fields {{
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                }}
+
+                .filters label {{
+                    font-weight: bold;
+                    margin-bottom: 5px;
+                }}
+
+                .filters input, .filters select {{
+                    width: 100%;
+                    padding: 10px;
+                    border: 1px solid #ddd;
+                    border-radius: 5px;
+                }}
+
+                .legend-text {{
+                    display: none; /* Oculta a legenda no modo mobile */
+                }}
+
+                .arrow {{
+                    display: none; /* Oculta a seta no modo mobile */
+                }}
+                .table-container {{
+                    width: 100%;
+                    max-height: 450px; /* Define uma altura máxima para a tabela */
+                }}
+                .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                    width: 120px; /* Define uma largura menor para a coluna "Ações" */
+                    text-align: center; /* Centraliza o texto e os botões na coluna */
+                }}
+                .table-container td {{
+                    padding: 4px; /* Diminui a altura dos td */
+                    text-align: left;
+                    border-bottom: 1px solid #ddd;
+                    vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
+                    white-space: nowrap; /* Impede quebra de linha em células */
+                    overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
+                    text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
+                }}
+                .table-container th {{
+                    background-color: #f2f2f2;
+                    position: sticky;
+                    top: 0;
+                    z-index: 1;
+                    text-align: center; /* Centraliza o texto do thead */
+                }}
+                .table-container {{
+                    font-size: 0.9em;
+                }}
+                .btn-relatorio {{
+                    background-color: #1E90FF; /* Cor azul padrão */
+                    color: white; /* Texto branco */
+                    width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+                    border-radius: 5px; /* Bordas arredondadas */
+                    border: none; /* Remover borda */
+                    transition: background-color 0.3s; /* Suavização da transição de cor */
+                }}
+                .btn-relatorio:hover {{
+                    background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                }}
+                .btn-group {{
+                    display: flex;
+                    justify-content: center;
+                    margin-top: 20px;
+                }}
+                .btn-approve-table, .btn-reject-table {{
+                    display: inline-block;
+                    width: 90px;
+                    margin-right: 5px; /* Adiciona espaçamento entre os botões */
+                    text-align: center; /* Centraliza o texto do botão */
+                }}
+                .btn-approve-table {{
+                    background-color: #28a745;
+                    color: white;
+                    margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
+                }}
+                .btn-reject-table {{
+                    background-color: #dc3545;
+                    color: white;
+                    margin-top: 5px;
+                }}
+                .btn-approve-table.disabled, .btn-reject-table.disabled {{
+                    visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+                }}
+                .btn-relatorio:hover {{
+                    background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                }}
+
+                @media (max-width: 768px) {{
+                    .filters-container {{
+                        display: flex;
+                        flex-direction: column;
+                        align-items: stretch;
+                        width: 100%;
+                    }}
+
+                    .toggle-filters {{
+                        background-color: #1E90FF;
+                        color: white;
+                        padding: 10px;
+                        text-align: center;
+                        border: none;
+                        border-radius: 5px;
+                        margin: 10px 0;
+                        width: 80%;
+                        max-width: 130px;
+                        align-self: center;
+                    }}
+
+                    #time_entries_form {{
+                        display: flex;
+                        flex-direction: column;
+                        gap: 10px;
+                        width: 100%;
+                    }}
+
+                    #filter-fields {{
+                        display: flex;
+                        flex-direction: column;
+                        gap: 10px;
+                    }}
+
+                    .filters label {{
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                    }}
+
+                    .filters input, .filters select {{
+                        width: 100%;
+                        padding: 10px;
+                        border: 1px solid #ddd;
+                        border-radius: 5px;
+                    }}
+
+                    .legend-text {{
+                        display: none; /* Oculta a legenda no modo mobile */
+                    }}
+
+                    .arrow {{
+                        display: none; /* Oculta a seta no modo mobile */
+                    }}
+                    .container {{
+                        padding: 10px;
+                        overflow-y: auto;
+                        max-height: 80vh;
+                    }}
+                    .header-logo h1 {{
+                        font-size: 1.5em;
+                    }}
+                    .filters {{
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        margin: 0; /* Remove margem */
+                        padding: 0; /* Remove padding */
+                    }}
+                    .table-wrapper {{
+                        overflow-x: auto;
+                    }}
+                    .table-container {{
+                        font-size: 0.9em;
+                        overflow-x: scroll;
+                    }}
+                    .btn-group {{
+                        flex-direction: column;
+                        align-items: center;
+                    }}
+                    .btn-group .btn-relatorio {{
+                        width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
+                        height: 40px; /* Garante que a altura do botão seja mantida */
+                        margin: 0px 0;
+                    }}
+                    #hours-summary {{
+                        display: block; /* Mostrar no modo mobile */
+                    }}
+                }}
+
+                @media (min-width: 769px) {{
+                    .toggle-filters {{
+                        display: none;
+                    }}
+                    #time_entries_form {{
+                        display: block !important;
+                    }}
+                    #hours-summary {{
+                        display: none; /* Esconder no modo desktop */
+                    }}
+                    .legend-text {{
+                        display: block; /* Mostrar a legenda no modo desktop */
+                    }}
+                    .arrow {{
+                        display: inline; /* Mostrar a seta no modo desktop */
+                    }}
+                }}
+
+                .filters label, .legend-button {{
+                    color: black;
+                }}
+                table {{
+                    width: 100%;
+                }}
+                #detailsPopup {{
+                    display: none;
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background-color: white;
+                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+                    z-index: 1000;
+                    padding: 20px;
+                    border-radius: 5px;
+                    max-width: 90%;
+                    max-height: 90%;
+                    overflow-y: auto;
+                }}
+                #detailsPopup .btn-group {{
+                    display: flex;
+                    justify-content: space-between;
+                    margin-top: 20px;
+                }}
+                .close-button {{
+                    position: absolute;
+                    top: 10px;
+                    right: 10px;
+                    background: none;
+                    border: none;
+                    font-size: 1.5rem;
+                    cursor: pointer;
+                }}
+                .close-button:hover {{
+                    color: red;
+                }}
+
+                @media (max-width: 768px) {{
+                    #all-actions {{
+                        display: none;
+                    }}
+                    #hours-summary-table {{
+                        display: none;
+                    }}
+                    .mobile-actions {{
+                        display: block;
+                    }}
+                    #hours-summary {{
+                        display: block;
+                    }}
+                    .hours-summary {{
+                        font-size: 1.2em;
+                        font-weight: bold;
+                        color: #333;
+                        margin-top: 10px;
+                    }}
+                    .hours-summary p {{
+                        margin: 5px 0;
+                    }}
+                    .hours-total-mobile, .hours-approved-mobile, .hours-unapproved-mobile {{
+                        color: #1E90FF;
+                    }}
+                    .hours-approved-mobile {{
+                        color: #28a745;
+                    }}
+                    .hours-repproved-mobile {{
+                        color: #dc3545;
+                    }}
+                    .hours-unapproved-mobile {{
+                        color: #bbdb03;
+                    }}
+                }}
+
+                @media (min-width: 769px) {{
+                    #mobile-actions-buttons {{
+                        display: none; /* Tornar invisível no modo desktop */
+                    }}
+                }}
+            </style>
+
+                            </head>
+                            <body>
+                                <div id="header">
+                                    <div class="header-logo">
+                                        <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
+                                        <h1>EVT - Aprovação de Horas - {user_name}</h1>
+                                    </div>
+                                </div>
+                                <div class="container">
+                                    <div id="hours-summary" class="hours-summary">
+                                        <p>Total de Horas: <span class="hours-total-mobile">0</span></p>
+                                        <p>Horas Aprovadas: <span class="hours-approved-mobile">0</span></p>
+                                        <p>Horas Reprovadas: <span class="hours-repproved-mobile">0</span></p>
+                                        <p>Horas Pendentes: <span class="hours-unapproved-mobile">0</span></p>
+                                    </div>
+                                    <div id="mobile-actions-buttons" class="mobile-actions">
+                                        <div class="btn-group">
+                                            <button type="button" onclick="approveAll('{token}', '{approve_entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
+                                            <button type="button" onclick="rejectAll('{token}', '{reject_entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
+                                        </div>
+                                    </div>
+                                    <div class="filters-container">
+                                        <button class="toggle-filters" onclick="toggleFilters()">Filtros</button>
+                                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}" style="display: none;">
+                                            <fieldset class="collapsible collapsed" style="border: none;">
+                                                <legend class="legend-text" onclick="toggleFieldset(this);">
+                                                    <span class="legend-button">
+                                                        <span class="arrow">▶</span>
+                                                        Filtros
+                                                    </span>
+                                                </legend>
+                                                <div id="filter-fields" class="filter-fields-style">
+                                                    <label for="filterInput">Buscar:</label>
+                                                    <input type="text" id="filterInput" onkeyup="filterBySelect()" placeholder="Digite para buscar...">
+                                                    <label for="userSelect">Usuário:</label>
+                                                    <select id="userSelect" onchange="filterBySelect()">
+                                                        <option value="ALL">Todos</option>
+                                                        {''.join(
+                [f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
+                                                    </select>
+                                                    <label for="projectSelect">Projeto:</label>
+                                                    <select id="projectSelect" onchange="filterBySelect()">
+                                                        <option value="ALL">Todos</option>
+                                                        {''.join(
+                [f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
+                                                    </select>
+                                                    <label for="approvalSelect">Aprovado:</label>
+                                                    <select id="approvalSelect" onchange="filterBySelect()">
+                                                        <option value="ALL">Todos</option>
+                                                        <option value="SIM">Aprovadas</option>
+                                                        <option value="NÃO">Reprovadas</option>
+                                                        <option value="PENDENTE">Pendentes</option>
+                                                    </select>
+                                                </div>
+                                            </fieldset>
+                                        </form>
+                                    </div>
+                                    <div class="table-container">
+                                        {table_html}
+                                        <div id="all-actions" class="btn-group">
+                                            <button type="button" onclick="approveAll('{token}', '{approve_entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
+                                            <button type="button" onclick="rejectAll('{token}', '{reject_entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
+                                        </div>
+                                        <div id="selected-actions" class="btn-group">
+                                            <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
+                                            <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
+
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="detailsPopup">
+                                    <div id="popupContent"></div>
+                                    <button type="button" class="close-button" onclick="hideDetailsPopup()">×</button>
+                                </div>
+                                <script>
+                                    document.addEventListener('DOMContentLoaded', function() {{
+                                        var fieldset = document.querySelector('fieldset.collapsible');
+                                        if (fieldset) {{
+                                            var div = fieldset.querySelector('div');
+                                            var arrow = fieldset.querySelector('.arrow');
+                                            div.style.display = 'none';
+                                            arrow.innerHTML = '▼';
+                                        }}
+
+                                        document.getElementById("filterInput").addEventListener("keyup", function() {{
+                                            filterBySelect();
+                                        }});
+
+                                        document.getElementById("userSelect").addEventListener("change", function() {{
+                                            filterBySelect();
+                                        }});
+
+                                        document.getElementById("projectSelect").addEventListener("change", function() {{
+                                            filterBySelect();
+                                        }});
+
+                                        document.getElementById("approvalSelect").addEventListener("change", function() {{
+                                            filterBySelect();
+                                        }});
+
+                                        const tableRows = document.querySelectorAll('#time_entries_table tbody tr');
+
+                                        tableRows.forEach(row => {{
+                                            row.addEventListener('click', function() {{
+                                                var entryData = {{
+                                                    spent_on: row.cells[1].textContent.trim(),
+                                                    user: {{ name: row.cells[2].textContent.trim() }},
+                                                    activity: {{ name: row.cells[3].textContent.trim() }},
+                                                    project: {{ name: row.cells[4].textContent.trim() }},
+                                                    comments: row.cells[5].textContent.trim(),
+                                                    custom_fields: [
+                                                        {{ name: 'Hora inicial (HH:MM)', value: row.cells[6].textContent.trim() }},
+                                                        {{ name: 'Hora final (HH:MM)', value: row.cells[7].textContent.trim() }},
+                                                        {{ name: 'Local de trabalho', value: 'Indisponível' }},
+                                                        {{ name: 'TS - Aprovado - CLI', value: row.cells[9].textContent.trim() }}
+                                                    ],
+                                                    hours: row.cells[8].textContent.trim(),
+                                                    id: row.id.split('-')[2]
+                                                }};
+                                                if (entryData) {{
+                                                    var entry = entryData;
+
+                                                    var popup = document.getElementById('detailsPopup');
+                                                    var content = document.getElementById('popupContent');
+
+                                                    var horaInicial = entry.custom_fields.find(field => field.name === 'Hora inicial (HH:MM)').value;
+                                                    var horaFinal = entry.custom_fields.find(field => field.name === 'Hora final (HH:MM)').value;
+                                                    var localTrabalho = entry.custom_fields.find(field => field.name === 'Local de trabalho').value;
+                                                    var aprovado = entry.custom_fields.find(field => field.name === 'TS - Aprovado - CLI').value;
+                                                    var approved_value = (aprovado === '1') ? 'Sim' : (aprovado === '0') ? 'Não' : 'Pendente';
+
+                                                    content.innerHTML = `
+                                                        <p><strong>Data:</strong> ${{entry['spent_on']}}</p>
+                                                        <p><strong>Usuário:</strong> ${{entry['user']['name']}}</p>
+                                                        <p><strong>Atividade:</strong> ${{entry['activity']['name']}}</p>
+                                                        <p><strong>Projeto:</strong> ${{entry['project']['name']}}</p>
+                                                        <p><strong>Comentários:</strong> ${{entry['comments']}}</p>
+                                                        <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
+                                                        <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
+                                                        <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
+                                                        <p><strong>Aprovado:</strong> ${{approved_value}}</p>
+                                                        <div class="btn-group">
+                                                            <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                            <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
+                                                        </div>
+                                                    `;
+                                                    popup.style.display = 'block';
+                                                }} else {{
+                                                    console.error('Dados da entrada não encontrados.');
                                                 }}
+                                            }});
+                                        }});
+                                    }});
+
+                                    function filterTable() {{
+                                        filterBySelect();
+                                    }}
+
+                                    function filterBySelect() {{
+                                        var userSelect = document.getElementById("userSelect").value.toUpperCase();
+                                        var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
+                                        var approvalSelect = document.getElementById("approvalSelect").value.toUpperCase();
+                                        var table = document.getElementById("time_entries_table");
+                                        var tr = table.getElementsByTagName("tr");
+
+                                        let totalHours = 0;
+                                        let approvedHours = 0;
+                                        let repprovedHours = 0;
+                                        let unapprovedHours = 0;
+
+                                        let filteredApproveIds = [];
+                                        let filteredRejectIds = [];
+
+                                        for (var i = 1; i < tr.length; i++) {{
+                                            tr[i].style.display = "none";
+                                            var userTd = tr[i].getElementsByTagName("td")[2];
+                                            var projectTd = tr[i].getElementsByTagName("td")[4];
+                                            var approvalTd = tr[i].getElementsByTagName("td")[9];
+                                            if (userTd && projectTd && approvalTd) {{
+                                                var userValue = userTd.textContent || userTd.innerText;
+                                                var projectValue = projectTd.textContent || projectTd.innerText;
+                                                var approvalValue = approvalTd.textContent || approvalTd.innerText;
+                                                if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
+                                                    (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect) &&
+                                                    (approvalSelect === "ALL" || approvalValue.toUpperCase() === approvalSelect)) {{
+                                                    tr[i].style.display = "";
+                                                    var entryId = tr[i].getElementsByTagName("td")[0].querySelector("input").value;
+                                                    var entryHours = parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
+                                                    totalHours += entryHours;
+                                                    if (approvalValue === 'Sim') {{
+                                                        approvedHours += entryHours;
+
+                                                    }} else if (approvalValue === 'Não') {{
+                                                        repprovedHours += entryHours;
+                                                        filteredApproveIds.push(entryId);
+
+                                                    }} else if (approvalValue === 'Pendente') {{
+                                                        unapprovedHours += entryHours;
+                                                        filteredApproveIds.push(entryId);
+                                                        filteredRejectIds.push(entryId);
+                                                    }}
+                                                }}
+                                            }}
+                                        }}
+
+                                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                                        document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
+
+                                        // Atualiza os botões no modo desktop
+                                        document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
+                                        document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
+
+                                        // Atualiza os botões no modo mobile
+                                        document.querySelector('.mobile-actions .btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
+                                        document.querySelector('.mobile-actions .btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
+
+                                        // Update mobile summary
+                                        updateMobileSummary();
+                                    }}
+
+                                    function toggleAll(source) {{
+                                        checkboxes = document.getElementsByName('selected_entries');
+                                        for(var i=0, n=checkboxes.length;i<n;i++) {{
+                                            if (!checkboxes[i].disabled) {{
+                                                checkboxes[i].checked = source.checked;
                                             }}
                                         }}
                                     }}
 
-                                    document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
-                                    document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
-                                    document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
-                                    document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
-
-                                    // Atualiza os botões Aprovar Todos e Reprovar Todos com os IDs filtrados
-                                    document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{approveIds.join(',')}}', {is_client})`);
-                                    document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{rejectIds.join(',')}}', {is_client})`);
-                                }}
-
-                                function toggleAll(source) {{
-                                    checkboxes = document.getElementsByName('selected_entries');
-                                    for(var i=0, n=checkboxes.length;i<n;i++) {{
-                                        if (!checkboxes[i].disabled) {{
-                                            checkboxes[i].checked = source.checked;
-                                        }}
+                                    function sendFilteredData() {{
+                                        var data = getFilteredTableData();
+                                        fetch('/send_email_report_client_geral', {{
+                                            method: 'POST',
+                                            headers: {{
+                                                'Content-Type': 'application/json'
+                                            }},
+                                            body: JSON.stringify({{ entries: data }})
+                                        }})
+                                        .then(response => response.json())
+                                        .then(data => {{
+                                            showAlert('Relatório enviado com sucesso', 'success');
+                                        }})
+                                        .catch((error) => {{
+                                            showAlert('Erro ao enviar o relatório: ' + error, 'error');
+                                        }});
                                     }}
-                                }}
 
-                                function sendFilteredData() {{
-                                    var data = getFilteredTableData();
-                                    fetch('/send_email_report_client_geral', {{
-                                        method: 'POST',
-                                        headers: {{
-                                            'Content-Type': 'application/json'
-                                        }},
-                                        body: JSON.stringify({{ entries: data }})
-                                    }})
-                                    .then(response => response.json())
-                                    .then(data => {{
-                                        showAlert('Relatório enviado com sucesso', 'success');
-                                    }})
-                                    .catch((error) => {{
-                                        showAlert('Erro ao enviar o relatório: ' + error, 'error');
-                                    }});
-                                }}
+                                    function showAlert(message, type) {{
+                                        var alertDiv = document.createElement('div');
+                                        alertDiv.className = `alert alert-${type}`;
+                                        alertDiv.textContent = message;
 
-                                function showAlert(message, type) {{
-                                    var alertDiv = document.createElement('div');
-                                    alertDiv.className = `alert alert-${type}`;
-                                    alertDiv.textContent = message;
+                                        // Estilização básica para o popup
+                                        alertDiv.style.position = 'fixed';
+                                        alertDiv.style.top = '20px';
+                                        alertDiv.style.left = '50%';
+                                        alertDiv.style.transform: 'translateX(-50%)';
+                                        alertDiv.style.padding = '10px';
+                                        alertDiv.style.zIndex = 1000;
+                                        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+                                        alertDiv.style.color = 'white';
+                                        alertDiv.style.borderRadius = '5px';
+                                        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
+                                        alertDiv.style.fontSize = '16px';
 
-                                    // Estilização básica para o popup
-                                    alertDiv.style.position = 'fixed';
-                                    alertDiv.style.top = '20px';
-                                    alertDiv.style.left = '50%';
-                                    alertDiv.style.transform = 'translateX(-50%)';
-                                    alertDiv.style.padding = '10px';
-                                    alertDiv.style.zIndex = 1000;
-                                    alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
-                                    alertDiv.style.color = 'white';
-                                    alertDiv.style.borderRadius = '5px';
-                                    alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
-                                    alertDiv.style.fontSize = '16px';
+                                        document.body.appendChild(alertDiv);
 
-                                    document.body.appendChild(alertDiv);
+                                        // Remover o popup após 3 segundos
+                                        setTimeout(() => {{
+                                            document.body.removeChild(alertDiv);
+                                        }}, 3000);
+                                    }}
 
-                                    // Remover o popup após 3 segundos
-                                    setTimeout(() => {{
-                                        document.body.removeChild(alertDiv);
-                                    }}, 3000);
-                                }}
+                                    function getFilteredTableData() {{
+                                        var table = document.getElementById("time_entries_table");
+                                        var tr = table.getElementsByTagName("tr");
+                                        var data = [];
+                                        var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
 
-                                function getFilteredTableData() {{
-                                    var table = document.getElementById("time_entries_table");
-                                    var tr = table.getElementsByTagName("tr");
-                                    var data = [];
-                                    var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
-
-                                    if (checkboxes.length > 0) {{
-                                        for (var checkbox of checkboxes) {{
-                                            var row = checkbox.closest("tr");
-                                            var td = row.getElementsByTagName("td");
-
-                                            var entry = {{
-                                                id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
-                                                date: td[1] ? td[1].textContent : "N/A",
-                                                user: td[2] ? td[2].textContent : "N/A",
-                                                activity: td[3] ? td[3].textContent : "N/A",
-                                                project: td[4] ? td[4].textContent : "N/A",
-                                                comments: td[5] ? td[5].textContent : "N/A",
-                                                start_time: td[6] ? td[6].textContent : "N/A",
-                                                end_time: td[7] ? td[7].textContent : "N/A",
-                                                hours: td[8] ? td[8].textContent : "N/A"
-                                            }};
-
-                                            data.push(entry);
-                                        }}
-                                    }} else {{
-                                        for (var i = 1; i < tr.length; i++) {{
-                                            if (tr[i].style.display !== "none") {{
-                                                var td = tr[i].getElementsByTagName("td");
+                                        if (checkboxes.length > 0) {{
+                                            for (var checkbox of checkboxes) {{
+                                                var row = checkbox.closest("tr");
+                                                var td = row.getElementsByTagName("td");
 
                                                 var entry = {{
                                                     id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
@@ -3280,110 +3922,185 @@ def relatorio_horas(user_id):
 
                                                 data.push(entry);
                                             }}
+                                        }} else {{
+                                            for (var i = 1; i < tr.length; i++) {{
+                                                if (tr[i].style.display !== "none") {{
+                                                    var td = tr[i].getElementsByTagName("td");
+
+                                                    var entry = {{
+                                                        id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                                        date: td[1] ? td[1].textContent : "N/A",
+                                                        user: td[2] ? td[2].textContent : "N/A",
+                                                        activity: td[3] ? td[3].textContent : "N/A",
+                                                        project: td[4] ? td[4].textContent : "N/A",
+                                                        comments: td[5] ? td[5].textContent : "N/A",
+                                                        start_time: td[6] ? td[6].textContent : "N/A",
+                                                        end_time: td[7] ? td[7].textContent : "N/A",
+                                                        hours: td[8] ? td[8].textContent : "N/A"
+                                                    }};
+
+                                                    data.push(entry);
+                                                }}
+                                            }}
                                         }}
+
+                                        return data;
                                     }}
 
-                                    return data;
-                                }}
-
-                                function approveAll(token, entryIds, isClient) {{
-                                    fetch("{API_URL}aprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
-                                    .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
-                                    .then(result => {{
-                                        const status = result.status;
-                                        const body = result.body;
-                                        if (status === 200) {{
-                                            showAlert(body.message, 'success');
-                                            updateRowsApproval(body.approved_entries, true);
-                                            location.reload();
-                                        }} else {{
-                                            showAlert(body.message, 'error');
-                                        }}
-                                    }})
-                                    .catch(error => {{
-                                        console.error('Erro:', error);
-                                        showAlert('Erro ao aprovar horas.', 'error');
-                                    }});
-                                }}
-
-                                function rejectAll(token, entryIds, isClient) {{
-                                    fetch("{API_URL}reprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
-                                    .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
-                                    .then(result => {{
-                                        const status = result.status;
-                                        const body = result.body;
-                                        if (status === 200) {{
-                                            showAlert(body.message, 'success');
-                                            updateRowsApproval(body.rejected_entries, false);
-                                            location.reload();
-                                        }} else {{
-                                            showAlert(body.message, 'error');
-                                        }}
-                                    }})
-                                    .catch(error => {{
-                                        console.error('Erro:', error);
-                                        showAlert('Erro ao reprovar horas.', 'error');
-                                    }});
-                                }}
-
-                                function updateRowsApproval(entries, isApproved) {{
-                                    if (!entries || entries.length === 0) {{
-                                        return;
+                                    function approveAll(token, entryIds, isClient) {{
+                                        fetch("{API_URL}aprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
+                                        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+                                        .then(result => {{
+                                            const status = result.status;
+                                            const body = result.body;
+                                            showAlert(body.message, status === 200 ? 'success' : 'error');
+                                            if (status === 200) {{
+                                                location.reload();
+                                            }}
+                                        }})
+                                        .catch(error => {{
+                                            console.error('Erro:', error);
+                                            showAlert('Erro ao aprovar horas.', 'error');
+                                        }});
                                     }}
 
-                                    let totalHours = parseFloat(document.querySelector('.hours-total').textContent);
-                                    let approvedHours = parseFloat(document.querySelector('.hours-approved').textContent);
-                                    let repprovedHours = parseFloat(document.querySelector('.hours-repproved').textContent);
-                                    let unapprovedHours = parseFloat(document.querySelector('.hours-unapproved').textContent);
+                                    function rejectAll(token, entryIds, isClient) {{
+                                        fetch("{API_URL}reprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
+                                        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+                                        .then(result => {{
+                                            const status = result.status;
+                                            const body = result.body;
+                                            showAlert(body.message, status === 200 ? 'success' : 'error');
+                                            if (status === 200) {{
+                                                location.reload();
+                                            }}
+                                        }})
+                                        .catch(error => {{
+                                            console.error('Erro:', error);
+                                            showAlert('Erro ao reprovar horas.', 'error');
+                                        }});
+                                    }}
 
-                                    entries.forEach(entryId => {{
-                                        var row = document.getElementById("entry-row-" + entryId);
-                                        if (row) {{
+                                    function updateRowsApproval(entryIds, isApproved) {{
+                                        var table = document.getElementById("time_entries_table");
+                                        var tr = table.getElementsByTagName("tr");
+
+                                        let totalHours = 0;
+                                        let approvedHours = 0;
+                                        let repprovedHours = 0;
+                                        let pendingHours = 0;
+
+                                        for (var i = 1; i < tr.length; i++) {{
+                                            var row = tr[i];
+                                            var entryId = row.getElementsByTagName("td")[0].querySelector("input").value;
                                             var td = row.getElementsByTagName("td");
                                             var entryHours = parseFloat(td[8].textContent);
+                                            var approvalValue = td[9].textContent;
 
-                                            if (isApproved) {{
-                                                td[9].textContent = "Sim";
-                                                approvedHours += entryHours;
-                                                unapprovedHours -= entryHours;
+                                            if (entryIds.includes(entryId)) {{
+                                                if (isApproved && approvalValue !== "Sim") {{
+                                                    td[9].textContent = "Sim";
+                                                    approvedHours += entryHours;
+                                                    if (approvalValue === "Não") {{
+                                                        repprovedHours -= entryHours;
+                                                    }} else if (approvalValue === "Pendente") {{
+                                                        pendingHours -= entryHours;
+                                                    }}
+                                                }} else if (!isApproved && approvalValue !== "Não") {{
+                                                    td[9].textContent = "Não";
+                                                    repprovedHours += entryHours;
+                                                    if (approvalValue === "Sim") {{
+                                                        approvedHours -= entryHours;
+                                                    }} else if (approvalValue === "Pendente") {{
+                                                        pendingHours -= entryHours;
+                                                    }}
+                                                }}
+                                                disableRow(entryId);
                                             }} else {{
-                                                td[9].textContent = "Não";
-                                                repprovedHours += entryHours;
-                                                unapprovedHours -= entryHours;
+                                                if (approvalValue === "Sim") {{
+                                                    approvedHours += entryHours;
+                                                }} else if (approvalValue === "Não") {{
+                                                    repprovedHours += entryHours;
+                                                }} else if (approvalValue === "Pendente") {{
+                                                    pendingHours += entryHours;
+                                                }}
                                             }}
-
                                             totalHours += entryHours;
-
-                                            disableRow(td[0].querySelector("input").value);
                                         }}
+
+                                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                                        document.querySelector('.hours-unapproved').textContent = pendingHours.toFixed(1);
+
+                                        // Update mobile summary
+                                        updateMobileSummary();
+                                    }}
+
+                                    function disableRow(entryId) {{
+                                        var row = document.getElementById("entry-row-" + entryId);
+                                        var checkBox = row.querySelector('input[type="checkbox"]');
+                                        var approveButton = row.querySelector('.btn-approve-table');
+                                        var rejectButton = row.querySelector('.btn-reject-table');
+
+                                        if (checkBox) {{
+                                            checkBox.disabled = true;
+                                        }}
+                                        if (approveButton) {{
+                                            approveButton.classList.add('disabled');
+                                        }}
+                                        if (rejectButton) {{
+                                            rejectButton.classList.add('disabled');
+                                        }}
+                                    }}
+
+                                    function showDetailsPopup(entry) {{
+                                        var popup = document.getElementById('detailsPopup');
+                                        var content = document.getElementById('popupContent');
+                                        var horaInicial = entry.custom_fields.find(field => field.name === 'Hora inicial (HH:MM)').value;
+                                        var horaFinal = entry.custom_fields.find(field => field.name === 'Hora final (HH:MM)').value;
+                                        var localTrabalho = entry.custom_fields.find(field => field.name === 'Local de trabalho').value;
+                                        var aprovado = entry.custom_fields.find(field => field.name === 'TS - Aprovado - CLI').value;
+                                        var approved_value = (aprovado === 'Sim') ? 'Sim' : (aprovado === 'Não') ? 'Não' : 'Pendente';
+
+                                        content.innerHTML = `
+                                            <p><strong>Data:</strong> ${{entry['spent_on']}}</p>
+                                            <p><strong>Usuário:</strong> ${{entry['user']['name']}}</p>
+                                            <p><strong>Atividade:</strong> ${{entry['activity']['name']}}</p>
+                                            <p><strong>Projeto:</strong> ${{entry['project']['name']}}</p>
+                                            <p><strong>Comentários:</strong> ${{entry['comments']}}</p>
+                                            <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
+                                            <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
+                                            <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
+                                            <p><strong>Aprovado:</strong> ${{approved_value}}</p>
+                                            <div class="btn-group">
+                                                <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
+                                            </div>
+                                        `;
+                                        popup.style.display = 'block';
+                                    }}
+
+                                    function hideDetailsPopup() {{
+                                        var popup = document.getElementById('detailsPopup');
+                                        popup.style.display = 'none';
+                                    }}
+
+                                    function updateMobileSummary() {{
+                                        document.querySelector('.hours-total-mobile').textContent = document.querySelector('.hours-total').textContent;
+                                        document.querySelector('.hours-approved-mobile').textContent = document.querySelector('.hours-approved').textContent;
+                                        document.querySelector('.hours-repproved-mobile').textContent = document.querySelector('.hours-repproved').textContent;
+                                        document.querySelector('.hours-unapproved-mobile').textContent = document.querySelector('.hours-unapproved').textContent;
+                                    }}
+
+                                    // Ensure initial values are set for mobile view
+                                    document.addEventListener('DOMContentLoaded', function() {{
+                                        updateMobileSummary();
                                     }});
-
-                                    document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
-                                    document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
-                                    document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
-                                    document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
-                                }}
-
-                                function disableRow(entryId) {{
-                                    var row = document.getElementById("entry-row-" + entryId);
-                                    var checkBox = row.querySelector('input[type="checkbox"]');
-                                    var approveButton = row.querySelector('.btn-approve-table');
-                                    var rejectButton = row.querySelector('.btn-reject-table');
-
-                                    if (checkBox) {{
-                                        checkBox.disabled = true;
-                                    }}
-                                    if (approveButton) {{
-                                        approveButton.classList.add('disabled');
-                                    }}
-                                    if (rejectButton) {{
-                                        rejectButton.classList.add('disabled');
-                                    }}
-                                }}
-                            </script>
-                        </body>
-                        </html>
-                        '''
+                                </script>
+                            </body>
+                            </html>
+                            '''
 
             return render_template_string(html_template)
         else:
@@ -3442,353 +4159,669 @@ def relatorio_horas_geral():
             )
             # Template HTML para renderizar a página
             html_template = f'''
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Tempo gasto</title>
-                <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
-                <script>
-                    function filterBySelect() {{
-                        var userSelect = document.getElementById("userSelect").value.toUpperCase();
-                        var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
-                        var approvalSelect = document.getElementById("approvalSelect").value.toUpperCase();
-                        var table = document.getElementById("time_entries_table");
-                        var tr = table.getElementsByTagName("tr");
-
-                        let totalHours = 0;
-                        let approvedHours = 0;
-                        let repprovedHours = 0;
-                        let unapprovedHours = 0;
-
-                        let approveIds = [];
-                        let rejectIds = [];
-
-                        for (var i = 1; i < tr.length; i++) {{
-                            tr[i].style.display = "none";
-                            var userTd = tr[i].getElementsByTagName("td")[2];
-                            var projectTd = tr[i].getElementsByTagName("td")[4];
-                            var approvalTd = tr[i].getElementsByTagName("td")[9];
-                            var entryId = tr[i].getElementsByTagName("td")[0].querySelector("input").value;
-                            if (userTd && projectTd && approvalTd) {{
-                                var userValue = userTd.textContent || userTd.innerText;
-                                var projectValue = projectTd.textContent || projectTd.innerText;
-                                var approvalValue = approvalTd.textContent || approvalTd.innerText;
-                                if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
-                                    (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect) &&
-                                    (approvalSelect === "ALL" || approvalValue.toUpperCase() === approvalSelect)) {{
-                                    tr[i].style.display = "";
-                                    var entryHours = parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
-                                    totalHours += entryHours;
-                                    if (approvalValue === 'Sim') {{
-                                        approvedHours += entryHours;
-                                    }} else if (approvalValue === 'Não') {{
-                                        repprovedHours += entryHours;
-                                        rejectIds.push(entryId);
-                                    }} else if (approvalValue === 'Pendente') {{
-                                        unapprovedHours += entryHours;
-                                        rejectIds.push(entryId);
+                            <!DOCTYPE html>
+                            <html lang="en">
+                            <head>
+                                <meta charset="UTF-8">
+                                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                                <title>Tempo gasto</title>
+                                <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
+                                <script>
+                                    function toggleFieldset(legend) {{
+                                        var fieldset = legend.parentElement;
+                                        var isCollapsed = fieldset.classList.toggle('collapsed');
+                                        var div = fieldset.querySelector('div');
+                                        var arrow = legend.querySelector('.arrow');
+                                        if (isCollapsed) {{
+                                            div.style.display = 'none';
+                                            arrow.innerHTML = '▼';  // Seta para a direita
+                                        }} else {{
+                                            div.style.display = 'block';
+                                            arrow.innerHTML = '▶';  // Seta para baixo
+                                        }}
                                     }}
 
-                                    if (approvalValue === 'Não' || approvalValue === 'Pendente') {{
-                                        approveIds.push(entryId);
+                                    // Garantir que o filtro comece colapsado
+                                    document.addEventListener('DOMContentLoaded', function() {{
+                                        var fieldset = document.querySelector('fieldset.collapsible');
+                                        if (fieldset) {{
+                                            var div = fieldset.querySelector('div');
+                                            var arrow = fieldset.querySelector('.arrow');
+                                            div.style.display = 'none';
+                                            arrow.innerHTML = '▼';
+                                        }}
+
+                                        document.getElementById("filterInput").addEventListener("keyup", function() {{
+                                            filterBySelect();
+                                        }});
+
+                                        document.getElementById("userSelect").addEventListener("change", function() {{
+                                            filterBySelect();
+                                        }});
+
+                                        document.getElementById("projectSelect").addEventListener("change", function() {{
+                                            filterBySelect();
+                                        }});
+
+                                        document.getElementById("approvalSelect").addEventListener("change", function() {{
+                                            filterBySelect();
+                                        }});
+
+                                        const tableRows = document.querySelectorAll('#time_entries_table tbody tr');
+
+                                        tableRows.forEach(row => {{
+                                            row.addEventListener('click', function() {{
+                                                var entryData = {{
+                                                    spent_on: row.cells[1].textContent.trim(),
+                                                    user: {{ name: row.cells[2].textContent.trim() }},
+                                                    activity: {{ name: row.cells[3].textContent.trim() }},
+                                                    project: {{ name: row.cells[4].textContent.trim() }},
+                                                    comments: row.cells[5].textContent.trim(),
+                                                    custom_fields: [
+                                                        {{ name: 'Hora inicial (HH:MM)', value: row.cells[6].textContent.trim() }},
+                                                        {{ name: 'Hora final (HH:MM)', value: row.cells[7].textContent.trim() }},
+                                                        {{ name: 'Local de trabalho', value: 'Indisponível' }},
+                                                        {{ name: 'TS - Aprovado - CLI', value: row.cells[9].textContent.trim() }}
+                                                    ],
+                                                    hours: row.cells[8].textContent.trim(),
+                                                    id: row.id.split('-')[2]
+                                                }};
+                                                if (entryData) {{
+                                                    var entry = entryData;
+
+                                                    var popup = document.getElementById('detailsPopup');
+                                                    var content = document.getElementById('popupContent');
+
+                                                    var horaInicial = entry.custom_fields.find(field => field.name === 'Hora inicial (HH:MM)').value;
+                                                    var horaFinal = entry.custom_fields.find(field => field.name === 'Hora final (HH:MM)').value;
+                                                    var localTrabalho = entry.custom_fields.find(field => field.name === 'Local de trabalho').value;
+                                                    var aprovado = entry.custom_fields.find(field => field.name === 'TS - Aprovado - CLI').value;
+                                                    var approved_value = (aprovado === '1') ? 'Sim' : (aprovado === '0') ? 'Não' : 'Pendente';
+
+                                                    content.innerHTML = `
+                                                        <p><strong>Data:</strong> ${{entry['spent_on']}}</p>
+                                                        <p><strong>Usuário:</strong> ${{entry['user']['name']}}</p>
+                                                        <p><strong>Atividade:</strong> ${{entry['activity']['name']}}</p>
+                                                        <p><strong>Projeto:</strong> ${{entry['project']['name']}}</p>
+                                                        <p><strong>Comentários:</strong> ${{entry['comments']}}</p>
+                                                        <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
+                                                        <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
+                                                        <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
+                                                        <p><strong>Aprovado:</strong> ${{approved_value}}</p>
+                                                        <div class="btn-group">
+                                                            <a href="#" onclick="approveHour({{entry['id']}}, '{request.args.get('token')}', {is_client}, {{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                            <a href="#" onclick="rejectHour({{entry['id']}}, '{request.args.get('token')}', {is_client}, {{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
+                                                        </div>
+                                                    `;
+                                                    popup.style.display = 'block';
+                                                }} else {{
+                                                    console.error('Dados da entrada não encontrados.');
+                                                }}
+                                            }});
+                                        }});
+                                    }});
+
+                                    function filterTable() {{
+                                        filterBySelect();
                                     }}
-                                }}
-                            }}
-                        }}
+                                    function toggleFilters() {{
+                                                var form = document.getElementById("time_entries_form");
+                                                                var xpath = "//*[@id='filter-fields']";
+                                                                var result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                                                                var filterFields = result.singleNodeValue;
+                                    
+                                                                if (form.style.display === "none" || form.style.display === "") {{
+                                                                    form.style.display = "block";
+                                                                    filterFields.style.display = "block";  // Certifique-se de que os campos de filtro também estejam visíveis
+                                                                }} else {{
+                                                                    form.style.display = "none";
+                                                                    filterFields.style.display = "none";  // Certifique-se de que os campos de filtro também estejam escondidos
+                                                                }}
+                                            }}
+                                    function filterBySelect() {{
+                                        var userSelect = document.getElementById("userSelect").value.toUpperCase();
+                                        var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
+                                        var approvalSelect = document.getElementById("approvalSelect").value.toUpperCase();
+                                        var table = document.getElementById("time_entries_table");
+                                        var tr = table.getElementsByTagName("tr");
 
-                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
-                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
-                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
-                        document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
+                                        let totalHours = 0;
+                                        let approvedHours = 0;
+                                        let repprovedHours = 0;
+                                        let unapprovedHours = 0;
 
-                        // Atualiza os botões Aprovar Todos e Reprovar Todos com os IDs filtrados
-                        document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{approveIds.join(',')}}', {is_client})`);
-                        document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{rejectIds.join(',')}}', {is_client})`);
-                    }}
+                                        let filteredApproveIds = [];
+                                        let filteredRejectIds = [];
 
-                    function toggleFieldset(legend) {{
-                        var fieldset = legend.parentElement;
-                        var isCollapsed = fieldset.classList.toggle('collapsed');
-                        var div = fieldset.querySelector('div');
-                        var arrow = legend.querySelector('.arrow');
-                        if (isCollapsed) {{
-                            div.style.display = 'none';
-                            arrow.innerHTML = '▼';  // Seta para a direita
-                        }} else {{
-                            div.style.display = 'block';
-                            arrow.innerHTML = '▶';  // Seta para baixo
-                        }}
-                    }}
-                    // Garantir que o filtro comece colapsado
-                    document.addEventListener('DOMContentLoaded', function() {{
-                        var fieldset = document.querySelector('fieldset.collapsible');
-                        if (fieldset) {{
-                            var div = fieldset.querySelector('div');
-                            var arrow = fieldset.querySelector('.arrow');
-                            div.style.display = 'none';
-                            arrow.innerHTML = '▼';
-                        }}
+                                        for (var i = 1; i < tr.length; i++) {{
+                                            tr[i].style.display = "none";
+                                            var userTd = tr[i].getElementsByTagName("td")[2];
+                                            var projectTd = tr[i].getElementsByTagName("td")[4];
+                                            var approvalTd = tr[i].getElementsByTagName("td")[9];
+                                            if (userTd && projectTd && approvalTd) {{
+                                                var userValue = userTd.textContent || userTd.innerText;
+                                                var projectValue = projectTd.textContent || projectTd.innerText;
+                                                var approvalValue = approvalTd.textContent || approvalTd.innerText;
+                                                if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
+                                                    (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect) &&
+                                                    (approvalSelect === "ALL" || approvalValue.toUpperCase() === approvalSelect)) {{
+                                                    tr[i].style.display = "";
+                                                    var entryId = tr[i].getElementsByTagName("td")[0].querySelector("input").value;
+                                                    var entryHours = parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
+                                                    totalHours += entryHours;
+                                                    if (approvalValue === 'Sim') {{
+                                                        approvedHours += entryHours;
 
-                        document.getElementById("filterInput").addEventListener("keyup", function() {{
-                            filterTable();
-                        }});
+                                                    }} else if (approvalValue === 'Não') {{
+                                                        repprovedHours += entryHours;
+                                                        filteredApproveIds.push(entryId);
 
-                        document.getElementById("userSelect").addEventListener("change", function() {{
-                            filterBySelect();
-                        }});
+                                                    }} else if (approvalValue === 'Pendente') {{
+                                                        unapprovedHours += entryHours;
+                                                        filteredApproveIds.push(entryId);
+                                                        filteredRejectIds.push(entryId);
+                                                    }}
+                                                }}
+                                            }}
+                                        }}
 
-                        document.getElementById("projectSelect").addEventListener("change", function() {{
-                            filterBySelect();
-                        }});
+                                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                                        document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
 
-                        document.getElementById("approvalSelect").addEventListener("change", function() {{
-                            filterBySelect();
-                        }});
-                    }});
+                                        // Atualiza os botões de Aprovar Todos e Reprovar Todos no modo desktop via XPath
+                                        var approveAllButton = document.evaluate('//*[@id="all-actions"]/button[1]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                        var rejectAllButton = document.evaluate('//*[@id="all-actions"]/button[2]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
 
-                    function filterTable() {{
-                        filterBySelect();
-                    }}
+                                        if (approveAllButton) {{
+                                            approveAllButton.setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
+                                        }}
+                                        if (rejectAllButton) {{
+                                            rejectAllButton.setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
+                                        }}
+                                        // Atualiza os botões no modo mobile
+                                        document.querySelector('.mobile-actions .btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
+                                        document.querySelector('.mobile-actions .btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
 
-                    function toggleAll(source) {{
-                        checkboxes = document.getElementsByName('selected_entries');
-                        for(var i=0, n=checkboxes.length;i<n;i++) {{
-                            if (!checkboxes[i].disabled) {{
-                                checkboxes[i].checked = source.checked;
-                            }}
-                        }}
-                    }}
-
-                    function sendFilteredData() {{
-                        var data = getFilteredTableData();
-                        fetch('/send_email_report_client_geral', {{
-                            method: 'POST',
-                            headers: {{
-                                'Content-Type': 'application/json'
-                            }},
-                            body: JSON.stringify({{ entries: data }})
-                        }})
-                        .then(response => response.json())
-                        .then(data => {{
-                            showAlert('Relatório enviado com sucesso', 'success');
-                        }})
-                        .catch((error) => {{
-                            showAlert('Erro ao enviar o relatório: ' + error, 'error');
-                        }});
-                    }}
-
-                    function showAlert(message, type) {{
-                        var alertDiv = document.createElement('div');
-                        alertDiv.className = `alert alert-${type}`;
-                        alertDiv.textContent = message;
-
-                        // Estilização básica para o popup
-                        alertDiv.style.position = 'fixed';
-                        alertDiv.style.top = '20px';
-                        alertDiv.style.left = '50%';
-                        alertDiv.style.transform = 'translateX(-50%)';
-                        alertDiv.style.padding = '10px';
-                        alertDiv.style.zIndex = 1000;
-                        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
-                        alertDiv.style.color = 'white';
-                        alertDiv.style.borderRadius = '5px';
-                        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
-                        alertDiv.style.fontSize = '16px';
-
-                        document.body.appendChild(alertDiv);
-
-                        // Remover o popup após 3 segundos
-                        setTimeout(() => {{
-                            document.body.removeChild(alertDiv);
-                        }}, 3000);
-                    }}
-
-                    function getFilteredTableData() {{
-                        var table = document.getElementById("time_entries_table");
-                        var tr = table.getElementsByTagName("tr");
-                        var data = [];
-                        var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
-
-                        if (checkboxes.length > 0) {{
-                            for (var checkbox of checkboxes) {{
-                                var row = checkbox.closest("tr");
-                                var td = row.getElementsByTagName("td");
-
-                                var entry = {{
-                                    id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
-                                    date: td[1] ? td[1].textContent : "N/A",
-                                    user: td[2] ? td[2].textContent : "N/A",
-                                    activity: td[3] ? td[3].textContent : "N/A",
-                                    project: td[4] ? td[4].textContent : "N/A",
-                                    comments: td[5] ? td[5].textContent : "N/A",
-                                    start_time: td[6] ? td[6].textContent : "N/A",
-                                    end_time: td[7] ? td[7].textContent : "N/A",
-                                    hours: td[8] ? td[8].textContent : "N/A"
-                                }};
-
-                                data.push(entry);
-                            }}
-                        }} else {{
-                            for (var i = 1; i < tr.length; i++) {{
-                                if (tr[i].style.display !== "none") {{
-                                    var td = tr[i].getElementsByTagName("td");
-
-                                    var entry = {{
-                                        id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
-                                        date: td[1] ? td[1].textContent : "N/A",
-                                        user: td[2] ? td[2].textContent : "N/A",
-                                        activity: td[3] ? td[3].textContent : "N/A",
-                                        project: td[4] ? td[4].textContent : "N/A",
-                                        comments: td[5] ? td[5].textContent : "N/A",
-                                        start_time: td[6] ? td[6].textContent : "N/A",
-                                        end_time: td[7] ? td[7].textContent : "N/A",
-                                        hours: td[8] ? td[8].textContent : "N/A"
-                                    }};
-
-                                    data.push(entry);
-                                }}
-                            }}
-                        }}
-
-                        return data;
-                    }}
-
-                    function approveAll(token, entryIds, isClient) {{
-                        fetch("{API_URL}aprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
-                        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
-                        .then(result => {{
-                            const status = result.status;
-                            const body = result.body;
-                            if (status === 200) {{
-                                showAlert(body.message, 'success');
-                                updateRowsApproval(body.approved_entries, true);
-                                location.reload();
-                            }} else {{
-                                showAlert(body.message, 'error');
-                            }}
-                        }})
-                        .catch(error => {{
-                            console.error('Erro:', error);
-                            showAlert('Erro ao aprovar horas.', 'error');
-                        }});
-                    }}
-
-                    function rejectAll(token, entryIds, isClient) {{
-                        fetch("{API_URL}reprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
-                        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
-                        .then(result => {{
-                            const status = result.status;
-                            const body = result.body;
-                            if (status === 200) {{
-                                showAlert(body.message, 'success');
-                                updateRowsApproval(body.rejected_entries, false);
-                                location.reload();
-                            }} else {{
-                                showAlert(body.message, 'error');
-                            }}
-                        }})
-                        .catch(error => {{
-                            console.error('Erro:', error);
-                            showAlert('Erro ao reprovar horas.', 'error');
-                        }});
-                    }}
-
-                    function updateRowsApproval(entries, isApproved) {{
-                        if (!entries || entries.length === 0) {{
-                            return;
-                        }}
-
-                        let totalHours = parseFloat(document.querySelector('.hours-total').textContent);
-                        let approvedHours = parseFloat(document.querySelector('.hours-approved').textContent);
-                        let repprovedHours = parseFloat(document.querySelector('.hours-repproved').textContent);
-                        let unapprovedHours = parseFloat(document.querySelector('.hours-unapproved').textContent);
-
-                        entries.forEach(entryId => {{
-                            var row = document.getElementById("entry-row-" + entryId);
-                            if (row) {{
-                                var td = row.getElementsByTagName("td");
-                                var entryHours = parseFloat(td[8].textContent);
-
-                                if (isApproved) {{
-                                    td[9].textContent = "Sim";
-                                    approvedHours += entryHours;
-                                    if (td[9].textContent === "Pendente") {{
-                                        unapprovedHours -= entryHours;
-                                    }} else if (td[9].textContent === "Não") {{
-                                        repprovedHours -= entryHours;
+                                        // Update mobile summary
+                                        updateMobileSummary();
                                     }}
-                                }} else {{
-                                    td[9].textContent = "Não";
-                                    repprovedHours += entryHours;
-                                    if (td[9].textContent === "Pendente") {{
-                                        unapprovedHours -= entryHours;
-                                    }} else if (td[9].textContent === "Sim") {{
-                                        approvedHours -= entryHours;
+
+                                    function toggleAll(source) {{
+                                        checkboxes = document.getElementsByName('selected_entries');
+                                        for(var i=0, n=checkboxes.length;i<n;i++) {{
+                                            if (!checkboxes[i].disabled) {{
+                                                checkboxes[i].checked = source.checked;
+                                            }}
+                                        }}
                                     }}
-                                }}
 
-                                disableRow(td[0].querySelector("input").value);
-                            }}
-                        }});
+                                    function sendFilteredData() {{
+                                        var data = getFilteredTableData();
+                                        fetch('/send_email_report_client_geral', {{
+                                            method: 'POST',
+                                            headers: {{
+                                                'Content-Type': 'application/json'
+                                            }},
+                                            body: JSON.stringify({{ entries: data }})
+                                        }})
+                                        .then(response => response.json())
+                                        .then(data => {{
+                                            showAlert('Relatório enviado com sucesso', 'success');
+                                        }})
+                                        .catch((error) => {{
+                                            showAlert('Erro ao enviar o relatório: ' + error, 'error');
+                                        }});
+                                    }}
 
-                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
-                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
-                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
-                        document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
-                    }}
+                                    function showAlert(message, type) {{
+                                        var alertDiv = document.createElement('div');
+                                        alertDiv.className = `alert alert-${type}`;
+                                        alertDiv.textContent = message;
 
-                    function disableRow(entryId) {{
-                        var row = document.getElementById("entry-row-" + entryId);
-                        var checkBox = row.querySelector('input[type="checkbox"]');
-                        var approveButton = row.querySelector('.btn-approve-table');
-                        var rejectButton = row.querySelector('.btn-reject-table');
+                                        // Estilização básica para o popup
+                                        alertDiv.style.position = 'fixed';
+                                        alertDiv.style.top = '20px';
+                                        alertDiv.style.left = '50%';
+                                        alertDiv.style.transform = 'translateX(-50%)';
+                                        alertDiv.style.padding = '10px';
+                                        alertDiv.style.zIndex = 1000;
+                                        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+                                        alertDiv.style.color = 'white';
+                                        alertDiv.style.borderRadius = '5px';
+                                        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
+                                        alertDiv.style.fontSize = '16px';
 
-                        if (checkBox) {{
-                            checkBox.disabled = true;
-                        }}
-                        if (approveButton) {{
-                            approveButton.classList.add('disabled');
-                        }}
-                        if (rejectButton) {{
-                            rejectButton.classList.add('disabled');
-                        }}
-                    }}
-                </script>
-                <style>
-                    body {{
-                        overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
-                        margin: 0;
-                        padding: 0;
-                    }}
-                    #header {{
-                        position: fixed;
-                        top: 0;
-                        width: 100%;
-                        z-index: 10; /* Garante que o header fique sobre outros elementos */
-                        background-color: #333333; /* Defina a cor de fundo original aqui */
-                        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
-                    }}
-                    .container {{
-                        display: flex;
-                        flex-direction: column;
-                        margin-top: 60px; /* Espaço para o header fixo */
-                    }}
-                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-                        width: 100px; /* Define uma largura menor para a coluna "Ações" */
-                        text-align: center; /* Centraliza o texto e os botões na coluna */
-                    }}
+                                        document.body.appendChild(alertDiv);
+
+                                        // Remover o popup após 3 segundos
+                                        setTimeout(() => {{
+                                            document.body.removeChild(alertDiv);
+                                        }}, 3000);
+                                    }}
+
+                                    function getFilteredTableData() {{
+                                        var table = document.getElementById("time_entries_table");
+                                        var tr = table.getElementsByTagName("tr");
+                                        var data = [];
+                                        var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
+
+                                        if (checkboxes.length > 0) {{
+                                            for (var checkbox of checkboxes) {{
+                                                var row = checkbox.closest("tr");
+                                                var td = row.getElementsByTagName("td");
+
+                                                var entry = {{
+                                                    id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                                    date: td[1] ? td[1].textContent : "N/A",
+                                                    user: td[2] ? td[2].textContent : "N/A",
+                                                    activity: td[3] ? td[3].textContent : "N/A",
+                                                    project: td[4] ? td[4].textContent : "N/A",
+                                                    comments: td[5] ? td[5].textContent : "N/A",
+                                                    start_time: td[6] ? td[6].textContent : "N/A",
+                                                    end_time: td[7] ? td[7].textContent : "N/A",
+                                                    hours: td[8] ? td[8].textContent : "N/A"
+                                                }};
+
+                                                data.push(entry);
+                                            }}
+                                        }} else {{
+                                            for (var i = 1; i < tr.length; i++) {{
+                                                if (tr[i].style.display !== "none") {{
+                                                    var td = tr[i].getElementsByTagName("td");
+
+                                                    var entry = {{
+                                                        id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                                        date: td[1] ? td[1].textContent : "N/A",
+                                                        user: td[2] ? td[2].textContent : "N/A",
+                                                        activity: td[3] ? td[3].textContent : "N/A",
+                                                        project: td[4] ? td[4].textContent : "N/A",
+                                                        comments: td[5] ? td[5].textContent : "N/A",
+                                                        start_time: td[6] ? td[6].textContent : "N/A",
+                                                        end_time: td[7] ? td[7].textContent : "N/A",
+                                                        hours: td[8] ? td[8].textContent : "N/A"
+                                                    }};
+
+                                                    data.push(entry);
+                                                }}
+                                            }}
+                                        }}
+
+                                        return data;
+                                    }}
+
+                                    function approveAll(token, entryIds, isClient) {{
+                                        fetch("{API_URL}aprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
+                                        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+                                        .then(result => {{
+                                            const status = result.status;
+                                            const body = result.body;
+                                            showAlert(body.message, status === 200 ? 'success' : 'error');
+                                            if (status === 200) {{
+                                                location.reload();
+                                            }}
+                                        }})
+                                        .catch(error => {{
+                                            console.error('Erro:', error);
+                                            showAlert('Erro ao aprovar horas.', 'error');
+                                        }});
+                                    }}
+
+                                    function rejectAll(token, entryIds, isClient) {{
+                                        fetch("{API_URL}reprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
+                                        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+                                        .then(result => {{
+                                            const status = result.status;
+                                            const body = result.body;
+                                            showAlert(body.message, status === 200 ? 'success' : 'error');
+                                            if (status === 200) {{
+                                                location.reload();
+                                            }}
+                                        }})
+                                        .catch(error => {{
+                                            console.error('Erro:', error);
+                                            showAlert('Erro ao reprovar horas.', 'error');
+                                        }});
+                                    }}
+
+                                    function updateRowsApproval(entryIds, isApproved) {{
+                                        var table = document.getElementById("time_entries_table");
+                                        var tr = table.getElementsByTagName("tr");
+
+                                        let totalHours = 0;
+                                        let approvedHours = 0;
+                                        let repprovedHours = 0;
+                                        let pendingHours = 0;
+
+                                        for (var i = 1; i < tr.length; i++) {{
+                                            var row = tr[i];
+                                            var entryId = row.getElementsByTagName("td")[0].querySelector("input").value;
+                                            var td = row.getElementsByTagName("td");
+                                            var entryHours = parseFloat(td[8].textContent);
+                                            var approvalValue = td[9].textContent;
+
+                                            if (entryIds.includes(entryId)) {{
+                                                if (isApproved && approvalValue !== "Sim") {{
+                                                    td[9].textContent = "Sim";
+                                                    approvedHours += entryHours;
+                                                    if (approvalValue === "Não") {{
+                                                        repprovedHours -= entryHours;
+                                                    }} else if (approvalValue === "Pendente") {{
+                                                        pendingHours -= entryHours;
+                                                    }}
+                                                }} else if (!isApproved && approvalValue !== "Não") {{
+                                                    td[9].textContent = "Não";
+                                                    repprovedHours += entryHours;
+                                                    if (approvalValue === "Sim") {{
+                                                        approvedHours -= entryHours;
+                                                    }} else if (approvalValue === "Pendente") {{
+                                                        pendingHours -= entryHours;
+                                                    }}
+                                                }}
+                                                disableRow(entryId);
+                                            }} else {{
+                                                if (approvalValue === "Sim") {{
+                                                    approvedHours += entryHours;
+                                                }} else if (approvalValue === "Não") {{
+                                                    repprovedHours += entryHours;
+                                                }} else if (approvalValue === "Pendente") {{
+                                                    pendingHours += entryHours;
+                                                }}
+                                            }}
+                                            totalHours += entryHours;
+                                        }}
+
+                                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                                        document.querySelector('.hours-unapproved').textContent = pendingHours.toFixed(1);
+
+                                        // Update mobile summary
+                                        updateMobileSummary();
+                                    }}
+
+                                    function disableRow(entryId) {{
+                                        var row = document.getElementById("entry-row-" + entryId);
+                                        var checkBox = row.querySelector('input[type="checkbox"]');
+                                        var approveButton = row.querySelector('.btn-approve-table');
+                                        var rejectButton = row.querySelector('.btn-reject-table');
+
+                                        if (checkBox) {{
+                                            checkBox.disabled = true;
+                                        }}
+                                        if (approveButton) {{
+                                            approveButton.classList.add('disabled');
+                                        }}
+                                        if (rejectButton) {{
+                                            rejectButton.classList.add('disabled');
+                                        }}
+                                    }}
+
+                                    function showDetailsPopup(entry) {{
+                                        var popup = document.getElementById('detailsPopup');
+                                        var content = document.getElementById('popupContent');
+                                        var horaInicial = entry.custom_fields.find(field => field.name === 'Hora inicial (HH:MM)').value;
+                                        var horaFinal = entry.custom_fields.find(field => field.name === 'Hora final (HH:MM)').value;
+                                        var localTrabalho = entry.custom_fields.find(field => field.name === 'Local de trabalho').value;
+                                        var aprovado = entry.custom_fields.find(field => field.name === 'TS - Aprovado - CLI').value;
+                                        var approved_value = (aprovado === 'Sim') ? 'Sim' : (aprovado === 'Não') ? 'Não' : 'Pendente';
+
+                                        content.innerHTML = `
+                                            <p><strong>Data:</strong> ${{entry['spent_on']}}</p>
+                                            <p><strong>Usuário:</strong> ${{entry['user']['name']}}</p>
+                                            <p><strong>Atividade:</strong> ${{entry['activity']['name']}}</p>
+                                            <p><strong>Projeto:</strong> ${{entry['project']['name']}}</p>
+                                            <p><strong>Comentários:</strong> ${{entry['comments']}}</p>
+                                            <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
+                                            <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
+                                            <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
+                                            <p><strong>Aprovado:</strong> ${{approved_value}}</p>
+                                            <div class="btn-group">
+                                                <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
+                                            </div>
+                                        `;
+                                        popup.style.display = 'block';
+                                    }}
+
+                                    function hideDetailsPopup() {{
+                                        var popup = document.getElementById('detailsPopup');
+                                        popup.style.display = 'none';
+                                    }}
+
+                                    function updateMobileSummary() {{
+                                        document.querySelector('.hours-total-mobile').textContent = document.querySelector('.hours-total').textContent;
+                                        document.querySelector('.hours-approved-mobile').textContent = document.querySelector('.hours-approved').textContent;
+                                        document.querySelector('.hours-repproved-mobile').textContent = document.querySelector('.hours-repproved').textContent;
+                                        document.querySelector('.hours-unapproved-mobile').textContent = document.querySelector('.hours-unapproved').textContent;
+                                    }}
+
+                                    // Ensure initial values are set for mobile view
+                                    document.addEventListener('DOMContentLoaded', function() {{
+                                        updateMobileSummary();
+                                        if (window.innerWidth <= 768) {{ // Verifica se a largura da janela é de 768px ou menos (modo mobile)
+                                            var columnsToHide = [ 4,5, 6, 11]; // Índices das colunas a serem escondidas
+                                            //*[@id="time_entries_table"]/thead/tr/th[3]
+                                            columnsToHide.forEach(function(index) {{
+                                                //*[@id="time_entries_table"]/thead/tr/th[3]
+                                                var thXPath = `//*[@id="time_entries_table"]/thead/tr/th[${{index}}]`;
+                                                console.log('thXPath'+thXPath);
+                                                var th = document.evaluate(thXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                                console.log('th'+th);
+                                                if (th) th.style.display = 'none';
+
+                                                var tdXPath = `//*[@id="time_entries_table"]/tbody/tr/td[${{index}}]`;
+                                                var tds = document.evaluate(tdXPath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+                                                for (var i = 0; i < tds.snapshotLength; i++) {{
+                                                    tds.snapshotItem(i).style.display = 'none';
+                                                }}
+                                            }});
+                                        }}
+                                    }});
+
+                                </script>
+                                <style>
+                body {{
+                    overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
+                    margin: 0;
+                    padding: 0;
+                }}
+                #header {{
+                    position: fixed;
+                    top: 0;
+                    width: 100%;
+                    z-index: 10; /* Garante que o header fique sobre outros elementos */
+                    background-color: #333333; /* Defina a cor de fundo original aqui */
+                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
+                }}
+                .container {{
+                    display: flex;
+                    flex-direction: column;
+                    margin-top: 60px; /* Espaço para o header fixo */
+                }}
+                .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                    width: 100px; /* Define uma largura menor para a coluna "Ações" */
+                    text-align: center; /* Centraliza o texto e os botões na coluna */
+                }}
+                .filters-container {{
+                    display: flex;
+                    flex-direction: column;
+                    align-items: stretch;
+                    width: 100%;
+                }}
+
+                .toggle-filters {{
+                    background-color: #1E90FF;
+                    color: white;
+                    padding: 10px;
+                    text-align: center;
+                    border: none;
+                    border-radius: 5px;
+                    margin-bottom: 10px;
+                    width: 100%;
+                    max-width: 200px;
+                    align-self: center;
+                }}
+
+                #time_entries_form {{
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                    width: 100%;
+                }}
+
+                #filter-fields {{
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                }}
+
+                .filters label {{
+                    font-weight: bold;
+                    margin-bottom: 5px;
+                }}
+
+                .filters input, .filters select {{
+                    width: 100%;
+                    padding: 10px;
+                    border: 1px solid #ddd;
+                    border-radius: 5px;
+                }}
+
+                .legend-text {{
+                    display: none; /* Oculta a legenda no modo mobile */
+                }}
+
+                .arrow {{
+                    display: none; /* Oculta a seta no modo mobile */
+                }}
+                .table-container {{
+                    width: 100%;
+                    max-height: 450px; /* Define uma altura máxima para a tabela */
+                }}
+                .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+                    width: 120px; /* Define uma largura menor para a coluna "Ações" */
+                    text-align: center; /* Centraliza o texto e os botões na coluna */
+                }}
+                .table-container td {{
+                    padding: 4px; /* Diminui a altura dos td */
+                    text-align: left;
+                    border-bottom: 1px solid #ddd;
+                    vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
+                    white-space: nowrap; /* Impede quebra de linha em células */
+                    overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
+                    text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
+                }}
+                .table-container th {{
+                    background-color: #f2f2f2;
+                    position: sticky;
+                    top: 0;
+                    z-index: 1;
+                    text-align: center; /* Centraliza o texto do thead */
+                }}
+                .table-container {{
+                    font-size: 0.9em;
+                }}
+                .btn-relatorio {{
+                    background-color: #1E90FF; /* Cor azul padrão */
+                    color: white; /* Texto branco */
+                    width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+                    border-radius: 5px; /* Bordas arredondadas */
+                    border: none; /* Remover borda */
+                    transition: background-color 0.3s; /* Suavização da transição de cor */
+                }}
+                .btn-relatorio:hover {{
+                    background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                }}
+                .btn-group {{
+                    display: flex;
+                    justify-content: center;
+                    margin-top: 20px;
+                }}
+                .btn-approve-table, .btn-reject-table {{
+                    display: inline-block;
+                    width: 90px;
+                    margin-right: 5px; /* Adiciona espaçamento entre os botões */
+                    text-align: center; /* Centraliza o texto do botão */
+                }}
+                .btn-approve-table {{
+                    background-color: #28a745;
+                    color: white;
+                    margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
+                }}
+                .btn-reject-table {{
+                    background-color: #dc3545;
+                    color: white;
+                    margin-top: 5px;
+                }}
+                .btn-approve-table.disabled, .btn-reject-table.disabled {{
+                    visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+                }}
+                .btn-relatorio:hover {{
+                    background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                }}
+
+                @media (max-width: 768px) {{
                     .filters-container {{
                         display: flex;
-                        justify-content: center; /* Alinha os itens no início */
-                        margin-bottom: 10px;
-                        width: 100%; /* Garante que ocupe a largura total */
+                        flex-direction: column;
+                        align-items: stretch;
+                        width: 100%;
                     }}
-                    fieldset {{
+
+                    .toggle-filters {{
+                        background-color: #1E90FF;
+                        color: white;
+                        padding: 10px;
+                        text-align: center;
                         border: none;
-                        margin: 0; /* Remove margem */
-                        padding: 0; /* Remove padding */
+                        border-radius: 5px;
+                        margin: 10px 0;
+                        width: 80%;
+                        max-width: 130px;
+                        align-self: center;
+                    }}
+
+                    #time_entries_form {{
+                        display: flex;
+                        flex-direction: column;
+                        gap: 10px;
+                        width: 100%;
+                    }}
+
+                    #filter-fields {{
+                        display: flex;
+                        flex-direction: column;
+                        gap: 10px;
+                    }}
+
+                    .filters label {{
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                    }}
+
+                    .filters input, .filters select {{
+                        width: 100%;
+                        padding: 10px;
+                        border: 1px solid #ddd;
+                        border-radius: 5px;
+                    }}
+
+                    .legend-text {{
+                        display: none; /* Oculta a legenda no modo mobile */
+                    }}
+
+                    .arrow {{
+                        display: none; /* Oculta a seta no modo mobile */
+                    }}
+                    .container {{
+                        padding: 10px;
+                        overflow-y: auto;
+                        max-height: 80vh;
+                    }}
+                    .header-logo h1 {{
+                        font-size: 1.5em;
                     }}
                     .filters {{
                         display: flex;
@@ -3797,171 +4830,606 @@ def relatorio_horas_geral():
                         margin: 0; /* Remove margem */
                         padding: 0; /* Remove padding */
                     }}
-                    .table-container {{
-                        width: 100%;
-                        max-height: 450px; /* Define uma altura máxima para a tabela */
-                    }}
-                    .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-                        width: 120px; /* Define uma largura menor para a coluna "Ações" */
-                        text-align: center; /* Centraliza o texto e os botões na coluna */
-                    }}
-                    .table-container td {{
-                        padding: 4px; /* Diminui a altura dos td */
-                        text-align: left;
-                        border-bottom: 1px solid #ddd;
-                        vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
-                        white-space: nowrap; /* Impede quebra de linha em células */
-                        overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
-                        text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
-                    }}
-                    .table-container th {{
-                        background-color: #f2f2f2;
-                        position: sticky;
-                        top: 0;
-                        z-index: 1;
-                        text-align: center; /* Centraliza o texto do thead */
+                    .table-wrapper {{
+                        overflow-x: auto;
                     }}
                     .table-container {{
                         font-size: 0.9em;
-                    }}
-                    .btn-relatorio {{
-                        background-color: #1E90FF; /* Cor azul padrão */
-                        color: white; /* Texto branco */
-                        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
-                        border-radius: 5px; /* Bordas arredondadas */
-                        border: none; /* Remover borda */
-                        transition: background-color 0.3s; /* Suavização da transição de cor */
-                    }}
-                    .btn-relatorio:hover {{
-                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                        overflow-x: scroll;
                     }}
                     .btn-group {{
-                        display: flex;
-                        justify-content: center;
-                        margin-top: 20px;
+                        flex-direction: column;
+                        align-items: center;
                     }}
-                    .btn-approve-table, .btn-reject-table {{
-                        display: inline-block;
-                        width: 90px;
-                        margin-right: 5px; /* Adiciona espaçamento entre os botões */
-                        text-align: center; /* Centraliza o texto do botão */
+                    .btn-group .btn-relatorio {{
+                        width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
+                        height: 40px; /* Garante que a altura do botão seja mantida */
+                        margin: 0px 0;
                     }}
-                    .btn-approve-table {{
-                        background-color: #28a745;
-                        color: white;
-                        margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
+                    #hours-summary {{
+                        display: block; /* Mostrar no modo mobile */
                     }}
-                    .btn-reject-table {{
-                        background-color: #dc3545;
-                        color: white;
-                        margin-top: 5px;
+                }}
+
+                @media (min-width: 769px) {{
+                    .toggle-filters {{
+                        display: none;
                     }}
-                    .btn-approve-table.disabled, .btn-reject-table.disabled {{
-                        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+                    #time_entries_form {{
+                        display: block !important;
                     }}
-                    .btn-relatorio:hover {{
-                        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+                    #hours-summary {{
+                        display: none; /* Esconder no modo desktop */
                     }}
-                    @media (max-width: 768px) {{
-                        .container {{
-                            padding: 10px;
-                            overflow-y: auto;
-                            max-height: 80vh;
-                        }}
-                        .header-logo h1 {{
-                            font-size: 1.5em;
-                        }}
-                        .filters {{
-                            display: flex;
-                            align-items: center;
-                            gap: 10px;
-                            margin: 0; /* Remove margem */
-                            padding: 0; /* Remove padding */
-                        }}
-                        .table-wrapper {{
-                            overflow-x: auto;
-                        }}
-                        .table-container {{
-                            font-size: 0.9em;
-                            overflow-x: scroll;
-                        }}
-                        .btn-group {{
-                            flex-direction: column;
-                            align-items: center;
-                        }}
-                        .btn-group .btn-relatorio {{
-                            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
-                            height: 40px; /* Garante que a altura do botão seja mantida */
-                            margin: 0px 0;
-                        }}
+                    .legend-text {{
+                        display: block; /* Mostrar a legenda no modo desktop */
                     }}
-                    .filters label, .legend-button {{
-                        color: black;
+                    .arrow {{
+                        display: inline; /* Mostrar a seta no modo desktop */
                     }}
-                    table {{
-                        width: 100%;
+                }}
+
+                .filters label, .legend-button {{
+                    color: black;
+                }}
+                table {{
+                    width: 100%;
+                }}
+                #detailsPopup {{
+                    display: none;
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background-color: white;
+                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+                    z-index: 1000;
+                    padding: 20px;
+                    border-radius: 5px;
+                    max-width: 90%;
+                    max-height: 90%;
+                    overflow-y: auto;
+                }}
+                #detailsPopup .btn-group {{
+                    display: flex;
+                    justify-content: space-between;
+                    margin-top: 20px;
+                }}
+                .close-button {{
+                    position: absolute;
+                    top: 10px;
+                    right: 10px;
+                    background: none;
+                    border: none;
+                    font-size: 1.5rem;
+                    cursor: pointer;
+                }}
+                .close-button:hover {{
+                    color: red;
+                }}
+
+                @media (max-width: 768px) {{
+                    #all-actions {{
+                        display: none;
                     }}
-                </style>
-            </head>
-            <body>
-                <div id="header">
-                    <div class="header-logo">
-                        <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
-                        <h1>EVT - Aprovação de Horas</h1>
-                    </div>
-                </div>
-                <div class="container">
-                    <div class="filters-container">
-                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
-                            <fieldset class="collapsible collapsed">
-                                <legend class="legend-text" onclick="toggleFieldset(this);">
-                                    <span class="legend-button">
-                                        <span class="arrow">▶</span>
-                                        Filtros
-                                    </span>
-                                </legend>
-                                <div>
-                                    <label for="filterInput">Buscar:</label>
-                                    <input type="text" id="filterInput" onkeyup="filterTable()" placeholder="Digite para buscar...">
-                                    <label for="userSelect">Usuário:</label>
-                                    <select id="userSelect" onchange="filterBySelect()">
-                                        <option value="ALL">Todos</option>
-                                        {''.join([f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
-                                    </select>
-                                    <label for="projectSelect">Projeto:</label>
-                                    <select id="projectSelect" onchange="filterBySelect()">
-                                        <option value="ALL">Todos</option>
-                                        {''.join([f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
-                                    </select>
-                                    <label for="approvalSelect">Aprovado:</label>
-                                    <select id="approvalSelect" onchange="filterBySelect()">
-                                        <option value="ALL">Todos</option>
-                                        <option value="SIM">Aprovadas</option>
-                                        <option value="NÃO">Reprovadas</option>
-                                        <option value="PENDENTE">Pendentes</option>
-                                    </select>
+                    #hours-summary-table {{
+                        display: none;
+                    }}
+                    .mobile-actions {{
+                        display: block;
+                    }}
+                    #hours-summary {{
+                        display: block;
+                    }}
+                    .hours-summary {{
+                        font-size: 1.2em;
+                        font-weight: bold;
+                        color: #333;
+                        margin-top: 10px;
+                    }}
+                    .hours-summary p {{
+                        margin: 5px 0;
+                    }}
+                    .hours-total-mobile, .hours-approved-mobile, .hours-unapproved-mobile {{
+                        color: #1E90FF;
+                    }}
+                    .hours-approved-mobile {{
+                        color: #28a745;
+                    }}
+                    .hours-repproved-mobile {{
+                        color: #dc3545;
+                    }}
+                    .hours-unapproved-mobile {{
+                        color: #bbdb03;
+                    }}
+                }}
+
+                @media (min-width: 769px) {{
+                    #mobile-actions-buttons {{
+                        display: none; /* Tornar invisível no modo desktop */
+                    }}
+                }}
+            </style>
+
+                            </head>
+                            <body>
+                                <div id="header">
+                                    <div class="header-logo">
+                                        <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
+                                        <h1>EVT - Aprovação de Horas</h1>
+                                    </div>
                                 </div>
-                            </fieldset>
-                        </form>
-                    </div>
-                    <div class="table-container">
-                        {table_html}
-                        <div id="all-actions" class="btn-group">
-                           <button type="button" onclick="approveAll('{token}', '{approve_entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
-                            <button type="button" onclick="rejectAll('{token}', '{reject_entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
-                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
-                        </div>
-                        <div id="selected-actions" class="btn-group">
-                            <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
-                            <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
-                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
-                        </div>
-                    </div>
-                </div>
-                <script src="{{{{ url_for('static', filename='script.js') }}}}"></script>
-            </body>
-            </html>
-            '''
+                                <div class="container">
+                                    <div id="hours-summary" class="hours-summary">
+                                        <p>Total de Horas: <span class="hours-total-mobile">0</span></p>
+                                        <p>Horas Aprovadas: <span class="hours-approved-mobile">0</span></p>
+                                        <p>Horas Reprovadas: <span class="hours-repproved-mobile">0</span></p>
+                                        <p>Horas Pendentes: <span class="hours-unapproved-mobile">0</span></p>
+                                    </div>
+                                    <div id="mobile-actions-buttons" class="mobile-actions">
+                                        <div class="btn-group">
+                                            <button type="button" onclick="approveAll('{token}', '{approve_entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
+                                            <button type="button" onclick="rejectAll('{token}', '{reject_entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
+                                        </div>
+                                    </div>
+                                    <div class="filters-container">
+                                        <button class="toggle-filters" onclick="toggleFilters()">Filtros</button>
+                                        <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}" style="display: none;">
+                                            <fieldset class="collapsible collapsed" style="border: none;">
+                                                <legend class="legend-text" onclick="toggleFieldset(this);">
+                                                    <span class="legend-button">
+                                                        <span class="arrow">▶</span>
+                                                        Filtros
+                                                    </span>
+                                                </legend>
+                                                <div id="filter-fields" class="filter-fields-style">
+                                                    <label for="filterInput">Buscar:</label>
+                                                    <input type="text" id="filterInput" onkeyup="filterBySelect()" placeholder="Digite para buscar...">
+                                                    <label for="userSelect">Usuário:</label>
+                                                    <select id="userSelect" onchange="filterBySelect()">
+                                                        <option value="ALL">Todos</option>
+                                                        {''.join(
+                [f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
+                                                    </select>
+                                                    <label for="projectSelect">Projeto:</label>
+                                                    <select id="projectSelect" onchange="filterBySelect()">
+                                                        <option value="ALL">Todos</option>
+                                                        {''.join(
+                [f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
+                                                    </select>
+                                                    <label for="approvalSelect">Aprovado:</label>
+                                                    <select id="approvalSelect" onchange="filterBySelect()">
+                                                        <option value="ALL">Todos</option>
+                                                        <option value="SIM">Aprovadas</option>
+                                                        <option value="NÃO">Reprovadas</option>
+                                                        <option value="PENDENTE">Pendentes</option>
+                                                    </select>
+                                                </div>
+                                            </fieldset>
+                                        </form>
+                                    </div>
+                                    <div class="table-container">
+                                        {table_html}
+                                        <div id="all-actions" class="btn-group">
+                                            <button type="button" onclick="approveAll('{token}', '{approve_entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
+                                            <button type="button" onclick="rejectAll('{token}', '{reject_entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
+                                        </div>
+                                        <div id="selected-actions" class="btn-group">
+                                            <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
+                                            <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
+
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="detailsPopup">
+                                    <div id="popupContent"></div>
+                                    <button type="button" class="close-button" onclick="hideDetailsPopup()">×</button>
+                                </div>
+                                <script>
+                                    document.addEventListener('DOMContentLoaded', function() {{
+                                        var fieldset = document.querySelector('fieldset.collapsible');
+                                        if (fieldset) {{
+                                            var div = fieldset.querySelector('div');
+                                            var arrow = fieldset.querySelector('.arrow');
+                                            div.style.display = 'none';
+                                            arrow.innerHTML = '▼';
+                                        }}
+
+                                        document.getElementById("filterInput").addEventListener("keyup", function() {{
+                                            filterBySelect();
+                                        }});
+
+                                        document.getElementById("userSelect").addEventListener("change", function() {{
+                                            filterBySelect();
+                                        }});
+
+                                        document.getElementById("projectSelect").addEventListener("change", function() {{
+                                            filterBySelect();
+                                        }});
+
+                                        document.getElementById("approvalSelect").addEventListener("change", function() {{
+                                            filterBySelect();
+                                        }});
+
+                                        const tableRows = document.querySelectorAll('#time_entries_table tbody tr');
+
+                                        tableRows.forEach(row => {{
+                                            row.addEventListener('click', function() {{
+                                                var entryData = {{
+                                                    spent_on: row.cells[1].textContent.trim(),
+                                                    user: {{ name: row.cells[2].textContent.trim() }},
+                                                    activity: {{ name: row.cells[3].textContent.trim() }},
+                                                    project: {{ name: row.cells[4].textContent.trim() }},
+                                                    comments: row.cells[5].textContent.trim(),
+                                                    custom_fields: [
+                                                        {{ name: 'Hora inicial (HH:MM)', value: row.cells[6].textContent.trim() }},
+                                                        {{ name: 'Hora final (HH:MM)', value: row.cells[7].textContent.trim() }},
+                                                        {{ name: 'Local de trabalho', value: 'Indisponível' }},
+                                                        {{ name: 'TS - Aprovado - CLI', value: row.cells[9].textContent.trim() }}
+                                                    ],
+                                                    hours: row.cells[8].textContent.trim(),
+                                                    id: row.id.split('-')[2]
+                                                }};
+                                                if (entryData) {{
+                                                    var entry = entryData;
+
+                                                    var popup = document.getElementById('detailsPopup');
+                                                    var content = document.getElementById('popupContent');
+
+                                                    var horaInicial = entry.custom_fields.find(field => field.name === 'Hora inicial (HH:MM)').value;
+                                                    var horaFinal = entry.custom_fields.find(field => field.name === 'Hora final (HH:MM)').value;
+                                                    var localTrabalho = entry.custom_fields.find(field => field.name === 'Local de trabalho').value;
+                                                    var aprovado = entry.custom_fields.find(field => field.name === 'TS - Aprovado - CLI').value;
+                                                    var approved_value = (aprovado === '1') ? 'Sim' : (aprovado === '0') ? 'Não' : 'Pendente';
+
+                                                    content.innerHTML = `
+                                                        <p><strong>Data:</strong> ${{entry['spent_on']}}</p>
+                                                        <p><strong>Usuário:</strong> ${{entry['user']['name']}}</p>
+                                                        <p><strong>Atividade:</strong> ${{entry['activity']['name']}}</p>
+                                                        <p><strong>Projeto:</strong> ${{entry['project']['name']}}</p>
+                                                        <p><strong>Comentários:</strong> ${{entry['comments']}}</p>
+                                                        <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
+                                                        <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
+                                                        <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
+                                                        <p><strong>Aprovado:</strong> ${{approved_value}}</p>
+                                                        <div class="btn-group">
+                                                            <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                            <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
+                                                        </div>
+                                                    `;
+                                                    popup.style.display = 'block';
+                                                }} else {{
+                                                    console.error('Dados da entrada não encontrados.');
+                                                }}
+                                            }});
+                                        }});
+                                    }});
+
+                                    function filterTable() {{
+                                        filterBySelect();
+                                    }}
+
+                                    function filterBySelect() {{
+                                        var userSelect = document.getElementById("userSelect").value.toUpperCase();
+                                        var projectSelect = document.getElementById("projectSelect").value.toUpperCase();
+                                        var approvalSelect = document.getElementById("approvalSelect").value.toUpperCase();
+                                        var table = document.getElementById("time_entries_table");
+                                        var tr = table.getElementsByTagName("tr");
+
+                                        let totalHours = 0;
+                                        let approvedHours = 0;
+                                        let repprovedHours = 0;
+                                        let unapprovedHours = 0;
+
+                                        let filteredApproveIds = [];
+                                        let filteredRejectIds = [];
+
+                                        for (var i = 1; i < tr.length; i++) {{
+                                            tr[i].style.display = "none";
+                                            var userTd = tr[i].getElementsByTagName("td")[2];
+                                            var projectTd = tr[i].getElementsByTagName("td")[4];
+                                            var approvalTd = tr[i].getElementsByTagName("td")[9];
+                                            if (userTd && projectTd && approvalTd) {{
+                                                var userValue = userTd.textContent || userTd.innerText;
+                                                var projectValue = projectTd.textContent || projectTd.innerText;
+                                                var approvalValue = approvalTd.textContent || approvalTd.innerText;
+                                                if ((userSelect === "ALL" || userValue.toUpperCase() === userSelect) &&
+                                                    (projectSelect === "ALL" || projectValue.toUpperCase() === projectSelect) &&
+                                                    (approvalSelect === "ALL" || approvalValue.toUpperCase() === approvalSelect)) {{
+                                                    tr[i].style.display = "";
+                                                    var entryId = tr[i].getElementsByTagName("td")[0].querySelector("input").value;
+                                                    var entryHours = parseFloat(tr[i].getElementsByTagName("td")[8].textContent);
+                                                    totalHours += entryHours;
+                                                    if (approvalValue === 'Sim') {{
+                                                        approvedHours += entryHours;
+
+                                                    }} else if (approvalValue === 'Não') {{
+                                                        repprovedHours += entryHours;
+                                                        filteredApproveIds.push(entryId);
+
+                                                    }} else if (approvalValue === 'Pendente') {{
+                                                        unapprovedHours += entryHours;
+                                                        filteredApproveIds.push(entryId);
+                                                        filteredRejectIds.push(entryId);
+                                                    }}
+                                                }}
+                                            }}
+                                        }}
+
+                                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                                        document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
+
+                                        // Atualiza os botões no modo desktop
+                                        document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
+                                        document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
+
+                                        // Atualiza os botões no modo mobile
+                                        document.querySelector('.mobile-actions .btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
+                                        document.querySelector('.mobile-actions .btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
+
+                                        // Update mobile summary
+                                        updateMobileSummary();
+                                    }}
+
+                                    function toggleAll(source) {{
+                                        checkboxes = document.getElementsByName('selected_entries');
+                                        for(var i=0, n=checkboxes.length;i<n;i++) {{
+                                            if (!checkboxes[i].disabled) {{
+                                                checkboxes[i].checked = source.checked;
+                                            }}
+                                        }}
+                                    }}
+
+                                    function sendFilteredData() {{
+                                        var data = getFilteredTableData();
+                                        fetch('/send_email_report_client_geral', {{
+                                            method: 'POST',
+                                            headers: {{
+                                                'Content-Type': 'application/json'
+                                            }},
+                                            body: JSON.stringify({{ entries: data }})
+                                        }})
+                                        .then(response => response.json())
+                                        .then(data => {{
+                                            showAlert('Relatório enviado com sucesso', 'success');
+                                        }})
+                                        .catch((error) => {{
+                                            showAlert('Erro ao enviar o relatório: ' + error, 'error');
+                                        }});
+                                    }}
+
+                                    function showAlert(message, type) {{
+                                        var alertDiv = document.createElement('div');
+                                        alertDiv.className = `alert alert-${type}`;
+                                        alertDiv.textContent = message;
+
+                                        // Estilização básica para o popup
+                                        alertDiv.style.position = 'fixed';
+                                        alertDiv.style.top = '20px';
+                                        alertDiv.style.left = '50%';
+                                        alertDiv.style.transform: 'translateX(-50%)';
+                                        alertDiv.style.padding = '10px';
+                                        alertDiv.style.zIndex = 1000;
+                                        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+                                        alertDiv.style.color = 'white';
+                                        alertDiv.style.borderRadius = '5px';
+                                        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
+                                        alertDiv.style.fontSize = '16px';
+
+                                        document.body.appendChild(alertDiv);
+
+                                        // Remover o popup após 3 segundos
+                                        setTimeout(() => {{
+                                            document.body.removeChild(alertDiv);
+                                        }}, 3000);
+                                    }}
+
+                                    function getFilteredTableData() {{
+                                        var table = document.getElementById("time_entries_table");
+                                        var tr = table.getElementsByTagName("tr");
+                                        var data = [];
+                                        var checkboxes = document.querySelectorAll('input[name="selected_entries"]:checked');
+
+                                        if (checkboxes.length > 0) {{
+                                            for (var checkbox of checkboxes) {{
+                                                var row = checkbox.closest("tr");
+                                                var td = row.getElementsByTagName("td");
+
+                                                var entry = {{
+                                                    id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                                    date: td[1] ? td[1].textContent : "N/A",
+                                                    user: td[2] ? td[2].textContent : "N/A",
+                                                    activity: td[3] ? td[3].textContent : "N/A",
+                                                    project: td[4] ? td[4].textContent : "N/A",
+                                                    comments: td[5] ? td[5].textContent : "N/A",
+                                                    start_time: td[6] ? td[6].textContent : "N/A",
+                                                    end_time: td[7] ? td[7].textContent : "N/A",
+                                                    hours: td[8] ? td[8].textContent : "N/A"
+                                                }};
+
+                                                data.push(entry);
+                                            }}
+                                        }} else {{
+                                            for (var i = 1; i < tr.length; i++) {{
+                                                if (tr[i].style.display !== "none") {{
+                                                    var td = tr[i].getElementsByTagName("td");
+
+                                                    var entry = {{
+                                                        id: td[0] && td[0].querySelector("input") ? td[0].querySelector("input").value : "N/A",
+                                                        date: td[1] ? td[1].textContent : "N/A",
+                                                        user: td[2] ? td[2].textContent : "N/A",
+                                                        activity: td[3] ? td[3].textContent : "N/A",
+                                                        project: td[4] ? td[4].textContent : "N/A",
+                                                        comments: td[5] ? td[5].textContent : "N/A",
+                                                        start_time: td[6] ? td[6].textContent : "N/A",
+                                                        end_time: td[7] ? td[7].textContent : "N/A",
+                                                        hours: td[8] ? td[8].textContent : "N/A"
+                                                    }};
+
+                                                    data.push(entry);
+                                                }}
+                                            }}
+                                        }}
+
+                                        return data;
+                                    }}
+
+                                    function approveAll(token, entryIds, isClient) {{
+                                        fetch("{API_URL}aprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
+                                        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+                                        .then(result => {{
+                                            const status = result.status;
+                                            const body = result.body;
+                                            showAlert(body.message, status === 200 ? 'success' : 'error');
+                                            if (status === 200) {{
+                                                location.reload();
+                                            }}
+                                        }})
+                                        .catch(error => {{
+                                            console.error('Erro:', error);
+                                            showAlert('Erro ao aprovar horas.', 'error');
+                                        }});
+                                    }}
+
+                                    function rejectAll(token, entryIds, isClient) {{
+                                        fetch("{API_URL}reprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
+                                        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+                                        .then(result => {{
+                                            const status = result.status;
+                                            const body = result.body;
+                                            showAlert(body.message, status === 200 ? 'success' : 'error');
+                                            if (status === 200) {{
+                                                location.reload();
+                                            }}
+                                        }})
+                                        .catch(error => {{
+                                            console.error('Erro:', error);
+                                            showAlert('Erro ao reprovar horas.', 'error');
+                                        }});
+                                    }}
+
+                                    function updateRowsApproval(entryIds, isApproved) {{
+                                        var table = document.getElementById("time_entries_table");
+                                        var tr = table.getElementsByTagName("tr");
+
+                                        let totalHours = 0;
+                                        let approvedHours = 0;
+                                        let repprovedHours = 0;
+                                        let pendingHours = 0;
+
+                                        for (var i = 1; i < tr.length; i++) {{
+                                            var row = tr[i];
+                                            var entryId = row.getElementsByTagName("td")[0].querySelector("input").value;
+                                            var td = row.getElementsByTagName("td");
+                                            var entryHours = parseFloat(td[8].textContent);
+                                            var approvalValue = td[9].textContent;
+
+                                            if (entryIds.includes(entryId)) {{
+                                                if (isApproved && approvalValue !== "Sim") {{
+                                                    td[9].textContent = "Sim";
+                                                    approvedHours += entryHours;
+                                                    if (approvalValue === "Não") {{
+                                                        repprovedHours -= entryHours;
+                                                    }} else if (approvalValue === "Pendente") {{
+                                                        pendingHours -= entryHours;
+                                                    }}
+                                                }} else if (!isApproved && approvalValue !== "Não") {{
+                                                    td[9].textContent = "Não";
+                                                    repprovedHours += entryHours;
+                                                    if (approvalValue === "Sim") {{
+                                                        approvedHours -= entryHours;
+                                                    }} else if (approvalValue === "Pendente") {{
+                                                        pendingHours -= entryHours;
+                                                    }}
+                                                }}
+                                                disableRow(entryId);
+                                            }} else {{
+                                                if (approvalValue === "Sim") {{
+                                                    approvedHours += entryHours;
+                                                }} else if (approvalValue === "Não") {{
+                                                    repprovedHours += entryHours;
+                                                }} else if (approvalValue === "Pendente") {{
+                                                    pendingHours += entryHours;
+                                                }}
+                                            }}
+                                            totalHours += entryHours;
+                                        }}
+
+                                        document.querySelector('.hours-total').textContent = totalHours.toFixed(1);
+                                        document.querySelector('.hours-approved').textContent = approvedHours.toFixed(1);
+                                        document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
+                                        document.querySelector('.hours-unapproved').textContent = pendingHours.toFixed(1);
+
+                                        // Update mobile summary
+                                        updateMobileSummary();
+                                    }}
+
+                                    function disableRow(entryId) {{
+                                        var row = document.getElementById("entry-row-" + entryId);
+                                        var checkBox = row.querySelector('input[type="checkbox"]');
+                                        var approveButton = row.querySelector('.btn-approve-table');
+                                        var rejectButton = row.querySelector('.btn-reject-table');
+
+                                        if (checkBox) {{
+                                            checkBox.disabled = true;
+                                        }}
+                                        if (approveButton) {{
+                                            approveButton.classList.add('disabled');
+                                        }}
+                                        if (rejectButton) {{
+                                            rejectButton.classList.add('disabled');
+                                        }}
+                                    }}
+
+                                    function showDetailsPopup(entry) {{
+                                        var popup = document.getElementById('detailsPopup');
+                                        var content = document.getElementById('popupContent');
+                                        var horaInicial = entry.custom_fields.find(field => field.name === 'Hora inicial (HH:MM)').value;
+                                        var horaFinal = entry.custom_fields.find(field => field.name === 'Hora final (HH:MM)').value;
+                                        var localTrabalho = entry.custom_fields.find(field => field.name === 'Local de trabalho').value;
+                                        var aprovado = entry.custom_fields.find(field => field.name === 'TS - Aprovado - CLI').value;
+                                        var approved_value = (aprovado === 'Sim') ? 'Sim' : (aprovado === 'Não') ? 'Não' : 'Pendente';
+
+                                        content.innerHTML = `
+                                            <p><strong>Data:</strong> ${{entry['spent_on']}}</p>
+                                            <p><strong>Usuário:</strong> ${{entry['user']['name']}}</p>
+                                            <p><strong>Atividade:</strong> ${{entry['activity']['name']}}</p>
+                                            <p><strong>Projeto:</strong> ${{entry['project']['name']}}</p>
+                                            <p><strong>Comentários:</strong> ${{entry['comments']}}</p>
+                                            <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
+                                            <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
+                                            <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
+                                            <p><strong>Aprovado:</strong> ${{approved_value}}</p>
+                                            <div class="btn-group">
+                                                <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
+                                            </div>
+                                        `;
+                                        popup.style.display = 'block';
+                                    }}
+
+                                    function hideDetailsPopup() {{
+                                        var popup = document.getElementById('detailsPopup');
+                                        popup.style.display = 'none';
+                                    }}
+
+                                    function updateMobileSummary() {{
+                                        document.querySelector('.hours-total-mobile').textContent = document.querySelector('.hours-total').textContent;
+                                        document.querySelector('.hours-approved-mobile').textContent = document.querySelector('.hours-approved').textContent;
+                                        document.querySelector('.hours-repproved-mobile').textContent = document.querySelector('.hours-repproved').textContent;
+                                        document.querySelector('.hours-unapproved-mobile').textContent = document.querySelector('.hours-unapproved').textContent;
+                                    }}
+
+                                    // Ensure initial values are set for mobile view
+                                    document.addEventListener('DOMContentLoaded', function() {{
+                                        updateMobileSummary();
+                                    }});
+                                </script>
+                            </body>
+                            </html>
+                            '''
 
             return render_template_string(html_template)
         else:
@@ -4073,11 +5541,11 @@ def create_html_table(time_entries):
       </div>
       <br>
       </div>
-      <div class="hours-summary">
+      <div id="hours-summary-table" class="hours-summary">
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
         <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
         <p>Total de Horas Reprovadas: <span class="hours-repproved">{repproved_hours}</span></p>
-        <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
+        <p>Total de Horas Pendentes de Aprovação: <span class="hours-unapproved">{unapproved_hours}</span></p>
       </div>
     '''
 
@@ -4186,6 +5654,140 @@ def create_html_table(time_entries):
             height: 40px;
             margin: 0px 0;
         }}
+    }}
+    .filter-fields-style {{
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-top: 15px;
+        }}
+        
+        .filter-fields-style label {{
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }}
+        
+        .filter-fields-style input[type="text"],
+        .filter-fields-style select {{
+            width: 20%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }}
+        
+        .filter-fields-style select {{
+            appearance: none;
+            background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iNSIgdmlld0JveD0iMCAwIDEwIDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZmlsbD0iI0NDQyIgZD0iTTAgMGw1IDUgNS01eiIgLz48L3N2Zz4=') no-repeat right 10px center;
+            background-size: 10px 5px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }}
+        
+        .filter-fields-style input[type="text"]::placeholder {{
+            color: #aaa;
+            font-style: italic;
+        }}
+      @media (max-width: 768px) {{
+     
+
+        #time_entries_form {{
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }}
+
+        .filters label {{
+            font-weight: bold;
+            margin-bottom: 5px;
+        }}
+
+        .filters input, .filters select {{
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }}
+        .container {{
+            padding: 10px;
+            overflow-y: auto;
+            max-height: 80vh;
+        }}
+        .header-logo h1 {{
+            font-size: 1.5em;
+        }}
+        .filters {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+            padding: 0;
+        }}
+        .table-wrapper {{
+            overflow-x: auto;
+        }}
+        .table-container {{
+            font-size: 0.9em;
+            overflow-x: scroll;
+        }}
+        .btn-group {{
+            flex-direction: column;
+            align-items: center;
+        }}
+        .btn-group .btn-relatorio {{
+            width: 180px;
+            height: 40px;
+            margin: 0px 0;
+        }}
+        .filter-fields-style {{
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-top: 15px;
+        }}
+        
+        .filter-fields-style label {{
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }}
+        
+        .filter-fields-style input[type="text"],
+        .filter-fields-style select {{
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }}
+        
+        .filter-fields-style select {{
+            appearance: none;
+            background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iNSIgdmlld0JveD0iMCAwIDEwIDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZmlsbD0iI0NDQyIgZD0iTTAgMGw1IDUgNS01eiIgLz48L3N2Zz4=') no-repeat right 10px center;
+            background-size: 10px 5px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }}
+        
+        .filter-fields-style input[type="text"]::placeholder {{
+            color: #aaa;
+            font-style: italic;
+        }}
+
     }}
     </style>
     '''
