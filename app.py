@@ -326,7 +326,7 @@ def send_email_task_client(file_content, recipient_email, project, user_id, user
         logger.info("Chamando função send_email com o seguinte conteúdo para o cliente:")
         logger.info(file_content)
         token = get_or_create_token(user_id, recipient_email)
-        link = f"{API_URL}relatorio_horas_client/{user_id}?token={token}?project_id={project['id']}"
+        link = f"{API_URL}relatorio_horas_client/{user_id}?token={token}&project={project['name']}"
         email_content = f"{file_content}\n\nPara visualizar as entradas de tempo, acesse o link: <a href='{link}'>relatório</a>"
         send_email(email_content, recipient_email.strip(), project['name'], user_name)
         logger.info(f"E-mail enviado para: {recipient_email.strip()}")
@@ -930,7 +930,7 @@ def relatorio_horas_client(user_id):
         user_name = user['user']['firstname'] + ' ' + user['user']['lastname']
 
         # Obter parâmetros de filtro
-        project_id = request.args.get('project_name')
+        project_name = request.args.get('project')
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
         is_client = 1 if 'client' in request.full_path else 0
@@ -945,8 +945,8 @@ def relatorio_horas_client(user_id):
 
         # Construir URL de requisição com filtros
         url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
-        if project_id:
-            url += f'&project_id={project_id}'
+        #if project_id:
+        #   url += f'&project_id={project_id}'
 
         entries_response = requests.get(url, headers={
             'X-Redmine-API-Key': REDMINE_API_KEY,
