@@ -1035,6 +1035,7 @@ def relatorio_horas_client(user_id):
                                 arrow.innerHTML = '▶';  // Seta para baixo
                             }}
                         }}
+                        
                         // Garantir que o filtro comece colapsado
                         document.addEventListener('DOMContentLoaded', function() {{
                             var fieldset = document.querySelector('fieldset.collapsible');
@@ -1441,7 +1442,26 @@ def relatorio_horas_client(user_id):
                         // Ensure initial values are set for mobile view
                         document.addEventListener('DOMContentLoaded', function() {{
                             updateMobileSummary();
+                            if (window.innerWidth <= 768) {{ // Verifica se a largura da janela é de 768px ou menos (modo mobile)
+                                var columnsToHide = [ 4,5, 6, 11]; // Índices das colunas a serem escondidas
+                                //*[@id="time_entries_table"]/thead/tr/th[3]
+                                columnsToHide.forEach(function(index) {{
+                                    //*[@id="time_entries_table"]/thead/tr/th[3]
+                                    var thXPath = `//*[@id="time_entries_table"]/thead/tr/th[${{index}}]`;
+                                    console.log('thXPath'+thXPath);
+                                    var th = document.evaluate(thXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                    console.log('th'+th);
+                                    if (th) th.style.display = 'none';
+                    
+                                    var tdXPath = `//*[@id="time_entries_table"]/tbody/tr/td[${{index}}]`;
+                                    var tds = document.evaluate(tdXPath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+                                    for (var i = 0; i < tds.snapshotLength; i++) {{
+                                        tds.snapshotItem(i).style.display = 'none';
+                                    }}
+                                }});
+                            }}
                         }});
+                         
                     </script>
                     <style>
                         body {{
@@ -1581,9 +1601,7 @@ def relatorio_horas_client(user_id):
                                 height: 40px; /* Garante que a altura do botão seja mantida */
                                 margin: 0px 0;
                             }}
-                            .table-container th:nth-child(n+3):not(:nth-child(3)):not(:nth-child(4)):not(:nth-child(9)):not(:nth-child(10)), .table-container td:nth-child(n+3):not(:nth-child(3)):not(:nth-child(4)):not(:nth-child(9)):not(:nth-child(10)) {{
-                                display: none;
-                            }}
+                            
                         }}
                         .filters label, .legend-button {{
                             color: black;
@@ -1731,12 +1749,11 @@ def relatorio_horas_client(user_id):
                             <div id="all-actions" class="btn-group">
                                 <button type="button" onclick="approveAll('{token}', '{approve_entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
                                 <button type="button" onclick="rejectAll('{token}', '{reject_entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
-                                <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
                             </div>
                             <div id="selected-actions" class="btn-group">
                                 <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
                                 <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
-                                <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
+                                
                             </div>
                         </div>
                     </div>
@@ -2263,7 +2280,7 @@ def create_html_table_client(time_entries, recipient):
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
         <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
         <p>Total de Horas Reprovadas: <span class="hours-repproved">{repproved_hours}</span></p>
-        <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
+        <p>Total de Horas Pendentes de Aprovação: <span class="hours-unapproved">{unapproved_hours}</span></p>
       </div>
     '''
 
@@ -4077,7 +4094,7 @@ def create_html_table(time_entries):
         <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
         <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
         <p>Total de Horas Reprovadas: <span class="hours-repproved">{repproved_hours}</span></p>
-        <p>Total de Horas Não Aprovadas: <span class="hours-unapproved">{unapproved_hours}</span></p>
+        <p>Total de Horas Pendentes de Aprovação: <span class="hours-unapproved">{unapproved_hours}</span></p>
       </div>
     '''
 
