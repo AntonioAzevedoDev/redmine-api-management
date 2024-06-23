@@ -320,15 +320,15 @@ def send_email_task(file_content, recipient_emails, project_name, user_id, user_
         logger.error(f"Erro ao enviar e-mails: {e}")
 
 
-def send_email_task_client(file_content, recipient_email, project_name, user_id, user_name):
+def send_email_task_client(file_content, recipient_email, project, user_id, user_name):
     logger.info("Tarefa de envio de e-mail (Cliente) iniciada.")
     try:
         logger.info("Chamando função send_email com o seguinte conteúdo para o cliente:")
         logger.info(file_content)
         token = get_or_create_token(user_id, recipient_email)
-        link = f"{API_URL}relatorio_horas_client/{user_id}?token={token}"
+        link = f"{API_URL}relatorio_horas_client/{user_id}?token={token}?project_id={project['id']}"
         email_content = f"{file_content}\n\nPara visualizar as entradas de tempo, acesse o link: <a href='{link}'>relatório</a>"
-        send_email(email_content, recipient_email.strip(), project_name, user_name)
+        send_email(email_content, recipient_email.strip(), project['name'], user_name)
         logger.info(f"E-mail enviado para: {recipient_email.strip()}")
         logger.info("E-mail enviado com sucesso.")
     except Exception as e:
@@ -352,6 +352,8 @@ def get_current_user():
 
 @app.route('/send_email_report_client', methods=['POST'])
 def send_email_report_client():
+    #TODO
+    #Adicionar lógica para receber o id do projeto e adicionar ao filtro de request
     user_id = request.headers.get('user_id', '')
     logger.info(f"Usuario {user_id} solicitando aprovação de horas.")
 
@@ -450,10 +452,10 @@ def send_email_report_client_geral():
 
             if unapproved_entries:
                 table_html = create_html_table_mail_client(unapproved_entries, email)
-                project_name = unapproved_entries[0]['project']['name']
+                project = unapproved_entries[0]['project']
                 user_name = unapproved_entries[0]['user']['name']
                 user_id = unapproved_entries[0]['user']['id']
-                send_email_task_client(table_html, email, project_name, user_id, user_name)
+                send_email_task_client(table_html, email, project, user_id, user_name)
             else:
                 logger.info(f'Nenhuma entrada de tempo não aprovada encontrada para o email: {email}')
 
@@ -928,7 +930,7 @@ def relatorio_horas_client(user_id):
         user_name = user['user']['firstname'] + ' ' + user['user']['lastname']
 
         # Obter parâmetros de filtro
-        project_id = request.args.get('project_id')
+        project_id = request.args.get('project_name')
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
         is_client = 1 if 'client' in request.full_path else 0
@@ -1102,10 +1104,10 @@ def relatorio_horas_client(user_id):
                                             <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
                                             <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
                                             <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
-                                            <p><strong>Aprovado:</strong> ${{approved_value}}</p>
+                                            <p><strong>Aprovado:</strong> ${{aprovado}}</p>
                                             <div class="btn-group">
-                                                <a href="#" onclick="approveHour({{entry['id']}}, '{request.args.get('token')}', {is_client}, {{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
-                                                <a href="#" onclick="rejectHour({{entry['id']}}, '{request.args.get('token')}', {is_client}, {{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
+                                                <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Reprovar</a>
                                             </div>
                                         `;
                                         popup.style.display = 'block';
