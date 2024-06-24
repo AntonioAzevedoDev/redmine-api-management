@@ -310,7 +310,7 @@ def send_email_task(file_content, recipient_emails, project_name, user_id, user_
             email_content = f"{file_content}\n\nPara visualizar as entradas de tempo, acesse o link: <a href='{link}'>Relatório</a>"
 
             if email.strip() in allowed_emails:
-                additional_message = f"\n\nAcesso ao painel de horas: <a href='{API_URL}relatorio_horas?token={token}'>Painel de Horas</a>"
+                additional_message = f"\n\nAcesso ao painel de horas: <a href='{API_URL}relatorio_horas?page=1&token={token}'>Painel de Horas</a>"
                 email_content += f"\n\n{additional_message}"
 
             send_email(email_content, email.strip(), project_name, user_name)
