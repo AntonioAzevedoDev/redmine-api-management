@@ -352,55 +352,83 @@ def get_current_user():
 
 @app.route('/send_email_report_client', methods=['POST'])
 def send_email_report_client():
-    #TODO
-    #Adicionar lógica para receber o id do projeto e adicionar ao filtro de request
-    user_id = request.headers.get('user_id', '')
-    logger.info(f"Usuario {user_id} solicitando aprovação de horas.")
+    try:
+        user_id = request.headers.get('user_id', '')
+        logger.info(f"Usuario {user_id} solicitando aprovação de horas.")
+        project_identifier = request.headers.get('project')
+        today = datetime.today()
+        seven_days_ago = today - timedelta(days=7)
+        start_date = seven_days_ago.strftime('%Y-%m-%d')
+        end_date = today.strftime('%Y-%m-%d')
 
-    today = datetime.today()
-    seven_days_ago = today - timedelta(days=7)
-    start_date = seven_days_ago.strftime('%Y-%m-%d')
-    end_date = today.strftime('%Y-%m-%d')
+        project_id = None
+        if project_identifier:
+            project_url = f'{REDMINE_URL}/projects/{project_identifier}.json'
+            project_response = requests.get(project_url, headers={
+                'X-Redmine-API-Key': REDMINE_API_KEY,
+                'Content-Type': 'application/json'
+            }, verify=False)  # Consider replacing verify=False with a valid certificate
 
-    # url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
-    url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}'
-    entries_response = requests.get(url, headers={
-        'X-Redmine-API-Key': REDMINE_API_KEY,
-        'Content-Type': 'application/json'
-    }, verify=False)  # Consider replacing verify=False with a valid certificate
-
-    if entries_response.ok:
-        time_entries = entries_response.json().get('time_entries', [])
-        email_entries = defaultdict(list)
-
-        for entry in time_entries:
-            approver_field = next(
-                (f for f in entry.get('custom_fields', []) if f['name'] == 'TS - Aprovador - CLI' and f['value']), None)
-            if approver_field:
-                email_entries[approver_field['value']].append(entry)
-
-        if not email_entries:
-            logger.warning('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.')
-            return jsonify('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.'), 400
-
-        for email, entries in email_entries.items():
-            unapproved_entries = [entry for entry in entries if any(
-                field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '0' or field['value'] == '') for field in
-                entry.get('custom_fields', []))]
-
-
-            if unapproved_entries:
-                table_html = create_html_table_mail_client(unapproved_entries, email)
-                project_name = unapproved_entries[0]['project']['name']
-                user_name = unapproved_entries[0]['user']['name']
-                send_email_task_client(table_html, email, project_name, user_id, user_name)
+            if project_response.status_code == 200:
+                project_data = project_response.json()
+                project_id = project_data.get('project', {}).get('id')
             else:
-                logger.info(f'Nenhuma entrada de tempo não aprovada encontrada para o email: {email}')
+                logger.error(f"Erro ao buscar o projeto: {project_response.status_code}")
+                return jsonify('Erro ao buscar o projeto.'), 500
 
-        return jsonify('Relatórios enviados com sucesso.'), 200
-    else:
-        logger.error('Erro ao buscar entradas de tempo.')
-        return jsonify('Erro ao buscar entradas de tempo.'), 500
+        url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
+        entries_response = requests.get(url, headers={
+            'X-Redmine-API-Key': REDMINE_API_KEY,
+            'Content-Type': 'application/json'
+        }, verify=False)  # Consider replacing verify=False with a valid certificate
+
+        if entries_response.ok:
+            time_entries = entries_response.json().get('time_entries', [])
+
+            # Filtrar entradas de tempo pelo ID do projeto
+            if project_id:
+                time_entries = [entry for entry in time_entries if entry.get('project', {}).get('id') == project_id]
+
+            email_entries = defaultdict(list)
+
+            for entry in time_entries:
+                approver_field = next(
+                    (f for f in entry.get('custom_fields', []) if f['name'] == 'TS - Aprovador - CLI' and f['value']),
+                    None)
+                if approver_field:
+                    email_entries[approver_field['value']].append(entry)
+
+            if not email_entries:
+                logger.warning('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.')
+                return jsonify('Nenhuma entrada de tempo com o campo TS - Aprovador - CLI encontrada.'), 400
+
+            for email, entries in email_entries.items():
+
+                unapproved_entries = [
+                    entry for entry in entries if any(
+                        field['name'] == 'TS - Aprovado - CLI' and (field['value'] == '0' or field['value'] == '')
+                        for field in entry.get('custom_fields', [])
+                    ) and any(
+                        field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '1' or field['value'] == '')
+                        for field in entry.get('custom_fields', [])
+                    )
+                ]
+
+                if unapproved_entries:
+                    table_html = create_html_table_mail_client(unapproved_entries, email)
+                    project = unapproved_entries[0]['project']
+                    user_name = unapproved_entries[0]['user']['name']
+                    send_email_task_client(table_html, email, project, user_id, user_name)
+                else:
+                    logger.info(f'Nenhuma entrada de tempo não aprovada encontrada para o email: {email}')
+
+            return jsonify('Relatórios enviados com sucesso.'), 200
+        else:
+            logger.error('Erro ao buscar entradas de tempo.')
+            return jsonify('Erro ao buscar entradas de tempo.'), 500
+    except Exception as e:
+        logger.error(f"Erro ao enviar relatórios por email: {e}")
+        return jsonify("Erro ao enviar relatórios por email", 500)
 
 
 @app.route('/send_email_report_client_geral', methods=['POST'])
