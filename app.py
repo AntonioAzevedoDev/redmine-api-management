@@ -330,7 +330,6 @@ def send_email_task_client(file_content, recipient_email, project, user_id, user
         email_content = f"{file_content}\n\nPara visualizar as entradas de tempo, acesse o link: <a href='{link}'>relatório</a>"
         send_email(email_content, recipient_email.strip(), project['name'], user_name)
         logger.info(f"E-mail enviado para: {recipient_email.strip()}")
-        logger.info("E-mail enviado com sucesso.")
     except Exception as e:
         logger.error(f"Erro ao enviar e-mail para o cliente: {e}")
 
@@ -3699,10 +3698,12 @@ def relatorio_horas(user_id):
                                         <div id="all-actions" class="btn-group">
                                             <button type="button" onclick="approveAll('{token}', '{approve_entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
                                             <button type="button" onclick="rejectAll('{token}', '{reject_entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
+                                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
                                         </div>
                                         <div id="selected-actions" class="btn-group">
                                             <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
                                             <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
+                                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
 
                                         </div>
                                     </div>
@@ -4988,6 +4989,7 @@ def relatorio_horas_geral():
                                         <div class="btn-group">
                                             <button type="button" onclick="approveAll('{token}', '{approve_entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
                                             <button type="button" onclick="rejectAll('{token}', '{reject_entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
+                                            
                                         </div>
                                     </div>
                                     <div class="filters-container">
@@ -5031,10 +5033,12 @@ def relatorio_horas_geral():
                                         <div id="all-actions" class="btn-group">
                                             <button type="button" onclick="approveAll('{token}', '{approve_entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
                                             <button type="button" onclick="rejectAll('{token}', '{reject_entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
+                                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
                                         </div>
                                         <div id="selected-actions" class="btn-group">
                                             <button type="button" id="approve-selected" class="btn btn-approve" data-action="aprovar">Aprovar Selecionados</button>
                                             <button type="button" id="reject-selected" class="btn btn-reject" data-action="reprovar">Reprovar Selecionados</button>
+                                            <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório Selecionados - Cliente</button>
 
                                         </div>
                                     </div>
