@@ -1072,6 +1072,7 @@ def relatorio_horas_client(user_id):
 
                             tableRows.forEach(row => {{
                                 row.addEventListener('click', function() {{
+                                 if (window.innerWidth <= 768) {{
                                     var entryData = {{
                                         spent_on: row.cells[1].textContent.trim(),
                                         user: {{ name: row.cells[2].textContent.trim() }},
@@ -1117,6 +1118,7 @@ def relatorio_horas_client(user_id):
                                         popup.style.display = 'block';
                                     }} else {{
                                         console.error('Dados da entrada não encontrados.');
+                                    }}
                                     }}
                                 }});
                             }});
@@ -1895,6 +1897,7 @@ def relatorio_horas_client(user_id):
 
                             tableRows.forEach(row => {{
                                 row.addEventListener('click', function() {{
+                                 if (window.innerWidth <= 768) {{
                                     var entryData = {{
                                         spent_on: row.cells[1].textContent.trim(),
                                         user: {{ name: row.cells[2].textContent.trim() }},
@@ -1940,6 +1943,7 @@ def relatorio_horas_client(user_id):
                                         popup.style.display = 'block';
                                     }} else {{
                                         console.error('Dados da entrada não encontrados.');
+                                    }}
                                     }}
                                 }});
                             }});
@@ -2886,6 +2890,7 @@ def relatorio_horas(user_id):
 
                                         tableRows.forEach(row => {{
                                             row.addEventListener('click', function() {{
+                                            if (window.innerWidth <= 768) {{
                                                 var entryData = {{
                                                     spent_on: row.cells[1].textContent.trim(),
                                                     user: {{ name: row.cells[2].textContent.trim() }},
@@ -2931,6 +2936,7 @@ def relatorio_horas(user_id):
                                                     popup.style.display = 'block';
                                                 }} else {{
                                                     console.error('Dados da entrada não encontrados.');
+                                                }}
                                                 }}
                                             }});
                                         }});
@@ -3710,6 +3716,7 @@ def relatorio_horas(user_id):
 
                                         tableRows.forEach(row => {{
                                             row.addEventListener('click', function() {{
+                                             if (window.innerWidth <= 768) {{
                                                 var entryData = {{
                                                     spent_on: row.cells[1].textContent.trim(),
                                                     user: {{ name: row.cells[2].textContent.trim() }},
@@ -3755,6 +3762,7 @@ def relatorio_horas(user_id):
                                                     popup.style.display = 'block';
                                                 }} else {{
                                                     console.error('Dados da entrada não encontrados.');
+                                                }}
                                                 }}
                                             }});
                                         }});
@@ -4215,6 +4223,7 @@ def relatorio_horas_geral():
 
                                         tableRows.forEach(row => {{
                                             row.addEventListener('click', function() {{
+                                             if (window.innerWidth <= 768) {{
                                                 var entryData = {{
                                                     spent_on: row.cells[1].textContent.trim(),
                                                     user: {{ name: row.cells[2].textContent.trim() }},
@@ -4260,6 +4269,7 @@ def relatorio_horas_geral():
                                                     popup.style.display = 'block';
                                                 }} else {{
                                                     console.error('Dados da entrada não encontrados.');
+                                                }}
                                                 }}
                                             }});
                                         }});
@@ -5050,6 +5060,7 @@ def relatorio_horas_geral():
 
                                         tableRows.forEach(row => {{
                                             row.addEventListener('click', function() {{
+                                             if (window.innerWidth <= 768) {{
                                                 var entryData = {{
                                                     spent_on: row.cells[1].textContent.trim(),
                                                     user: {{ name: row.cells[2].textContent.trim() }},
@@ -5095,6 +5106,7 @@ def relatorio_horas_geral():
                                                     popup.style.display = 'block';
                                                 }} else {{
                                                     console.error('Dados da entrada não encontrados.');
+                                                }}
                                                 }}
                                             }});
                                         }});
