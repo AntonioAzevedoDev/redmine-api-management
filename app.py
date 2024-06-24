@@ -3257,6 +3257,18 @@ def relatorio_horas(user_id):
                                     document.addEventListener('DOMContentLoaded', function() {{
                                         updateMobileSummary();
                                         if (window.innerWidth <= 768) {{ // Verifica se a largura da janela é de 768px ou menos (modo mobile)
+                                            var columnsToHide = [4, 5, 6, 11]; // Índices das colunas a serem escondidas
+                                            columnsToHide.forEach(function(index) {{
+                                                var thXPath = `//*[@id="time_entries_table"]/thead/tr/th[${{index}}]`;
+                                                var th = document.evaluate(thXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                                if (th) th.style.display = 'none';
+
+                                                var tdXPath = `//*[@id="time_entries_table"]/tbody/tr/td[${{index}}]`;
+                                                var tds = document.evaluate(tdXPath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+                                                for (var i = 0; i < tds.snapshotLength; i++) {{
+                                                    tds.snapshotItem(i).style.display = 'none';
+                                                }}
+                                            }});
                                             var thHoraInicial = document.querySelector('#time_entries_table thead tr th:nth-child(7)');
                                             if (thHoraInicial) {{
                                                 thHoraInicial.textContent = 'Hora Inicial';
@@ -3270,18 +3282,7 @@ def relatorio_horas(user_id):
                                             if (thTotalHoras) {{
                                                 thTotalHoras.textContent = 'Total Horas';
                                             }}
-                                            var columnsToHide = [4, 5, 6, 11]; // Índices das colunas a serem escondidas
-                                            columnsToHide.forEach(function(index) {{
-                                                var thXPath = `//*[@id="time_entries_table"]/thead/tr/th[${{index}}]`;
-                                                var th = document.evaluate(thXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                                                if (th) th.style.display = 'none';
-
-                                                var tdXPath = `//*[@id="time_entries_table"]/tbody/tr/td[${{index}}]`;
-                                                var tds = document.evaluate(tdXPath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
-                                                for (var i = 0; i < tds.snapshotLength; i++) {{
-                                                    tds.snapshotItem(i).style.display = 'none';
-                                                }}
-                                            }});
+                                            
                                         }}
                                     }});
                                 </script>
