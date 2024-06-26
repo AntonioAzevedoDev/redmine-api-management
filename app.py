@@ -8,6 +8,10 @@ from flask import Flask, request, jsonify, redirect, render_template, url_for, s
 import requests
 import os
 import uuid
+
+from requests.adapters import HTTPAdapter
+from urllib3 import Retry
+
 from email_sender import send_email
 from test_email import logger
 from flask_cors import CORS
@@ -26,6 +30,10 @@ CORS(app)
 REDMINE_URL = 'https://redmineqas.evtit.com'
 REDMINE_API_KEY = "14f242e3ec7d71044d2b15dc285fd0b2603b9f0a"
 API_URL = "https://timesheetqas.evtit.com/"
+#API_URL = "http://127.0.0.1:5000/"
+usuarios_all = []
+projetos_all = []
+
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -63,6 +71,7 @@ def create_database():
 
 
 create_database()
+
 
 
 def render_response(message, status_code, details=None):
@@ -937,6 +946,38 @@ def create_html_table_mail(time_entries):
     '''
 
     return table
+
+@app.route('/get_time_entries', methods=['GET'])
+def get_time_entries():
+    try:
+        project_name = request.args.get('project_name')
+        user_id = request.args.get('user_id')
+        start_date = request.args.get('from')
+        end_date = request.args.get('to')
+
+        params = {
+            'from': start_date,
+            'to': end_date,
+            'limit': 100
+        }
+        if project_name:
+            params['project_name'] = project_name
+        if user_id:
+            params['user_id'] = user_id
+
+        url = f'{REDMINE_URL}/time_entries.json'
+        response = requests.get(url, headers={
+            'X-Redmine-API-Key': REDMINE_API_KEY,
+            'Content-Type': 'application/json'
+        }, params=params, verify=False)
+
+        if response.ok:
+            return jsonify(response.json())
+        else:
+            return jsonify({'error': 'Erro ao buscar entradas de tempo'}), 500
+    except Exception as e:
+        logger.error(f"Erro ao buscar entradas de tempo: {e}")
+        return jsonify({'error': 'Erro ao buscar entradas de tempo'}), 500
 
 
 @app.route('/relatorio_horas_client/<int:user_id>', methods=['GET'])
@@ -4146,6 +4187,111 @@ def relatorio_horas(user_id):
         return render_response("Erro ao gerar a página HTML", 500)
 
 
+@app.route('/update_filters', methods=['GET'])
+def update_filters():
+    try:
+        user = request.args.get('user', 'ALL')
+        project = request.args.get('project', 'ALL')
+
+        today = datetime.today()
+        first_day_of_month = today.replace(day=1)
+        last_day_of_month = today.replace(day=calendar.monthrange(today.year, today.month)[1])
+        start_date = first_day_of_month.strftime('%Y-%m-%d')
+        end_date = last_day_of_month.strftime('%Y-%m-%d')
+        page = int(request.args.get('page', 1))
+        limit = 100
+
+        user_id = None
+        project_id = None
+        url = f'{REDMINE_URL}/time_entries.json?limit={limit}&offset={(page - 1) * limit}&from={start_date}&to={end_date}'
+        if user != 'ALL':
+            while user_id == None:
+                limit_users = 25
+                uname_splited = user.split(" ")
+                uname = uname_splited[0].lower()+"."+uname_splited[1].lower()
+                # Faz uma requisição para obter todos os usuários do Redmine
+                users_url = f'{REDMINE_URL}/users.json?offset={(page - 1) * limit_users}'
+                users_response = make_request(users_url)
+                if users_response:
+                    users = users_response.json().get('users', [])
+                    if users == []:
+                        return []
+                        break
+                    for u in users:
+                        if u['login'] == uname:
+                            user_id = u['id']
+                            page = 1
+                            break
+
+                page += 1
+            # Constrói a URL com os parâmetros de filtro
+
+        if project != 'ALL':
+            while project_id == None:
+                limit_projects = 25
+                # Faz uma requisição para obter todos os usuários do Redmine
+                project_url = f'{REDMINE_URL}/projects.json?offset={(page - 1) * limit_projects}'
+                projects_response = make_request(project_url)
+                if projects_response:
+                    projects = projects_response.json().get('projects', [])
+                    if projects == []:
+                        return []
+                        break
+                    for p in projects:
+                        if p['name'] == project:
+                            project_id = p['id']
+                            page = 1
+                            break
+
+                page += 1
+
+
+        if user_id:
+            url += f"&user_id={user_id}"
+        elif project != 'ALL':
+            url += f'&project_id={project_id}'
+        else:
+            return []
+
+        entries_response = make_request(url)
+
+        if entries_response.ok:
+            # Filtra as entradas de tempo para incluir apenas aquelas que não foram aprovadas
+            time_entries = entries_response.json().get('time_entries', [])
+            unapproved_entries = [entry for entry in time_entries if any(
+                field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '0' or field['value'] == '') for field in
+                entry.get('custom_fields', []))]
+            entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
+            table_html = create_html_table_filters(time_entries)
+            return jsonify({'table_html': table_html})
+        else:
+            return jsonify({'message': f'Erro ao buscar entradas de tempo: {entries_response.status_code}'}), 500
+    except Exception as e:
+        return jsonify({'message': str(e)}), 500
+
+def make_request(url):
+    session = requests.Session()
+    retry = Retry(
+        total=5,  # Número total de tentativas
+        read=2,  # Tentativas de leitura
+        connect=2,  # Tentativas de conexão
+        backoff_factor=0.3,  # Fator de aumento exponencial
+        status_forcelist=(500, 502, 504),  # Lista de códigos de status para os quais deve-se tentar novamente
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+
+    try:
+        response = session.get(url, headers={
+            'X-Redmine-API-Key': REDMINE_API_KEY,
+            'Content-Type': 'application/json'
+        }, timeout=(5, 10), verify=False)  # Timeout para conexão e leitura
+        return response
+    except requests.exceptions.RequestException as e:
+        print(f'Erro ao fazer requisição: {e}')
+        return None
+
 @app.route('/relatorio_horas', methods=['GET'])
 def relatorio_horas_geral():
     try:
@@ -4167,6 +4313,7 @@ def relatorio_horas_geral():
             'Content-Type': 'application/json'
         }, verify=False)
 
+
         if entries_response.ok:
             # Filtra as entradas de tempo para incluir apenas aquelas que não foram aprovadas
             time_entries = entries_response.json().get('time_entries', [])
@@ -4176,26 +4323,10 @@ def relatorio_horas_geral():
             entry_ids = ','.join([str(entry['id']) for entry in unapproved_entries])
             table_html = create_html_table(time_entries)
             # Obtém o token da URL atual
-            user = get_current_user()
-            user_id = user['user']['id']
-            token = get_or_create_token(user_id, user['user']['mail'])
+            token = request.args.get('token')
             # Constrói a lista de IDs das entradas
-            project_name = request.args.get('project')
             is_client = 1 if 'client' in request.full_path else 0
             # Extrai usuários e projetos para os filtros
-            usuarios = {entry['user']['name'] for entry in time_entries}
-            projetos = {entry['project']['name'] for entry in time_entries}
-            # Constrói a lista de IDs das entradas
-            approve_entry_ids = ','.join(
-                [str(entry['id']) for entry in unapproved_entries if
-                 any(field['name'] == 'TS - Aprovado - EVT' and (field['value'] == '0' or field['value'] == '') for
-                     field in entry.get('custom_fields', []))]
-            )
-            reject_entry_ids = ','.join(
-                [str(entry['id']) for entry in unapproved_entries if
-                 any(field['name'] == 'TS - Aprovado - EVT' and field['value'] == '1' for field in
-                     entry.get('custom_fields', []))]
-            )
 
             # Template HTML para renderizar a página
             html_template = f'''
@@ -4206,7 +4337,6 @@ def relatorio_horas_geral():
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Tempo gasto</title>
                 <link rel="stylesheet" type="text/css" href="{{{{ url_for('static', filename='style.css') }}}}">
-
 
                 <script>
                     function toggleFieldset(legend) {{
@@ -4232,11 +4362,88 @@ def relatorio_horas_geral():
                         }}
                     }}
 
-                    document.addEventListener('DOMContentLoaded', function() {{
-                         const usuarios = {json.dumps(list(usuarios))};
-                        const projetos = {json.dumps(list(projetos))};
+                    function createTableHtml(timeEntries) {{
+                        let tableHtml = '<thead><tr><th>Data</th><th>Usuário</th><th>Atividade</th><th>Projeto</th><th>Comentários</th><th>Hora Inicial</th><th>Hora Final</th><th>Horas</th><th>Aprovado</th></tr></thead><tbody>';
+                        timeEntries.forEach(entry => {{
+                            tableHtml += `<tr>
+                                            <td>${{entry.spent_on}}</td>
+                                            <td>${{entry.user.name}}</td>
+                                            <td>${{entry.activity.name}}</td>
+                                            <td>${{entry.project.name}}</td>
+                                            <td>${{entry.comments}}</td>
+                                            <td>${{entry.custom_fields.find(field => field.name === 'Hora inicial (HH:MM)').value}}</td>
+                                            <td>${{entry.custom_fields.find(field => field.name === 'Hora final (HH:MM)').value}}</td>
+                                            <td>${{entry.hours}}</td>
+                                            <td>${{entry.custom_fields.find(field => field.name === 'TS - Aprovado - CLI').value}}</td>
+                                        </tr>`;
+                        }});
+                        tableHtml += '</tbody>';
+                        return tableHtml;
+                    }}
+                    function filterProjects() {{
+                        var input, filter, select, options, i;
+                        input = document.getElementById('filterInput');
+                        filter = input.value.toUpperCase();
+                        select = document.getElementById('projectSelect');
+                        options = select.getElementsByTagName('option');
                         
-                        // Preencher o select de usuários
+                        for (i = 0; i < options.length; i++) {{
+                            var txtValue = options[i].textContent || options[i].innerText;
+                            if (txtValue.toUpperCase().indexOf(filter) > -1) {{
+                                options[i].style.display = "";
+                            }} else {{
+                                options[i].style.display = "none";
+                            }}
+                        }}
+                    }}
+
+                    async function updateFilters() {{
+                        const userSelect = document.getElementById('userSelect').value;
+                        const projectSelect = document.getElementById('projectSelect').value;
+
+                        const params = new URLSearchParams();
+                        if (userSelect !== 'ALL' && projectSelect === 'ALL') {{
+                            params.append('user', userSelect);
+                        }}
+                        else if (projectSelect !== 'ALL' && userSelect === 'ALL') {{
+                            params.append('project', projectSelect);
+                        }}
+                        else {{
+                            window.location.reload();
+                        }}
+
+                        let url = `/update_filters?${{params.toString()}}`;
+                        document.getElementById('loading').style.display = 'block';
+                        document.getElementById('table-html').style.display = 'none';
+                        
+                        try {{
+                            let response = await fetch(url);
+                            let data = await response.json();
+                            if(data === null || data.table_html === undefined){{
+                                filterBySelect();
+                            }}
+                            
+                            else{{
+                                
+                                if (response.ok) {{
+                                    document.querySelector("#time_entries_table").innerHTML = data.table_html;
+                                    filterBySelect();
+                                }} else {{
+                                    console.error('Erro ao atualizar filtros:', data.message);
+                                }}
+                            }}
+                        }} catch (error) {{
+                            console.error('Erro ao fazer a requisição:', error);
+                        }} finally {{
+                            document.getElementById('loading').style.display = 'none';
+                            document.getElementById('table-html').style.display = 'block';
+                        }}
+                    }}
+
+                    document.addEventListener('DOMContentLoaded', function() {{
+                        const usuarios = {json.dumps(list(usuarios_all))};
+                        const projetos = {json.dumps(list(projetos_all))};
+
                         const userSelect = document.getElementById('userSelect');
                         if (userSelect) {{
                             userSelect.innerHTML = '<option value="ALL">Todos</option>';
@@ -4244,8 +4451,7 @@ def relatorio_horas_geral():
                                 userSelect.innerHTML += `<option value="${{usuario}}">${{usuario}}</option>`;
                             }});
                         }}
-            
-                        // Preencher o select de projetos
+
                         const projectSelect = document.getElementById('projectSelect');
                         if (projectSelect) {{
                             projectSelect.innerHTML = '<option value="ALL">Todos</option>';
@@ -4253,49 +4459,17 @@ def relatorio_horas_geral():
                                 projectSelect.innerHTML += `<option value="${{projeto}}">${{projeto}}</option>`;
                             }});
                         }}
-                        
-                        // Seleciona o projeto atual, se houver
-                        const project_name = "{project_name}";
-                        if (projectSelect && project_name) {{
-                            const options = projectSelect.options;
-                            for (let i = 0; i < options.length; i++) {{
-                                if (options[i].text.toUpperCase() === project_name.toUpperCase()) {{
-                                    projectSelect.selectedIndex = i;
-                                    filterBySelect();
-                                    break;
-                                }}
-                            }}
-                        }}
-
-                        function createTableHtml(timeEntries) {{
-                            let tableHtml = '<thead><tr><th>Data</th><th>Usuário</th><th>Atividade</th><th>Projeto</th><th>Comentários</th><th>Hora Inicial</th><th>Hora Final</th><th>Horas</th><th>Aprovado</th></tr></thead><tbody>';
-                            timeEntries.forEach(entry => {{
-                                tableHtml += `<tr>
-                                                <td>${{entry.spent_on}}</td>
-                                                <td>${{entry.user.name}}</td>
-                                                <td>${{entry.activity.name}}</td>
-                                                <td>${{entry.project.name}}</td>
-                                                <td>${{entry.comments}}</td>
-                                                <td>${{entry.custom_fields.find(field => field.name === 'Hora inicial (HH:MM)').value}}</td>
-                                                <td>${{entry.custom_fields.find(field => field.name === 'Hora final (HH:MM)').value}}</td>
-                                                <td>${{entry.hours}}</td>
-                                                <td>${{entry.custom_fields.find(field => field.name === 'TS - Aprovado - CLI').value}}</td>
-                                            </tr>`;
-                            }});
-                            tableHtml += '</tbody>';
-                            return tableHtml;
-                        }}
 
                         document.getElementById("filterInput").addEventListener("keyup", function() {{
                             filterBySelect();
                         }});
 
                         document.getElementById("userSelect").addEventListener("change", function() {{
-                            filterBySelect();
+                            updateFilters();
                         }});
 
                         document.getElementById("projectSelect").addEventListener("change", function() {{
-                            filterBySelect();
+                            updateFilters();
                         }});
 
                         document.getElementById("approvalSelect").addEventListener("change", function() {{
@@ -4483,15 +4657,15 @@ def relatorio_horas_geral():
                         return urlParams.get(param);
                     }}
                     var current_page = parseInt(getQueryParam('page')) || 0;
-                    
-                     document.addEventListener('DOMContentLoaded', function() {{
+
+                    document.addEventListener('DOMContentLoaded', function() {{
                         // Chama as funções de filtro após carregar a página
                         filterBySelect();
                         // Adicione outras funções de filtro aqui, se houver
                     }});
                     function nextPage() {{
                         current_page += 1;
-                        
+
                         const token = '{token}';
                         const nextPageUrl = `/relatorio_horas?page=${{current_page}}&token=${{token}}`;
                         window.location.href = nextPageUrl;
@@ -4503,6 +4677,14 @@ def relatorio_horas_geral():
                             const token = '{token}';
                             const previousPageUrl = `/relatorio_horas?page=${{current_page}}&token=${{token}}`;
                             window.location.href = previousPageUrl;
+                        }}
+                    }}
+                    function firstPage() {{
+                        if (current_page > 1) {{
+                            current_page = 1;
+                            const token = '{token}';
+                            const firstPageUrl = `/relatorio_horas?page=${{current_page}}&token=${{token}}`;
+                            window.location.href = firstPageUrl;
                         }}
                     }}
                     function getFilteredTableData() {{
@@ -4683,7 +4865,7 @@ def relatorio_horas_geral():
                             <p><strong>Aprovado:</strong> ${{approved_value}}</p>
                             <div class="btn-group">
                                 <a href="#" onclick="approveHour(${{entry['id']}}, '{{{{request.args.get('token')}}}}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
-                                <a href="#" onclick="rejectHour(${{entry['id']}}, '{{{{request.args.get('token')}}}}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
+                                <a href="#" onclick="rejectHour(${{entry['id']}}, '{{{{request.args.get('token')}}}}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Reprovar</a>
                             </div>
                         `;
                         popup.style.display = 'block';
@@ -4710,7 +4892,7 @@ def relatorio_horas_geral():
                                     var thXPath = `//*[@id="time_entries_table"]/thead/tr/th[${{index}}]`;
                                     var th = document.evaluate(thXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
                                     if (th) th.style.display = 'none';
-                    
+
                                     var tdXPath = `//*[@id="time_entries_table"]/tbody/tr/td[${{index}}]`;
                                     var tds = document.evaluate(tdXPath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
                                     for (var i = 0; i < tds.snapshotLength; i++) {{
@@ -4873,6 +5055,33 @@ def relatorio_horas_geral():
                     .btn-relatorio:hover {{
                         background-color: #63B8FF; /* Azul claro ao passar o mouse */
                     }}
+                    #loading {{
+                        font-size: 20px;
+                        color: #333;
+                        text-align: center;
+                        margin-top: 20px;
+                    }}
+                    .spinner {{
+                      border: 16px solid #f3f3f3; /* Cor do fundo */
+                      border-top: 16px solid #3498db; /* Cor do spinner */
+                      border-radius: 50%;
+                      width: 120px;
+                      height: 120px;
+                      animation: spin 2s linear infinite;
+                      position: absolute;
+                      top: 50%;
+                      left: 45%;
+                      transform: translate(-45%, -50%);
+                    }}
+                    
+                    @keyframes spin {{
+                      0% {{ transform: rotate(0deg); }}
+                      100% {{ transform: rotate(360deg); }}
+                    }}
+                    #loading-container {{
+                      position: relative;
+                      height: 450px; /* Altura ajustada para centralizar o spinner */
+                    }}
                     @media (max-width: 768px) {{
                         .filters-container {{
                             display: flex;
@@ -4958,6 +5167,9 @@ def relatorio_horas_geral():
                         .toggle-filters {{
                             display: none;
                         }}
+                        .filters-container {{
+                            margin-top: 0px;
+                        }}
                         #time_entries_form {{
                             display: block !important;
                         }}
@@ -5009,47 +5221,47 @@ def relatorio_horas_geral():
                     .close-button:hover {{
                         color: red;
                     }}
-                                            .pagination {{
-                            display: flex;
-                            justify-content: center;
-                            list-style-type: none;
-                            padding: 0;
-                            margin: 20px 0;
-                        }}
-                    
-                        .pagination .page-item {{
-                            margin: 0 5px;
-                        }}
-                    
-                        .pagination .page-link {{
-                            display: block;
-                            padding: 8px 16px;
-                            border: 1px solid #ddd;
-                            color: #007bff;
-                            text-decoration: none;
-                            background-color: #fff;
-                            border-radius: 4px;
-                            transition: background-color 0.3s, color 0.3s;
-                        }}
-                    
-                        .pagination .page-link:hover {{
-                            background-color: #f0f0f0;
-                            color: #0056b3;
-                        }}
-                    
-                        .pagination .page-item.disabled .page-link {{
-                            color: #6c757d;
-                            pointer-events: none;
-                            background-color: #e9ecef;
-                            border-color: #dee2e6;
-                        }}
-                    
-                        .pagination .page-item.active .page-link {{
-                            z-index: 1;
-                            color: #fff;
-                            background-color: #007bff;
-                            border-color: #007bff;
-                        }}
+                    .pagination {{
+                        display: flex;
+                        justify-content: center;
+                        list-style-type: none;
+                        padding: 0;
+                        margin: 20px 0;
+                    }}
+
+                    .pagination .page-item {{
+                        margin: 0 5px;
+                    }}
+
+                    .pagination .page-link {{
+                        display: block;
+                        padding: 8px 16px;
+                        border: 1px solid #ddd;
+                        color: #007bff;
+                        text-decoration: none;
+                        background-color: #fff;
+                        border-radius: 4px;
+                        transition: background-color 0.3s, color 0.3s;
+                    }}
+
+                    .pagination .page-link:hover {{
+                        background-color: #f0f0f0;
+                        color: #0056b3;
+                    }}
+
+                    .pagination .page-item.disabled .page-link {{
+                        color: #6c757d;
+                        pointer-events: none;
+                        background-color: #e9ecef;
+                        border-color: #dee2e6;
+                    }}
+
+                    .pagination .page-item.active .page-link {{
+                        z-index: 1;
+                        color: #fff;
+                        background-color: #007bff;
+                        border-color: #007bff;
+                    }}
                     @media (max-width: 768px) {{
                         #all-actions {{
                             display: none;
@@ -5091,11 +5303,11 @@ def relatorio_horas_geral():
                             padding: 0;
                             margin: 20px 0;
                         }}
-                    
+
                         .pagination .page-item {{
                             margin: 0 5px;
                         }}
-                    
+
                         .pagination .page-link {{
                             display: block;
                             padding: 8px 16px;
@@ -5106,19 +5318,19 @@ def relatorio_horas_geral():
                             border-radius: 4px;
                             transition: background-color 0.3s, color 0.3s;
                         }}
-                    
+
                         .pagination .page-link:hover {{
                             background-color: #f0f0f0;
                             color: #0056b3;
                         }}
-                    
+
                         .pagination .page-item.disabled .page-link {{
                             color: #6c757d;
                             pointer-events: none;
                             background-color: #e9ecef;
                             border-color: #dee2e6;
                         }}
-                    
+
                         .pagination .page-item.active .page-link {{
                             z-index: 1;
                             color: #fff;
@@ -5169,17 +5381,19 @@ def relatorio_horas_geral():
                                 </legend>
                                 <div id="filter-fields" class="filter-fields-style" style="display: block;">
                                     <label for="filterInput">Buscar:</label>
-                                    <input type="text" id="filterInput" onkeyup="filterBySelect()" placeholder="Digite para buscar...">
+                                    <input type="text" id="filterInput" onkeyup="filterProjects()" placeholder="Digite para buscar...">
                                     <label for="userSelect">Usuário:</label>
                                     <select id="userSelect" onchange="filterBySelect()">
                                         <option value="ALL">Todos</option>
-                                        {''.join([projeto for projeto in sorted(usuarios)])}
+                                        {''.join([projeto for projeto in sorted(usuarios_all)])}
                                     </select>
                                     <label for="projectSelect">Projeto:</label>
-                                    <select id="projectSelect" onchange="filterBySelect()">
-                                        <option value="ALL">Todos</option>
-                                        {''.join([projeto for projeto in sorted(projetos)])}
-                                    </select>
+                                    
+                                        <select id="projectSelect" onchange="filterBySelect()" >
+                                            <option value="ALL">Todos</option>
+                                            {''.join([f'<option value="{projeto}">{projeto}</option>' for projeto in sorted(projetos_all)])}
+                                        </select>
+                                    
                                     <label for="approvalSelect">Aprovado:</label>
                                     <select id="approvalSelect" onchange="filterBySelect()">
                                         <option value="ALL">Todos</option>
@@ -5191,10 +5405,19 @@ def relatorio_horas_geral():
                             </fieldset>
                         </form>
                     </div>
-                    <div class="table-container">
-                        {table_html}
+                    <div class="table-container" style="display: block;">
+                        <div id="loading-container">
+                            <div id="loading" class="spinner" style="display: none;"></div>
+                                <div id="table-html">
+                                    {table_html}
+                                </div>
+                            
+                        
                         <nav aria-label="Page navigation example">
                             <ul class="pagination justify-content-center">
+                                <li class="page-item" id="previousPageItem">
+                                    <a class="page-link" href="#" onclick="firstPage()"><<</a>
+                                </li>
                                 <li class="page-item" id="previousPageItem">
                                     <a class="page-link" href="#" onclick="previousPage()" tabindex="-1">Anterior</a>
                                 </li>
@@ -5215,6 +5438,8 @@ def relatorio_horas_geral():
                         </div>
                     </div>
                 </div>
+                </div>
+                </div>
                 <div id="detailsPopup">
                     <div id="popupContent"></div>
                     <button type="button" class="close-button" onclick="hideDetailsPopup()">×</button>
@@ -5230,6 +5455,41 @@ def relatorio_horas_geral():
     except Exception as e:
         logger.error(f"Erro ao gerar a página HTML: {e}")
         return render_response("Erro ao gerar a página HTML", 500)
+
+
+def get_all_users():
+    page = 1
+    users = None
+
+    while users != []:
+        limit_users = 25
+        # Faz uma requisição para obter todos os usuários do Redmine
+        users_url = f'{REDMINE_URL}/users.json?offset={(page - 1) * limit_users}'
+        users_response = make_request(users_url)
+        if users_response:
+            users = users_response.json().get('users', [])
+
+            for u in users:
+                usuarios_all.append((u['firstname'] + " " + u['lastname']))
+
+        page += 1
+
+def get_all_projects():
+    page = 1
+    projects = None
+    while projects != []:
+        limit_projects = 25
+        # Faz uma requisição para obter todos os usuários do Redmine
+        project_url = f'{REDMINE_URL}/projects.json?offset={(page - 1) * limit_projects}'
+        projects_response = make_request(project_url)
+        if projects_response:
+            projects = projects_response.json().get('projects', [])
+
+            for p in projects:
+                projetos_all.append(p['name'])
+
+        page += 1
+
 
 
 def create_html_table(time_entries):
@@ -5716,6 +5976,484 @@ def create_html_table(time_entries):
     return table
 
 
+def create_html_table_filters(time_entries):
+    total_hours = 0  # Variável para somar as horas
+    approved_hours = 0  # Variável para somar as horas aprovadas
+    unapproved_hours = 0  # Variável para somar as horas não aprovadas
+    repproved_hours = 0
+
+    table = '''
+    <div>
+      <div class="filters-container">
+        <!-- Coloque aqui os elementos do filtro -->
+      </div>
+      <div class="table-wrapper">
+        <div class="table-container">
+          <table id="time_entries_table">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="select_all" onclick="toggleAll(this)"></th>
+                <th>Data</th>
+                <th>Usuário</th>
+                <th>Atividade</th>
+                <th>Projeto</th>
+                <th>Comentário</th>
+                <th>Hora inicial (HH:MM)</th>
+                <th>Hora final (HH:MM)</th>
+                <th>Horas</th>
+                <th>Aprovado</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+    '''
+
+    for entry in time_entries:
+        hora_inicial = next(
+            (field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora inicial (HH:MM)'), '')
+        hora_final = next((field['value'] for field in entry['custom_fields'] if field['name'] == 'Hora final (HH:MM)'),
+                          '')
+        project_name = entry['project']['name'] if 'project' in entry else 'N/A'
+        user_id = entry['user']['id']
+        user_email = 'teste@teste.com'  # tornar dinâmico após ajustar o plugin
+        token = request.args.get('token')
+        is_client = 1 if 'client' in request.full_path else 0
+        if token is None:
+            token = get_or_create_token(user_id, user_email)
+
+        total_hours += entry['hours']  # Soma as horas da entrada atual
+
+        approved = any(
+            field['name'] == 'TS - Aprovado - EVT' and field['value'] == '1' for field in entry['custom_fields']
+        )
+
+        repproved = any(
+            field['name'] == 'TS - Aprovado - EVT' and field['value'] == '0' for field in entry['custom_fields']
+        )
+
+        unnaproved = any(
+            field['name'] == 'TS - Aprovado - EVT' and field['value'] == '' for field in entry['custom_fields']
+        )
+
+        if approved:
+            approved_hours += entry['hours']
+            aprovado = 'Sim'
+            disable_attr = 'disabled'
+        elif repproved:
+            repproved_hours += entry['hours']
+            aprovado = 'Não'
+            disable_attr = ''
+        elif unnaproved:
+            unapproved_hours += entry['hours']
+            aprovado = 'Pendente'
+            disable_attr = ''
+        else:
+            unapproved_hours += entry['hours']
+            aprovado = 'Pendente'
+            disable_attr = ''
+
+        table += f'''
+        <tr id="entry-row-{entry['id']}">
+          <td><input type="checkbox" name="selected_entries" value="{entry['id']}" {disable_attr}></td>
+          <td>{entry['spent_on']}</td>
+          <td>{entry['user']['name']}</td>
+          <td>{entry['activity']['name']}</td>
+          <td>{project_name}</td>
+          <td>{entry['comments']}</td>
+          <td>{hora_inicial}</td>
+          <td>{hora_final}</td>
+          <td class="hours-value">{entry['hours']}</td>
+          <td class="approved-value">{aprovado}</td>
+          <td>
+            <a href="#" onclick="approveHour({entry['id']}, '{token}', {is_client}, {entry['hours']}, '{aprovado}')" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
+            <a href="#" onclick="rejectHour({entry['id']}, '{token}', {is_client}, {entry['hours']}, '{aprovado}')" class="btn btn-reject-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Reprovar</a>
+          </td>
+        </tr>
+        '''
+
+    table += f'''
+          </tbody>
+        </table>
+      </div>
+      <br>
+      </div>
+    '''
+
+    table += f'''
+    <style>
+      .table-wrapper {{
+        width: 100%;
+        overflow-x: auto;
+      }}
+      .table-container {{
+        max-height: 450px;
+        width: 100%;
+      }}
+      .table-container th:nth-child(11), .table-container td:nth-child(11) {{
+        width: 80px; /* Define uma largura menor para a coluna "Ações" */
+        text-align: center; /* Centraliza o texto e os botões na coluna */
+      }}
+      .hours-summary {{
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #333;
+        margin-top: 10px;
+      }}
+      .hours-summary p {{
+        margin: 5px 0;
+      }}
+      .hours-total, .hours-approved, .hours-unapproved {{
+        color: #1E90FF;
+      }}
+      .hours-approved {{
+        color: #28a745;
+      }}
+      .hours-repproved {{
+        color: #dc3545;
+      }}
+      .hours-unapproved {{
+        color: #bbdb03;
+      }}
+      thead th {{
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 10;
+        box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
+        padding: 8px 4px;
+        min-height: 10px;
+        text-align: center;
+      }}
+      .table-container td {{
+        white-space: nowrap;
+      }}
+      .btn {{
+        display: inline-block;
+        margin-right: 5px;
+      }}
+      .btn-approve-table, .btn-reject-table {{
+        display: inline-block;
+        width: 70px;
+        margin-right: 2px;
+        text-align: center;
+        font-size: 0.8em;
+        padding: 5px;
+      }}
+      .btn-approve-table {{
+        background-color: #28a745;
+        color: white;
+        margin-bottom: 2px;
+      }}
+      .btn-reject-table {{
+        background-color: #dc3545;
+        color: white;
+        margin-top: 2px;
+      }}
+      .btn.disabled {{
+        visibility: hidden;
+      }}
+      @media (max-width: 768px) {{
+        .container {{
+            padding: 10px;
+            overflow-y: auto;
+            max-height: 80vh;
+        }}
+        .header-logo h1 {{
+            font-size: 1.5em;
+        }}
+        .filters {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+            padding: 0;
+        }}
+        .table-wrapper {{
+            overflow-x: auto;
+        }}
+        .table-container {{
+            font-size: 0.9em;
+            overflow-x: scroll;
+        }}
+        .btn-group {{
+            flex-direction: column;
+            align-items: center;
+        }}
+        .btn-group .btn-relatorio {{
+            width: 180px;
+            height: 40px;
+            margin: 0px 0;
+        }}
+    }}
+    .filter-fields-style {{
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-top: 15px;
+        }}
+
+        .filter-fields-style label {{
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }}
+
+        .filter-fields-style input[type="text"],
+        .filter-fields-style select {{
+            width: 20%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }}
+
+        .filter-fields-style select {{
+            appearance: none;
+            background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iNSIgdmlld0JveD0iMCAwIDEwIDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZmlsbD0iI0NDQyIgZD0iTTAgMGw1IDUgNS01eiIgLz48L3N2Zz4=') no-repeat right 10px center;
+            background-size: 10px 5px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }}
+
+        .filter-fields-style input[type="text"]::placeholder {{
+            color: #aaa;
+            font-style: italic;
+        }}
+      @media (max-width: 768px) {{
+
+
+        #time_entries_form {{
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }}
+
+        .filters label {{
+            font-weight: bold;
+            margin-bottom: 5px;
+        }}
+
+        .filters input, .filters select {{
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }}
+        .container {{
+            padding: 10px;
+            overflow-y: auto;
+            max-height: 80vh;
+        }}
+        .header-logo h1 {{
+            font-size: 1.5em;
+        }}
+        .filters {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+            padding: 0;
+        }}
+        .table-wrapper {{
+            overflow-x: auto;
+        }}
+        .table-container {{
+            font-size: 0.9em;
+            overflow-x: scroll;
+        }}
+        .btn-group {{
+            flex-direction: column;
+            align-items: center;
+        }}
+        .btn-group .btn-relatorio {{
+            width: 180px;
+            height: 40px;
+            margin: 0px 0;
+        }}
+        .filter-fields-style {{
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-top: 15px;
+        }}
+
+        .filter-fields-style label {{
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }}
+
+        .filter-fields-style input[type="text"],
+        .filter-fields-style select {{
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }}
+
+        .filter-fields-style select {{
+            appearance: none;
+            background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iNSIgdmlld0JveD0iMCAwIDEwIDUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZmlsbD0iI0NDQyIgZD0iTTAgMGw1IDUgNS01eiIgLz48L3N2Zz4=') no-repeat right 10px center;
+            background-size: 10px 5px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }}
+
+        .filter-fields-style input[type="text"]::placeholder {{
+            color: #aaa;
+            font-style: italic;
+        }}
+
+    }}
+    </style>
+    '''
+
+    table += f'''
+    <script>
+      function approveHour(entryId, token, isClient, entryHours, currentStatus) {{
+        fetch("{API_URL}aprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
+        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+        .then(result => {{
+          const status = result.status;
+          const body = result.body;
+          if (status === 200) {{
+            showAlert('Hora aprovada com sucesso!', 'success');
+            updateRowApproval(entryId, true, entryHours);
+            updateHourSummary(entryHours, 'approve', currentStatus);
+          }} else {{
+            showAlert(body.message, 'error');
+          }}
+        }})
+        .catch(error => {{
+          console.error('Erro:', error);
+          showAlert('Erro ao aprovar hora.', 'error');
+        }});
+      }}
+
+      function rejectHour(entryId, token, isClient, entryHours, currentStatus) {{
+        fetch("{API_URL}reprovar_hora?id=" + entryId + "&token=" + token + "&client=" + isClient)
+        .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
+        .then(result => {{
+          const status = result.status;
+          const body = result.body;
+          if (status === 200) {{
+            showAlert('Hora reprovada com sucesso!', 'success');
+            updateRowApproval(entryId, false, entryHours);
+            updateHourSummary(entryHours, 'reject', currentStatus);
+          }} else {{
+            showAlert(body.message, 'error');
+          }}
+        }})
+        .catch(error => {{
+          console.error('Erro:', error);
+          showAlert('Erro ao reprovar hora.', 'error');
+        }});
+      }}
+
+      function updateHourSummary(entryHours, action, currentStatus) {{
+        const totalHoursElem = document.querySelector('.hours-total');
+        const approvedHoursElem = document.querySelector('.hours-approved');
+        const unapprovedHoursElem = document.querySelector('.hours-unapproved');
+        const repprovedHoursElem = document.querySelector('.hours-repproved');
+
+        let totalHours = parseFloat(totalHoursElem.textContent);
+        let approvedHours = parseFloat(approvedHoursElem.textContent);
+        let unapprovedHours = parseFloat(unapprovedHoursElem.textContent);
+        let repprovedHours = parseFloat(repprovedHoursElem.textContent);
+
+        if (currentStatus === 'Sim' && action === 'approve') {{
+          // Não faz alteração
+        }} else if (currentStatus === 'Sim' && action === 'reject') {{
+          approvedHours -= entryHours;
+          repprovedHours += entryHours;
+        }} else if (currentStatus === 'Não' && action === 'approve') {{
+          repprovedHours -= entryHours;
+          approvedHours += entryHours;
+        }} else if (currentStatus === 'Não' && action === 'reject') {{
+          // Não faz alteração
+        }} else if (currentStatus === 'Pendente' && action === 'approve') {{
+          unapprovedHours -= entryHours;
+          approvedHours += entryHours;
+        }} else if (currentStatus === 'Pendente' && action === 'reject') {{
+          unapprovedHours -= entryHours;
+          repprovedHours += entryHours;
+        }}
+
+        totalHoursElem.textContent = totalHours.toFixed(1);
+        approvedHoursElem.textContent = approvedHours.toFixed(1);
+        unapprovedHoursElem.textContent = unapprovedHours.toFixed(1);
+        repprovedHoursElem.textContent = repprovedHours.toFixed(1);
+      }}
+
+      function updateRowApproval(entryId, isApproved, entryHours) {{
+        var row = document.getElementById("entry-row-" + entryId);
+        var approveButton = row.querySelector('.btn-approve-table');
+        var rejectButton = row.querySelector('.btn-reject-table');
+        var approvedCell = row.querySelector('.approved-value');
+
+        if (approveButton) {{
+          approveButton.classList.add('disabled');
+        }}
+        if (rejectButton) {{
+          rejectButton.classList.add('disabled');
+        }}
+        if (approvedCell) {{
+          approvedCell.textContent = isApproved ? 'Sim' : 'Não';
+        }}
+      }}
+
+      function toggleAll(source) {{
+        var checkboxes = document.getElementsByName('selected_entries');
+        for (var i = 0, n = checkboxes.length; i < n; i++) {{
+          if (!checkboxes[i].disabled) {{
+            checkboxes[i].checked = source.checked;
+          }}
+        }}
+      }}
+
+      function showAlert(message, type) {{
+        var alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type}`;
+        alertDiv.textContent = message;
+
+        alertDiv.style.position = 'fixed';
+        alertDiv.style.top = '20px';
+        alertDiv.style.left = '50%';
+        alertDiv.style.transform = 'translateX(-50%)';
+        alertDiv.style.padding = '10px';
+        alertDiv.style.zIndex = 1000;
+        alertDiv.style.backgroundColor = type === 'success' ? 'green' : 'red';
+        alertDiv.style.color = 'white';
+        alertDiv.style.borderRadius = '5px';
+        alertDiv.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.1)';
+        alertDiv.style.fontSize = '16px';
+
+        document.body.appendChild(alertDiv);
+
+        setTimeout(() => {{
+            document.body.removeChild(alertDiv);
+        }}, 3000);
+      }}
+    </script>
+    '''
+
+    return table
+
+
 def get_time_entry(time_entry_id):
     url = f"{REDMINE_URL}/time_entries/{time_entry_id}.json"
     headers = {'X-Redmine-API-Key': REDMINE_API_KEY}
@@ -5739,7 +6477,7 @@ def update_time_entry(time_entry_id, custom_fields):
 
 
 def alterar_data_temporariamente(entry_id, nova_data):
-    for _ in range(10):
+    for _ in range(30):
         status_code, response = get_time_entry(entry_id)
         if status_code == 200:
             time_entry = response.get('time_entry', {})
@@ -5759,12 +6497,12 @@ def alterar_data_temporariamente(entry_id, nova_data):
                 if any("Apontamento retroativo" in error for error in error_message) or any(
                         "Foi detectado um apontamento" in error for error in error_message) or any(
                     "semana" in error for error in error_message):
-                    nova_data = (datetime.strptime(nova_data, '%Y-%m-%d') + timedelta(days=5)).strftime('%Y-%m-%d')
+                    nova_data = (datetime.strptime(nova_data, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
                 else:
                     return response.status_code, response.text
         else:
             return status_code, response
-    return 400, {"errors": ["Não foi possível alterar a data após 10 tentativas"]}
+    return 400, {"errors": ["Não foi possível alterar a data após 30 tentativas"]}
 
 
 def restaurar_data_original(entry_id, data_original):
@@ -5791,7 +6529,7 @@ def aprovar_ou_reprovar(entry_id, tipo, user, token, is_client):
         time_entry = response.get('time_entry', {})
         custom_fields = time_entry.get('custom_fields', [])
         data_original = time_entry.get('spent_on')
-        nova_data = (datetime.now() - timedelta(days=4)).strftime('%Y-%m-%d')
+        nova_data = (datetime.now() + timedelta(days=4)).strftime('%Y-%m-%d')
         data_atual = datetime.now().strftime('%Y-%m-%d')
         alterar_status, alterar_response = alterar_data_temporariamente(entry_id, nova_data)
         if is_client == '0':
@@ -5979,6 +6717,8 @@ def get_logs():
 
 with app.app_context():
     db.create_all()
+    get_all_users()
+    get_all_projects()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
