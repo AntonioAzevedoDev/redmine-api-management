@@ -4,7 +4,8 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from flask import render_template_string
 import logging
-from flask import Flask, request, jsonify, redirect, render_template, url_for, session, render_template_string
+from flask import Flask, request, jsonify, redirect, render_template, url_for, session, render_template_string, send_file
+
 import requests
 import os
 import uuid
@@ -509,6 +510,7 @@ def send_email_report():
     status_code, response = get_time_entry(entry_id)
     time_entry = response.get('time_entry', {})
     user_id = time_entry['user']['id']
+    project_id = time_entry['project']['id']
     logger.info(f"Usuario {user_id} solicitando aprovação de horas.")
     allowed_emails = request.headers.get('allowed_emails', '').split(',')
     today = datetime.today()
@@ -517,7 +519,7 @@ def send_email_report():
     end_date = today.strftime('%Y-%m-%d')
 
     # url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
-    url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}'
+    url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&project_id={project_id}'
     entries_response = requests.get(url, headers={
         'X-Redmine-API-Key': REDMINE_API_KEY,
         'Content-Type': 'application/json'
@@ -980,6 +982,78 @@ def get_time_entries():
         return jsonify({'error': 'Erro ao buscar entradas de tempo'}), 500
 
 
+# Função para obter o ID do cliente a partir dos dados do projeto
+def get_client_id_from_project(project_id):
+    project_url = f'{REDMINE_URL}/projects/{project_id}.json'
+    headers = {
+        'X-Redmine-API-Key': REDMINE_API_KEY,
+        'Content-Type': 'application/json'
+    }
+
+    response = requests.get(project_url, headers=headers, verify=False)
+    if response.status_code == 200:
+        project_data = response.json().get('project')
+        for field in project_data.get('custom_fields', []):
+            if field['name'] == 'Cliente':
+                return field['value']
+    return None
+
+# Função para obter a lista de contatos com avatars
+def get_contacts_with_avatars():
+    contacts_url = f'{REDMINE_URL}/logo_fetcher/'
+    headers = {
+        'X-Redmine-API-Key': REDMINE_API_KEY,
+        'Content-Type': 'application/json'
+    }
+
+    response = requests.get(contacts_url, headers=headers, verify=False)
+    if response.status_code == 200:
+        return response.json()
+    return []
+
+# Função principal para obter o ID da logo
+def get_logo_id(project_id):
+    client_id = get_client_id_from_project(project_id)
+    if not client_id:
+        print("Client ID not found.")
+        return None
+
+    contacts = get_contacts_with_avatars()
+    for contact in contacts:
+        if str(contact['id']) == str(client_id):
+            return contact['avatar']['id']
+    return None
+
+
+def get_logo_url(project_id):
+    autocomplete_url = f'{REDMINE_URL}/auto_completes/contacts'
+    response = requests.get(autocomplete_url, headers={'X-Redmine-API-Key': REDMINE_API_KEY}, verify=False)
+    contacts = response.json()
+
+    for contact in contacts:
+        if project_id in contact['id']:
+            avatar_html = contact['avatar']
+            avatar_id = avatar_html.split('/contacts_thumbnail/')[1].split('/')[0]
+            return f'{REDMINE_URL}/attachments/contacts_thumbnail/{avatar_id}'
+
+    return None
+
+
+@app.route('/fetch_logo/<logo_id>', methods=['GET'])
+def fetch_logo(logo_id):
+    # URL do novo endpoint do plugin para buscar a logo
+    logo_url = f'{REDMINE_URL}/fetch_logo/{logo_id}'
+
+    # Fazer a requisição para o novo endpoint
+    response = requests.get(logo_url, stream=True, verify=False)
+
+    # Verificar se a requisição foi bem-sucedida
+    if response.ok:
+        return send_file(response.raw, mimetype=response.headers['Content-Type'])
+    else:
+        return jsonify({'error': 'Failed to fetch logo'}), response.status_code
+
+
 @app.route('/relatorio_horas_client/<int:user_id>', methods=['GET'])
 def relatorio_horas_client(user_id):
     try:
@@ -1079,7 +1153,8 @@ def relatorio_horas_client(user_id):
                 # Extrai usuários e projetos para os filtros
                 usuarios = {entry['user']['name'] for entry in time_entries}
                 projetos = {entry['project']['name'] for entry in time_entries}
-
+                logo_id = get_logo_id(entry['project']['id'])
+                logo_proxy_url = f'/fetch_logo/{logo_id}'
                 # Template HTML para renderizar a página com filtros
                 html_template = f'''
                 <!DOCTYPE html>
@@ -1862,7 +1937,7 @@ def relatorio_horas_client(user_id):
                 <body>
                     <div id="header">
                         <div class="header-logo">
-                            <img src="{{{{ url_for('static', filename='transparent_evt_logo.png') }}}}" alt="EVT">
+                            <img src="{logo_proxy_url}" alt="EVT" onerror="this.onerror=null; this.src='https://example.com/default_logo.png';">
                             <h1>EVT - Aprovação de Horas - {user_name}</h1>
                         </div>
                     </div>
