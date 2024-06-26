@@ -316,7 +316,7 @@ def send_email_task(file_content, recipient_emails, project_name, user_id, user_
 
         for email in recipient_emails:
             token = get_or_create_token(user_id, email)
-            link = f"{API_URL}relatorio_horas/{user_id}?token={token}"
+            link = f"{API_URL}relatorio_horas/{user_id}?token={token}&project={project_name}"
             email_content = f"{file_content}\n\nPara visualizar as entradas de tempo, acesse o link: <a href='{link}'>Relatório</a>"
 
             if email.strip() in allowed_emails:
@@ -2513,7 +2513,7 @@ def create_html_table_client(time_entries, recipient):
               <td>{entry['comments']}</td>
               <td>{hora_inicial}</td>
               <td>{hora_final}</td>
-              <td class="hours-value">{entry['hours']}</td>
+              <td class="hours-value">{entry['hours']:.2f}</td>
               <td class="approved-value">{aprovado}</td>
               <td>
                 <a href="#" onclick="approveHour({entry['id']}, '{request.args.get('token')}', {is_client}, {entry['hours']}, '{aprovado}')" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
@@ -2529,10 +2529,10 @@ def create_html_table_client(time_entries, recipient):
       <br>
       </div>
       <div id="hours-summary-table" class="hours-summary">
-        <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
-        <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
-        <p>Total de Horas Reprovadas: <span class="hours-repproved">{repproved_hours}</span></p>
-        <p>Total de Horas Pendentes de Aprovação: <span class="hours-unapproved">{unapproved_hours}</span></p>
+        <p>Total de Horas: <span class="hours-total">{total_hours:.2f}</span></p>
+        <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours:.2f}</span></p>
+        <p>Total de Horas Reprovadas: <span class="hours-repproved">{repproved_hours:.2f}</span></p>
+        <p>Total de Horas Pendentes de Aprovação: <span class="hours-unapproved">{unapproved_hours:.2f}</span></p>
       </div>
     '''
 
@@ -5653,7 +5653,7 @@ def create_html_table(time_entries):
           <td>{entry['comments']}</td>
           <td>{hora_inicial}</td>
           <td>{hora_final}</td>
-          <td class="hours-value">{entry['hours']}</td>
+          <td class="hours-value">{entry['hours']:.2f}</td>
           <td class="approved-value">{aprovado}</td>
           <td>
             <a href="#" onclick="approveHour({entry['id']}, '{token}', {is_client}, {entry['hours']}, '{aprovado}')" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
@@ -5669,10 +5669,10 @@ def create_html_table(time_entries):
       <br>
       </div>
       <div id="hours-summary-table" class="hours-summary">
-        <p>Total de Horas: <span class="hours-total">{total_hours}</span></p>
-        <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours}</span></p>
-        <p>Total de Horas Reprovadas: <span class="hours-repproved">{repproved_hours}</span></p>
-        <p>Total de Horas Pendentes de Aprovação: <span class="hours-unapproved">{unapproved_hours}</span></p>
+        <p>Total de Horas: <span class="hours-total">{total_hours:.2f}</span></p>
+        <p>Total de Horas Aprovadas: <span class="hours-approved">{approved_hours:.2f}</span></p>
+        <p>Total de Horas Reprovadas: <span class="hours-repproved">{repproved_hours:.2f}</span></p>
+        <p>Total de Horas Pendentes de Aprovação: <span class="hours-unapproved">{unapproved_hours:.2f}</span></p>
       </div>
     '''
 
@@ -6137,7 +6137,7 @@ def create_html_table_filters(time_entries):
           <td>{entry['comments']}</td>
           <td>{hora_inicial}</td>
           <td>{hora_final}</td>
-          <td class="hours-value">{entry['hours']}</td>
+          <td class="hours-value">{entry['hours']:.2f}</td>
           <td class="approved-value">{aprovado}</td>
           <td>
             <a href="#" onclick="approveHour({entry['id']}, '{token}', {is_client}, {entry['hours']}, '{aprovado}')" class="btn btn-approve-table {'disabled' if approved else ''}" style="opacity:{'0' if approved else '1'};">Aprovar</a>
