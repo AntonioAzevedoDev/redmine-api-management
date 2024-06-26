@@ -1688,7 +1688,7 @@ def relatorio_horas_client(user_id):
                             }}
                         }});
                     </script>
-                    <style>
+                   <style>
                         body {{
                             overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
                             margin: 0;
@@ -1717,7 +1717,7 @@ def relatorio_horas_client(user_id):
                             align-items: stretch;
                             width: 100%;
                         }}
-
+                    
                         .toggle-filters {{
                             background-color: #1E90FF;
                             color: white;
@@ -1730,36 +1730,36 @@ def relatorio_horas_client(user_id):
                             max-width: 200px;
                             align-self: center;
                         }}
-
+                    
                         #time_entries_form {{
                             display: flex;
                             flex-direction: column;
                             gap: 10px;
                             width: 100%;
                         }}
-
+                    
                         #filter-fields {{
                             display: flex;
                             flex-direction: column;
                             gap: 10px;
                         }}
-
+                    
                         .filters label {{
                             font-weight: bold;
                             margin-bottom: 5px;
                         }}
-
+                    
                         .filters input, .filters select {{
                             width: 100%;
                             padding: 10px;
                             border: 1px solid #ddd;
                             border-radius: 5px;
                         }}
-
+                    
                         .legend-text {{
                             display: none; /* Oculta a legenda no modo mobile */
                         }}
-
+                    
                         .arrow {{
                             display: none; /* Oculta a seta no modo mobile */
                         }}
@@ -1828,6 +1828,45 @@ def relatorio_horas_client(user_id):
                         .btn-relatorio:hover {{
                             background-color: #63B8FF; /* Azul claro ao passar o mouse */
                         }}
+                        .filters label, .legend-button {{
+                            color: black;
+                        }}
+                        table {{
+                            width: 100%;
+                        }}
+                        #detailsPopup {{
+                            display: none;
+                            position: fixed;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            background-color: white;
+                            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+                            z-index: 1000;
+                            padding: 20px;
+                            border-radius: 5px;
+                            max-width: 90%;
+                            max-height: 90%;
+                            overflow-y: auto;
+                        }}
+                        #detailsPopup .btn-group {{
+                            display: flex;
+                            justify-content: space-between;
+                            margin-top: 20px;
+                        }}
+                        .close-button {{
+                            position: absolute;
+                            top: 10px;
+                            right: 10px;
+                            background: none;
+                            border: none;
+                            font-size: 1.5rem;
+                            cursor: pointer;
+                        }}
+                        .close-button:hover {{
+                            color: red;
+                        }}
+                        
                         @media (max-width: 768px) {{
                             .filters-container {{
                                 display: flex;
@@ -1908,63 +1947,6 @@ def relatorio_horas_client(user_id):
                             #hours-summary {{
                                 display: block; /* Mostrar no modo mobile */
                             }}
-                        }}
-                        @media (min-width: 769px) {{
-                            .toggle-filters {{
-                                display: none;
-                            }}
-                            #time_entries_form {{
-                                display: block !important;
-                            }}
-                            #hours-summary {{
-                                display: none; /* Esconder no modo desktop */
-                            }}
-                            .legend-text {{
-                                display: block; /* Mostrar a legenda no modo desktop */
-                            }}
-                            .arrow {{
-                                display: inline; /* Mostrar a seta no modo desktop */
-                            }}
-                        }}
-                        .filters label, .legend-button {{
-                            color: black;
-                        }}
-                        table {{
-                            width: 100%;
-                        }}
-                        #detailsPopup {{
-                            display: none;
-                            position: fixed;
-                            top: 50%;
-                            left: 50%;
-                            transform: translate(-50%, -50%);
-                            background-color: white;
-                            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-                            z-index: 1000;
-                            padding: 20px;
-                            border-radius: 5px;
-                            max-width: 90%;
-                            max-height: 90%;
-                            overflow-y: auto;
-                        }}
-                        #detailsPopup .btn-group {{
-                            display: flex;
-                            justify-content: space-between;
-                            margin-top: 20px;
-                        }}
-                        .close-button {{
-                            position: absolute;
-                            top: 10px;
-                            right: 10px;
-                            background: none;
-                            border: none;
-                            font-size: 1.5rem;
-                            cursor: pointer;
-                        }}
-                        .close-button:hover {{
-                            color: red;
-                        }}
-                        @media (max-width: 768px) {{
                             #all-actions {{
                                 display: none;
                             }}
@@ -1998,36 +1980,72 @@ def relatorio_horas_client(user_id):
                             .hours-unapproved-mobile {{
                                 color: #bbdb03;
                             }}
+                            #loadingSpinner {{
+                                display: none;
+                                position: fixed;
+                                top: 90%;
+                                left: 50%;
+                                transform: translate(-50%, -50%);
+                                z-index: 1000;
+                            }}
+                            .loading-active .container {{
+                                margin-top: 20px; /* Ajuste conforme necessário */
+                            }}
+                            .spinner {{
+                                border: 16px solid #f3f3f3;
+                                border-top: 16px solid #3498db;
+                                border-radius: 50%;
+                                width: 60px; /* Metade do tamanho original */
+                                height: 60px; /* Metade do tamanho original */
+                                animation: spin 2s linear infinite;
+                            }}
                         }}
                         @media (min-width: 769px) {{
                             #mobile-actions-buttons {{
                                 display: none; /* Tornar invisível no modo desktop */
                             }}
+                            .toggle-filters {{
+                                display: none;
+                            }}
+                            #time_entries_form {{
+                                display: block !important;
+                            }}
+                            #hours-summary {{
+                                display: none; /* Esconder no modo desktop */
+                            }}
+                            .legend-text {{
+                                display: block; /* Mostrar a legenda no modo desktop */
+                            }}
+                            .arrow {{
+                                display: inline; /* Mostrar a seta no modo desktop */
+                            }}
+                            #loadingSpinner {{
+                                display: none;
+                                position: fixed;
+                                top: 70%;
+                                left: 50%;
+                                transform: translate(-50%, -50%);
+                                z-index: 1000;
+                            }}
+                            .loading-active .container {{
+                                margin-top: 20px; /* Ajuste conforme necessário */
+                            }}
+                            .spinner {{
+                                border: 16px solid #f3f3f3;
+                                border-top: 16px solid #3498db;
+                                border-radius: 50%;
+                                width: 120px;
+                                height: 120px;
+                                animation: spin 2s linear infinite;
+                            }}
+                            @keyframes spin {{
+                                0% {{ transform: rotate(0deg); }}
+                                100% {{ transform: rotate(360deg); }}
+                            }}
                         }}
-                        #loadingSpinner {{
-                            display: none;
-                            position: fixed;
-                            top: 70%;
-                            left: 50%;
-                            transform: translate(-50%, -50%);
-                            z-index: 1000;
-                        }}
-                        .loading-active .container {{
-                            margin-top: 20px; /* Ajuste conforme necessário */
-                        }}
-                        .spinner {{
-                            border: 16px solid #f3f3f3;
-                            border-top: 16px solid #3498db;
-                            border-radius: 50%;
-                            width: 120px;
-                            height: 120px;
-                            animation: spin 2s linear infinite;
-                        }}
-                        @keyframes spin {{
-                            0% {{ transform: rotate(0deg); }}
-                            100% {{ transform: rotate(360deg); }}
-                        }}
+                        
                     </style>
+
                 </head>
                 <body>
                     <div id="header">
