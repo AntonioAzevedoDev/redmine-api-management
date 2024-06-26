@@ -1,7 +1,10 @@
 import calendar
 import json
+import urllib
 from collections import defaultdict
 from datetime import datetime, timedelta
+from urllib.parse import unquote
+
 from flask import render_template_string
 import logging
 from flask import Flask, request, jsonify, redirect, render_template, url_for, session, render_template_string, send_file
@@ -34,6 +37,7 @@ API_URL = "https://timesheetqas.evtit.com/"
 #API_URL = "http://127.0.0.1:5000/"
 usuarios_all = []
 projetos_all = []
+projects_detailed_all = []
 
 
 class User(db.Model):
@@ -1054,6 +1058,46 @@ def fetch_logo(logo_id):
         return jsonify({'error': 'Failed to fetch logo'}), response.status_code
 
 
+@app.route('/update_logo_url/<encoded_project_name>', methods=['GET'])
+def update_logo_url(encoded_project_name):
+    try:
+        # Verifica se project_name está correto e pode ser utilizado
+        if not encoded_project_name:
+            return jsonify({'error': 'Nome do projeto não fornecido.'}), 400
+
+        project_name = urllib.parse.unquote(encoded_project_name).replace('*', '/')
+        # Chama a função update_logo_url_internal com o nome do projeto
+        logo_url = update_logo_url_internal(project_name)
+
+        # Retorna a URL do logo
+        if logo_url:
+            return jsonify({'logo_url': logo_url}), 200
+        else:
+            return jsonify({'error': 'Logo não encontrado.'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def update_logo_url_internal(project_name):
+    # Varre a lista de projetos e encontra o ID do projeto correspondente ao nome fornecido
+    if project_name != 'Todos':
+        project = next((p for p in projects_detailed_all if p['name'].lower() == project_name.lower()), None)
+    else:
+        logo_proxy_url = f'/fetch_logo/6242'
+        return logo_proxy_url
+    if project:
+        project_id = project['id']
+        logo_id = get_logo_id(project_id)
+
+        if logo_id:
+            logo_proxy_url = f'/fetch_logo/{logo_id}'
+            return logo_proxy_url
+        else:
+            raise ValueError('Logo ID não encontrado.')
+    else:
+        raise ValueError('Projeto não encontrado.')
+
+
 @app.route('/relatorio_horas_client/<int:user_id>', methods=['GET'])
 def relatorio_horas_client(user_id):
     try:
@@ -1181,7 +1225,7 @@ def relatorio_horas_client(user_id):
 
                         document.addEventListener('DOMContentLoaded', function() {{
                             // Lógica de seleção automática de projetos e filtros
-                            
+
                             const projectSelect = document.getElementById('projectSelect');
                             const project_name = "{project_name}";
                             if (projectSelect && project_name) {{
@@ -1195,6 +1239,25 @@ def relatorio_horas_client(user_id):
                                 }}
                             }}
 
+                            async function updateProjectLogo() {{
+                                var projectSelect = document.getElementById("projectSelect");
+                                var selectedProject = projectSelect.options[projectSelect.selectedIndex].text;
+                                var encodedProjectName = encodeURIComponent(selectedProject.replace(/\//g, '*'));
+
+                                try {{
+                                    const response = await fetch(`/update_logo_url/${{encodedProjectName}}`);
+                                    const data = await response.json();
+                                    console.log("data:" + data.logo_url);
+                                    if (data.logo_url) {{
+                                        document.querySelector(".header-logo img").src = data.logo_url;
+                                    }} else {{
+                                        console.error('Erro ao atualizar o logo do projeto:', data.error || 'Erro desconhecido');
+                                    }}
+                                }} catch (error) {{
+                                    console.error('Erro:', error);
+                                }}
+                            }}
+
                             document.getElementById("filterInput").addEventListener("keyup", function() {{
                                 filterBySelect();
                             }});
@@ -1203,8 +1266,17 @@ def relatorio_horas_client(user_id):
                                 filterBySelect();
                             }});
 
-                            document.getElementById("projectSelect").addEventListener("change", function() {{
+                            document.getElementById("projectSelect").addEventListener("change", async function() {{
+                                const tableContainer = document.querySelector('.table-container');
+                                const loadingSpinner = document.getElementById("loadingSpinner");
+                                tableContainer.style.display = 'none'; // Esconde a tabela
+                                loadingSpinner.style.display = 'block'; // Mostra o spinner de carregamento
+
+                                await updateProjectLogo();
                                 filterBySelect();
+
+                                tableContainer.style.display = 'block'; // Mostra a tabela
+                                loadingSpinner.style.display = 'none'; // Esconde o spinner de carregamento
                             }});
 
                             document.getElementById("approvalSelect").addEventListener("change", function() {{
@@ -1215,53 +1287,53 @@ def relatorio_horas_client(user_id):
 
                             tableRows.forEach(row => {{
                                 row.addEventListener('click', function() {{
-                                 if (window.innerWidth <= 768) {{
-                                    var entryData = {{
-                                        spent_on: row.cells[1].textContent.trim(),
-                                        user: {{ name: row.cells[2].textContent.trim() }},
-                                        activity: {{ name: row.cells[3].textContent.trim() }},
-                                        project: {{ name: row.cells[4].textContent.trim() }},
-                                        comments: row.cells[5].textContent.trim(),
-                                        custom_fields: [
-                                            {{ name: 'Hora inicial (HH:MM)', value: row.cells[6].textContent.trim() }},
-                                            {{ name: 'Hora final (HH:MM)', value: row.cells[7].textContent.trim() }},
-                                            {{ name: 'Local de trabalho', value: 'Indisponível' }},
-                                            {{ name: 'TS - Aprovado - CLI', value: row.cells[9].textContent.trim() }}
-                                        ],
-                                        hours: row.cells[8].textContent.trim(),
-                                        id: row.id.split('-')[2]
-                                    }};
-                                    if (entryData) {{
-                                        var entry = entryData;
+                                    if (window.innerWidth <= 768) {{
+                                        var entryData = {{
+                                            spent_on: row.cells[1].textContent.trim(),
+                                            user: {{ name: row.cells[2].textContent.trim() }},
+                                            activity: {{ name: row.cells[3].textContent.trim() }},
+                                            project: {{ name: row.cells[4].textContent.trim() }},
+                                            comments: row.cells[5].textContent.trim(),
+                                            custom_fields: [
+                                                {{ name: 'Hora inicial (HH:MM)', value: row.cells[6].textContent.trim() }},
+                                                {{ name: 'Hora final (HH:MM)', value: row.cells[7].textContent.trim() }},
+                                                {{ name: 'Local de trabalho', value: 'Indisponível' }},
+                                                {{ name: 'TS - Aprovado - CLI', value: row.cells[9].textContent.trim() }}
+                                            ],
+                                            hours: row.cells[8].textContent.trim(),
+                                            id: row.id.split('-')[2]
+                                        }};
+                                        if (entryData) {{
+                                            var entry = entryData;
 
-                                        var popup = document.getElementById('detailsPopup');
-                                        var content = document.getElementById('popupContent');
+                                            var popup = document.getElementById('detailsPopup');
+                                            var content = document.getElementById('popupContent');
 
-                                        var horaInicial = entry.custom_fields.find(field => field.name === 'Hora inicial (HH:MM)').value;
-                                        var horaFinal = entry.custom_fields.find(field => field.name === 'Hora final (HH:MM)').value;
-                                        var localTrabalho = entry.custom_fields.find(field => field.name === 'Local de trabalho').value;
-                                        var aprovado = entry.custom_fields.find(field => field.name === 'TS - Aprovado - CLI').value;
-                                        var approved_value = (aprovado === '1') ? 'Sim' : (aprovado === '0') ? 'Não' : 'Pendente';
+                                            var horaInicial = entry.custom_fields.find(field => field.name === 'Hora inicial (HH:MM)').value;
+                                            var horaFinal = entry.custom_fields.find(field => field.name === 'Hora final (HH:MM)').value;
+                                            var localTrabalho = entry.custom_fields.find(field => field.name === 'Local de trabalho').value;
+                                            var aprovado = entry.custom_fields.find(field => field.name === 'TS - Aprovado - CLI').value;
+                                            var approved_value = (aprovado === '1') ? 'Sim' : (aprovado === '0') ? 'Não' : 'Pendente';
 
-                                        content.innerHTML = `
-                                            <p><strong>Data:</strong> ${{entry['spent_on']}}</p>
-                                            <p><strong>Usuário:</strong> ${{entry['user']['name']}}</p>
-                                            <p><strong>Atividade:</strong> ${{entry['activity']['name']}}</p>
-                                            <p><strong>Projeto:</strong> ${{entry['project']['name']}}</p>
-                                            <p><strong>Comentários:</strong> ${{entry['comments']}}</p>
-                                            <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
-                                            <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
-                                            <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
-                                            <p><strong>Aprovado:</strong> ${{aprovado}}</p>
-                                            <div class="btn-group">
-                                                <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Aprovar</a>
-                                                <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Reprovar</a>
-                                            </div>
-                                        `;
-                                        popup.style.display = 'block';
-                                    }} else {{
-                                        console.error('Dados da entrada não encontrados.');
-                                    }}
+                                            content.innerHTML = `
+                                                <p><strong>Data:</strong> ${{entry['spent_on']}}</p>
+                                                <p><strong>Usuário:</strong> ${{entry['user']['name']}}</p>
+                                                <p><strong>Atividade:</strong> ${{entry['activity']['name']}}</p>
+                                                <p><strong>Projeto:</strong> ${{entry['project']['name']}}</p>
+                                                <p><strong>Comentários:</strong> ${{entry['comments']}}</p>
+                                                <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
+                                                <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
+                                                <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
+                                                <p><strong>Aprovado:</strong> ${{aprovado}}</p>
+                                                <div class="btn-group">
+                                                    <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                    <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Reprovar</a>
+                                                </div>
+                                            `;
+                                            popup.style.display = 'block';
+                                        }} else {{
+                                            console.error('Dados da entrada não encontrados.');
+                                        }}
                                     }}
                                 }});
                             }});
@@ -1592,7 +1664,7 @@ def relatorio_horas_client(user_id):
                                 if (thHoraInicial) {{
                                     thHoraInicial.textContent = 'Hora Inicial';
                                 }}
-                            
+
                                 var thHoraFinal = document.querySelector('#time_entries_table thead tr th:nth-child(8)');
                                 if (thHoraFinal) {{
                                     thHoraFinal.textContent = 'Hora Final';
@@ -1606,7 +1678,7 @@ def relatorio_horas_client(user_id):
                                     var thXPath = `//*[@id="time_entries_table"]/thead/tr/th[${{index}}]`;
                                     var th = document.evaluate(thXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
                                     if (th) th.style.display = 'none';
-                    
+
                                     var tdXPath = `//*[@id="time_entries_table"]/tbody/tr/td[${{index}}]`;
                                     var tds = document.evaluate(tdXPath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
                                     for (var i = 0; i < tds.snapshotLength; i++) {{
@@ -1932,6 +2004,29 @@ def relatorio_horas_client(user_id):
                                 display: none; /* Tornar invisível no modo desktop */
                             }}
                         }}
+                        #loadingSpinner {{
+                            display: none;
+                            position: fixed;
+                            top: 70%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            z-index: 1000;
+                        }}
+                        .loading-active .container {{
+                            margin-top: 20px; /* Ajuste conforme necessário */
+                        }}
+                        .spinner {{
+                            border: 16px solid #f3f3f3;
+                            border-top: 16px solid #3498db;
+                            border-radius: 50%;
+                            width: 120px;
+                            height: 120px;
+                            animation: spin 2s linear infinite;
+                        }}
+                        @keyframes spin {{
+                            0% {{ transform: rotate(0deg); }}
+                            100% {{ transform: rotate(360deg); }}
+                        }}
                     </style>
                 </head>
                 <body>
@@ -1974,7 +2069,7 @@ def relatorio_horas_client(user_id):
                     [f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
                                         </select>
                                         <label for="projectSelect">Projeto:</label>
-                                        <select id="projectSelect" onchange="filterBySelect()">
+                                        <select id="projectSelect" >
                                             <option value="ALL">Todos</option>
                                             {''.join(
                     [f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
@@ -2003,6 +2098,9 @@ def relatorio_horas_client(user_id):
                             </div>
                         </div>
                     </div>
+                    <div id="loadingSpinner">
+                        <div class="spinner"></div>
+                    </div>
                     <div id="detailsPopup">
                         <div id="popupContent"></div>
                         <button type="button" class="close-button" onclick="hideDetailsPopup()">×</button>
@@ -2010,6 +2108,7 @@ def relatorio_horas_client(user_id):
                     <script>
                         document.addEventListener('DOMContentLoaded', function() {{
                             const projectSelect = document.getElementById('projectSelect');
+                            const project_name = "{project_name}";
                             if (projectSelect && project_name) {{
                                 const options = projectSelect.options;
                                 for (let i = 0; i < options.length; i++) {{
@@ -2028,8 +2127,19 @@ def relatorio_horas_client(user_id):
                                 filterBySelect();
                             }});
 
-                            document.getElementById("projectSelect").addEventListener("change", function() {{
+                            document.getElementById("projectSelect").addEventListener("change", async function() {{
+                                const tableContainer = document.querySelector('.table-container');
+                                const loadingSpinner = document.getElementById("loadingSpinner");
+                                document.body.classList.add('loading-active'); // Adiciona a classe ao body
+                                tableContainer.style.display = 'none'; // Esconde a tabela
+                                loadingSpinner.style.display = 'block'; // Mostra o spinner de carregamento
+
+                                await updateProjectLogo();
                                 filterBySelect();
+
+                                tableContainer.style.display = 'block'; // Mostra a tabela
+                                loadingSpinner.style.display = 'none'; // Esconde o spinner de carregamento
+                                document.body.classList.remove('loading-active'); // Remove a classe do body
                             }});
 
                             document.getElementById("approvalSelect").addEventListener("change", function() {{
@@ -2040,53 +2150,53 @@ def relatorio_horas_client(user_id):
 
                             tableRows.forEach(row => {{
                                 row.addEventListener('click', function() {{
-                                 if (window.innerWidth <= 768) {{
-                                    var entryData = {{
-                                        spent_on: row.cells[1].textContent.trim(),
-                                        user: {{ name: row.cells[2].textContent.trim() }},
-                                        activity: {{ name: row.cells[3].textContent.trim() }},
-                                        project: {{ name: row.cells[4].textContent.trim() }},
-                                        comments: row.cells[5].textContent.trim(),
-                                        custom_fields: [
-                                            {{ name: 'Hora inicial (HH:MM)', value: row.cells[6].textContent.trim() }},
-                                            {{ name: 'Hora final (HH:MM)', value: row.cells[7].textContent.trim() }},
-                                            {{ name: 'Local de trabalho', value: 'Indisponível' }},
-                                            {{ name: 'TS - Aprovado - CLI', value: row.cells[9].textContent.trim() }}
-                                        ],
-                                        hours: row.cells[8].textContent.trim(),
-                                        id: row.id.split('-')[2]
-                                    }};
-                                    if (entryData) {{
-                                        var entry = entryData;
+                                    if (window.innerWidth <= 768) {{
+                                        var entryData = {{
+                                            spent_on: row.cells[1].textContent.trim(),
+                                            user: {{ name: row.cells[2].textContent.trim() }},
+                                            activity: {{ name: row.cells[3].textContent.trim() }},
+                                            project: {{ name: row.cells[4].textContent.trim() }},
+                                            comments: row.cells[5].textContent.trim(),
+                                            custom_fields: [
+                                                {{ name: 'Hora inicial (HH:MM)', value: row.cells[6].textContent.trim() }},
+                                                {{ name: 'Hora final (HH:MM)', value: row.cells[7].textContent.trim() }},
+                                                {{ name: 'Local de trabalho', value: 'Indisponível' }},
+                                                {{ name: 'TS - Aprovado - CLI', value: row.cells[9].textContent.trim() }}
+                                            ],
+                                            hours: row.cells[8].textContent.trim(),
+                                            id: row.id.split('-')[2]
+                                        }};
+                                        if (entryData) {{
+                                            var entry = entryData;
 
-                                        var popup = document.getElementById('detailsPopup');
-                                        var content = document.getElementById('popupContent');
+                                            var popup = document.getElementById('detailsPopup');
+                                            var content = document.getElementById('popupContent');
 
-                                        var horaInicial = entry.custom_fields.find(field => field.name === 'Hora inicial (HH:MM)').value;
-                                        var horaFinal = entry.custom_fields.find(field => field.name === 'Hora final (HH:MM)').value;
-                                        var localTrabalho = entry.custom_fields.find(field => field.name === 'Local de trabalho').value;
-                                        var aprovado = entry.custom_fields.find(field => field.name === 'TS - Aprovado - CLI').value;
-                                        var approved_value = (aprovado === '1') ? 'Sim' : (aprovado === '0') ? 'Não' : 'Pendente';
+                                            var horaInicial = entry.custom_fields.find(field => field.name === 'Hora inicial (HH:MM)').value;
+                                            var horaFinal = entry.custom_fields.find(field => field.name === 'Hora final (HH:MM)').value;
+                                            var localTrabalho = entry.custom_fields.find(field => field.name === 'Local de trabalho').value;
+                                            var aprovado = entry.custom_fields.find(field => field.name === 'TS - Aprovado - CLI').value;
+                                            var approved_value = (aprovado === '1') ? 'Sim' : (aprovado === '0') ? 'Não' : 'Pendente';
 
-                                        content.innerHTML = `
-                                            <p><strong>Data:</strong> ${{entry['spent_on']}}</p>
-                                            <p><strong>Usuário:</strong> ${{entry['user']['name']}}</p>
-                                            <p><strong>Atividade:</strong> ${{entry['activity']['name']}}</p>
-                                            <p><strong>Projeto:</strong> ${{entry['project']['name']}}</p>
-                                            <p><strong>Comentários:</strong> ${{entry['comments']}}</p>
-                                            <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
-                                            <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
-                                            <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
-                                            <p><strong>Aprovado:</strong> ${{aprovado}}</p>
-                                            <div class="btn-group">
-                                                <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Aprovar</a>
-                                                <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Reprovar</a>
-                                            </div>
-                                        `;
-                                        popup.style.display = 'block';
-                                    }} else {{
-                                        console.error('Dados da entrada não encontrados.');
-                                    }}
+                                            content.innerHTML = `
+                                                <p><strong>Data:</strong> ${{entry['spent_on']}}</p>
+                                                <p><strong>Usuário:</strong> ${{entry['user']['name']}}</p>
+                                                <p><strong>Atividade:</strong> ${{entry['activity']['name']}}</p>
+                                                <p><strong>Projeto:</strong> ${{entry['project']['name']}}</p>
+                                                <p><strong>Comentários:</strong> ${{entry['comments']}}</p>
+                                                <p><strong>Hora Inicial:</strong> ${{horaInicial}}</p>
+                                                <p><strong>Hora Final:</strong> ${{horaFinal}}</p>
+                                                <p><strong>Total de Horas:</strong> ${{entry['hours']}}</p>
+                                                <p><strong>Aprovado:</strong> ${{aprovado}}</p>
+                                                <div class="btn-group">
+                                                    <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Aprovar</a>
+                                                    <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{aprovado}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{aprovado === 'Sim' ? 'disabled' : ''}}" style="opacity:${{aprovado === 'Sim' ? '0' : '1'}};">Reprovar</a>
+                                                </div>
+                                            `;
+                                            popup.style.display = 'block';
+                                        }} else {{
+                                            console.error('Dados da entrada não encontrados.');
+                                        }}
                                     }}
                                 }});
                             }});
@@ -3831,6 +3941,7 @@ def relatorio_horas(user_id):
                                 <script>
                                     document.addEventListener('DOMContentLoaded', function() {{
                                         const projectSelect = document.getElementById('projectSelect');
+                                        const project_name = "{project_name}";
                                         if (projectSelect && project_name) {{
                                             const options = projectSelect.options;
                                             for (let i = 0; i < options.length; i++) {{
@@ -5559,6 +5670,7 @@ def get_all_projects():
         projects_response = make_request(project_url)
         if projects_response:
             projects = projects_response.json().get('projects', [])
+            projects_detailed_all.extend(projects)
 
             for p in projects:
                 projetos_all.append(p['name'])
