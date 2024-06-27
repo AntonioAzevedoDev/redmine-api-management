@@ -1124,7 +1124,7 @@ def relatorio_horas_client(user_id):
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
         is_client = 1 if 'client' in request.full_path else 0
-
+        project = next((p for p in projects_detailed_all if p['name'].lower() == project_name.lower()), None)
         # Definir datas padrão (últimos 30 dias) se não fornecidas
         if not start_date or not end_date:
             today = datetime.today()
@@ -1134,7 +1134,7 @@ def relatorio_horas_client(user_id):
             end_date = last_day_of_month.strftime('%Y-%m-%d')
 
         # Construir URL de requisição com filtros
-        url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
+        url = f"{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}&project_id={project['id']}"
 
         entries_response = requests.get(url, headers={
             'X-Redmine-API-Key': REDMINE_API_KEY,
