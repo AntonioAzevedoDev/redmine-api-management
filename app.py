@@ -371,8 +371,12 @@ def send_email_report_client():
         project_identifier = request.headers.get('project')
         today = datetime.today()
         seven_days_ago = today - timedelta(days=7)
-        start_date = seven_days_ago.strftime('%Y-%m-%d')
-        end_date = today.strftime('%Y-%m-%d')
+
+        first_day_of_month = today.replace(day=1)
+        last_day_of_month = today.replace(day=calendar.monthrange(today.year, today.month)[1])
+        start_date = first_day_of_month.strftime('%Y-%m-%d')
+        end_date = last_day_of_month.strftime('%Y-%m-%d')
+
 
         project_id = None
         if project_identifier:
@@ -389,7 +393,7 @@ def send_email_report_client():
                 logger.error(f"Erro ao buscar o projeto: {project_response.status_code}")
                 return jsonify('Erro ao buscar o projeto.'), 500
 
-        url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&from={start_date}&to={end_date}'
+        url = f'{REDMINE_URL}/time_entries.json?user_id={user_id}&project_id={project_id}'
         entries_response = requests.get(url, headers={
             'X-Redmine-API-Key': REDMINE_API_KEY,
             'Content-Type': 'application/json'
@@ -655,7 +659,7 @@ def atualizar_todas_entradas(aprovacao, entry_ids, token, is_client):
                 custom_fields = time_entry.get('custom_fields', [])
 
                 data_original = time_entry.get('spent_on')
-                nova_data = (datetime.now() + timedelta(days=4)).strftime('%Y-%m-%d')
+                nova_data = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
                 data_atual = datetime.now().strftime('%Y-%m-%d')
 
                 alterar_status, alterar_response = alterar_data_temporariamente(entry_id, nova_data)
@@ -714,7 +718,7 @@ def atualizar_todas_entradas(aprovacao, entry_ids, token, is_client):
                 custom_fields = time_entry.get('custom_fields', [])
 
                 data_original = time_entry.get('spent_on')
-                nova_data = (datetime.now() - timedelta(days=4)).strftime('%Y-%m-%d')
+                nova_data = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
                 data_atual = datetime.now().strftime('%Y-%m-%d')
 
                 alterar_status, alterar_response = alterar_data_temporariamente(entry_id, nova_data)
