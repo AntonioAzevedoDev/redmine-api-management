@@ -1226,28 +1226,40 @@ def relatorio_horas_client(user_id):
                                 arrow.innerHTML = '▶';  // Seta para baixo
                             }}
                         }}
+                        
 
-                        document.addEventListener('DOMContentLoaded', function() {{
-                            // Lógica de seleção automática de projetos e filtros
-
-                            const projectSelect = document.getElementById('projectSelect');
-                            const project_name = "{project_name}";
-                            if (projectSelect && project_name) {{
-                                const options = projectSelect.options;
-                                for (let i = 0; i < options.length; i++) {{
-                                    if (options[i].text.toUpperCase() === project_name.toUpperCase()) {{
-                                        projectSelect.selectedIndex = i;
-                                        filterBySelect();
-                                        break;
-                                    }}
-                                }}
+                        document.addEventListener('DOMContentLoaded', async function() {{
+                            // Função para mostrar o popup com o comentário completo
+                            function showCommentPopup(comment) {{
+                                var popup = document.getElementById('commentPopup');
+                                var content = document.getElementById('commentPopupContent');
+                        
+                                content.innerHTML = `<p>${{comment}}</p>`;
+                                popup.style.display = 'block';
                             }}
-
-                            async function updateProjectLogo() {{
-                                var projectSelect = document.getElementById("projectSelect");
-                                var selectedProject = projectSelect.options[projectSelect.selectedIndex].text;
-                                var encodedProjectName = encodeURIComponent(selectedProject.replace(/\//g, '*'));
-
+                        
+                            // Adiciona evento de clique às células de comentários em modo desktop
+                            const tableRows = document.querySelectorAll('#time_entries_table tbody tr');
+                            tableRows.forEach(row => {{
+                                var commentCell = row.cells[5]; // Coluna de comentários (ajuste conforme necessário)
+                                commentCell.addEventListener('click', function() {{
+                                    if (window.innerWidth > 768) {{ // Somente para modo desktop
+                                        var comment = commentCell.textContent.trim();
+                                        showCommentPopup(comment);
+                                    }}
+                                }});
+                            }});
+                        
+                            // Função para fechar o popup
+                            document.getElementById('closeCommentPopup').addEventListener('click', function() {{
+                                var popup = document.getElementById('commentPopup');
+                                popup.style.display = 'none';
+                            }});
+                            
+                            
+                            async function updateProjectLogo(projectName) {{
+                                var encodedProjectName = encodeURIComponent(projectName.replace(/\//g, '*'));
+                        
                                 try {{
                                     const response = await fetch(`/update_logo_url/${{encodedProjectName}}`);
                                     const data = await response.json();
@@ -1261,33 +1273,51 @@ def relatorio_horas_client(user_id):
                                     console.error('Erro:', error);
                                 }}
                             }}
-
+                        
+                            const projectSelect = document.getElementById('projectSelect');
+                            const project_name = "{project_name}";
+                            console.log('project_name:'+project_name);
+                            if (projectSelect && project_name) {{
+                                const options = projectSelect.options;
+                                for (let i = 0; i < options.length; i++) {{
+                                    if (options[i].text.toUpperCase() === project_name.toUpperCase()) {{
+                                        projectSelect.selectedIndex = i;
+                                        await updateProjectLogo(project_name);  // Atualiza a logo assim que a página for carregada
+                                        filterBySelect();
+                                        break;
+                                    }}
+                                }}
+                            }} else if (projectSelect) {{
+                                await updateProjectLogo(projectSelect.options[projectSelect.selectedIndex].text);  // Atualiza a logo com o projeto selecionado
+                            }}
+                        
                             document.getElementById("filterInput").addEventListener("keyup", function() {{
                                 filterBySelect();
                             }});
-
+                        
                             document.getElementById("userSelect").addEventListener("change", function() {{
                                 filterBySelect();
                             }});
-
+                        
                             document.getElementById("projectSelect").addEventListener("change", async function() {{
                                 const tableContainer = document.querySelector('.table-container');
                                 const loadingSpinner = document.getElementById("loadingSpinner");
+                                document.body.classList.add('loading-active'); // Adiciona a classe ao body
                                 tableContainer.style.display = 'none'; // Esconde a tabela
                                 loadingSpinner.style.display = 'block'; // Mostra o spinner de carregamento
-
-                                await updateProjectLogo();
+                        
+                                await updateProjectLogo(this.options[this.selectedIndex].text);
                                 filterBySelect();
-
+                        
                                 tableContainer.style.display = 'block'; // Mostra a tabela
                                 loadingSpinner.style.display = 'none'; // Esconde o spinner de carregamento
+                                document.body.classList.remove('loading-active'); // Remove a classe do body
                             }});
-
+                        
                             document.getElementById("approvalSelect").addEventListener("change", function() {{
                                 filterBySelect();
                             }});
 
-                            const tableRows = document.querySelectorAll('#time_entries_table tbody tr');
 
                             tableRows.forEach(row => {{
                                 row.addEventListener('click', function() {{
@@ -1663,6 +1693,18 @@ def relatorio_horas_client(user_id):
                         // Ensure initial values are set for mobile view
                         document.addEventListener('DOMContentLoaded', function() {{
                             updateMobileSummary();
+                            document.addEventListener('DOMContentLoaded', function() {{
+                                const maxLength = 20;
+                                const table = document.getElementById('#time_entries_table');  // Certifique-se de que o ID da tabela está correto
+                                const cells = table.querySelectorAll('tbody td:nth-child(6)'); // Seleciona a segunda coluna
+                            
+                                cells.forEach(cell => {{
+                                    const text = cell.textContent;
+                                    if (text.length > maxLength) {{
+                                        cell.textContent = text.substring(0, maxLength) + '...';
+                                    }}
+                                }});
+                            }});
                             if (window.innerWidth <= 768) {{ // Verifica se a largura da janela é de 768px ou menos (modo mobile)
                                 var thHoraInicial = document.querySelector('#time_entries_table thead tr th:nth-child(7)');
                                 if (thHoraInicial) {{
@@ -1693,362 +1735,506 @@ def relatorio_horas_client(user_id):
                         }});
                     </script>
                    <style>
-                        body {{
-                            overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
-                            margin: 0;
-                            padding: 0;
-                        }}
-                        #header {{
-                            position: fixed;
-                            top: 0;
-                            width: 100%;
-                            z-index: 10; /* Garante que o header fique sobre outros elementos */
-                            background-color: #333333; /* Defina a cor de fundo original aqui */
-                            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
-                        }}
-                        .container {{
-                            display: flex;
-                            flex-direction: column;
-                            margin-top: 60px; /* Espaço para o header fixo */
-                        }}
-                        .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-                            width: 100px; /* Define uma largura menor para a coluna "Ações" */
-                            text-align: center; /* Centraliza o texto e os botões na coluna */
-                        }}
-                        .filters-container {{
-                            display: flex;
-                            flex-direction: column;
-                            align-items: stretch;
-                            width: 100%;
-                        }}
-                    
-                        .toggle-filters {{
-                            background-color: #1E90FF;
-                            color: white;
-                            padding: 10px;
-                            text-align: center;
-                            border: none;
-                            border-radius: 5px;
-                            margin-bottom: 10px;
-                            width: 100%;
-                            max-width: 200px;
-                            align-self: center;
-                        }}
-                    
-                        #time_entries_form {{
-                            display: flex;
-                            flex-direction: column;
-                            gap: 10px;
-                            width: 100%;
-                        }}
-                    
-                        #filter-fields {{
-                            display: flex;
-                            flex-direction: column;
-                            gap: 10px;
-                        }}
-                    
-                        .filters label {{
-                            font-weight: bold;
-                            margin-bottom: 5px;
-                        }}
-                    
-                        .filters input, .filters select {{
-                            width: 100%;
-                            padding: 10px;
-                            border: 1px solid #ddd;
-                            border-radius: 5px;
-                        }}
-                    
-                        .legend-text {{
-                            display: none; /* Oculta a legenda no modo mobile */
-                        }}
-                    
-                        .arrow {{
-                            display: none; /* Oculta a seta no modo mobile */
-                        }}
-                        .table-container {{
-                            width: 100%;
-                            max-height: 450px; /* Define uma altura máxima para a tabela */
-                        }}
-                        .table-container th:nth-child(11), .table-container td:nth-child(11) {{
-                            width: 120px; /* Define uma largura menor para a coluna "Ações" */
-                            text-align: center; /* Centraliza o texto e os botões na coluna */
-                        }}
-                        .table-container td {{
-                            padding: 4px; /* Diminui a altura dos td */
-                            text-align: left;
-                            border-bottom: 1px solid #ddd;
-                            vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
-                            white-space: nowrap; /* Impede quebra de linha em células */
-                            overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
-                            text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
-                        }}
-                        .table-container th {{
-                            background-color: #f2f2f2;
-                            position: sticky;
-                            top: 0;
-                            z-index: 1;
-                            text-align: center; /* Centraliza o texto do thead */
-                        }}
-                        .table-container {{
-                            font-size: 0.9em;
-                        }}
-                        .btn-relatorio {{
-                            background-color: #1E90FF; /* Cor azul padrão */
-                            color: white; /* Texto branco */
-                            width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
-                            border-radius: 5px; /* Bordas arredondadas */
-                            border: none; /* Remover borda */
-                            transition: background-color 0.3s; /* Suavização da transição de cor */
-                        }}
-                        .btn-relatorio:hover {{
-                            background-color: #63B8FF; /* Azul claro ao passar o mouse */
-                        }}
-                        .btn-group {{
-                            display: flex;
-                            justify-content: center;
-                            margin-top: 20px;
-                        }}
-                        .btn-approve-table, .btn-reject-table {{
-                            display: inline-block;
-                            width: 90px;
-                            margin-right: 5px; /* Adiciona espaçamento entre os botões */
-                            text-align: center; /* Centraliza o texto do botão */
-                        }}
-                        .btn-approve-table {{
-                            background-color: #28a745;
-                            color: white;
-                            margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
-                        }}
-                        .btn-reject-table {{
-                            background-color: #dc3545;
-                            color: white;
-                            margin-top: 5px;
-                        }}
-                        .btn-approve-table.disabled, .btn-reject-table.disabled {{
-                            visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
-                        }}
-                        .btn-relatorio:hover {{
-                            background-color: #63B8FF; /* Azul claro ao passar o mouse */
-                        }}
-                        .filters label, .legend-button {{
-                            color: black;
-                        }}
-                        table {{
-                            width: 100%;
-                        }}
-                        #detailsPopup {{
-                            display: none;
-                            position: fixed;
-                            top: 50%;
-                            left: 50%;
-                            transform: translate(-50%, -50%);
-                            background-color: white;
-                            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-                            z-index: 1000;
-                            padding: 20px;
-                            border-radius: 5px;
-                            max-width: 90%;
-                            max-height: 90%;
-                            overflow-y: auto;
-                        }}
-                        #detailsPopup .btn-group {{
-                            display: flex;
-                            justify-content: space-between;
-                            margin-top: 20px;
-                        }}
-                        .close-button {{
-                            position: absolute;
-                            top: 10px;
-                            right: 10px;
-                            background: none;
-                            border: none;
-                            font-size: 1.5rem;
-                            cursor: pointer;
-                        }}
-                        .close-button:hover {{
-                            color: red;
-                        }}
-                        
-                        @media (max-width: 768px) {{
-                            .filters-container {{
-                                display: flex;
-                                flex-direction: column;
-                                align-items: stretch;
-                                width: 100%;
-                            }}
-                            .toggle-filters {{
-                                background-color: #1E90FF;
-                                color: white;
-                                padding: 10px;
-                                text-align: center;
-                                border: none;
-                                border-radius: 5px;
-                                margin: 10px 0;
-                                width: 80%;
-                                max-width: 130px;
-                                align-self: center;
-                            }}
-                            #time_entries_form {{
-                                display: flex;
-                                flex-direction: column;
-                                gap: 10px;
-                                width: 100%;
-                            }}
-                            #filter-fields {{
-                                display: flex;
-                                flex-direction: column;
-                                gap: 10px;
-                            }}
-                            .filters label {{
-                                font-weight: bold;
-                                margin-bottom: 5px;
-                            }}
-                            .filters input, .filters select {{
-                                width: 100%;
-                                padding: 10px;
-                                border: 1px solid #ddd;
-                                border-radius: 5px;
-                            }}
-                            .legend-text {{
-                                display: none; /* Oculta a legenda no modo mobile */
-                            }}
-                            .arrow {{
-                                display: none; /* Oculta a seta no modo mobile */
-                            }}
-                            .container {{
-                                padding: 10px;
-                                overflow-y: auto;
-                                max-height: 80vh;
-                            }}
-                            .header-logo h1 {{
-                                font-size: 1.5em;
-                            }}
-                            .filters {{
-                                display: flex;
-                                align-items: center;
-                                gap: 10px;
-                                margin: 0; /* Remove margem */
-                                padding: 0; /* Remove padding */
-                            }}
-                            .table-wrapper {{
-                                overflow-x: auto;
-                            }}
-                            .table-container {{
-                                font-size: 0.9em;
-                                overflow-x: scroll;
-                            }}
-                            .btn-group {{
-                                flex-direction: column;
-                                align-items: center;
-                            }}
-                            .btn-group .btn-relatorio {{
-                                width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
-                                height: 40px; /* Garante que a altura do botão seja mantida */
-                                margin: 0px 0;
-                            }}
-                            #hours-summary {{
-                                display: block; /* Mostrar no modo mobile */
-                            }}
-                            #all-actions {{
-                                display: none;
-                            }}
-                            #hours-summary-table {{
-                                display: none;
-                            }}
-                            .mobile-actions {{
-                                display: block;
-                            }}
-                            #hours-summary {{
-                                display: block;
-                            }}
-                            .hours-summary {{
-                                font-size: 1.2em;
-                                font-weight: bold;
-                                color: #333;
-                                margin-top: 10px;
-                            }}
-                            .hours-summary p {{
-                                margin: 5px 0;
-                            }}
-                            .hours-total-mobile, .hours-approved-mobile, .hours-unapproved-mobile {{
-                                color: #1E90FF;
-                            }}
-                            .hours-approved-mobile {{
-                                color: #28a745;
-                            }}
-                            .hours-repproved-mobile {{
-                                color: #dc3545;
-                            }}
-                            .hours-unapproved-mobile {{
-                                color: #bbdb03;
-                            }}
-                            #loadingSpinner {{
-                                display: none;
-                                position: fixed;
-                                top: 90%;
-                                left: 50%;
-                                transform: translate(-50%, -50%);
-                                z-index: 1000;
-                            }}
-                            .loading-active .container {{
-                                margin-top: 20px; /* Ajuste conforme necessário */
-                            }}
-                            .spinner {{
-                                border: 16px solid #f3f3f3;
-                                border-top: 16px solid #3498db;
-                                border-radius: 50%;
-                                width: 60px; /* Metade do tamanho original */
-                                height: 60px; /* Metade do tamanho original */
-                                animation: spin 2s linear infinite;
-                            }}
-                        }}
-                        @media (min-width: 769px) {{
-                            #mobile-actions-buttons {{
-                                display: none; /* Tornar invisível no modo desktop */
-                            }}
-                            .toggle-filters {{
-                                display: none;
-                            }}
-                            #time_entries_form {{
-                                display: block !important;
-                            }}
-                            #hours-summary {{
-                                display: none; /* Esconder no modo desktop */
-                            }}
-                            .legend-text {{
-                                display: block; /* Mostrar a legenda no modo desktop */
-                            }}
-                            .arrow {{
-                                display: inline; /* Mostrar a seta no modo desktop */
-                            }}
-                            #loadingSpinner {{
-                                display: none;
-                                position: fixed;
-                                top: 70%;
-                                left: 50%;
-                                transform: translate(-50%, -50%);
-                                z-index: 1000;
-                            }}
-                            .loading-active .container {{
-                                margin-top: 20px; /* Ajuste conforme necessário */
-                            }}
-                            .spinner {{
-                                border: 16px solid #f3f3f3;
-                                border-top: 16px solid #3498db;
-                                border-radius: 50%;
-                                width: 120px;
-                                height: 120px;
-                                animation: spin 2s linear infinite;
-                            }}
-                            @keyframes spin {{
-                                0% {{ transform: rotate(0deg); }}
-                                100% {{ transform: rotate(360deg); }}
-                            }}
-                        }}
-                        
-                    </style>
+    /* Estilos gerais */
+    body {{
+        overflow-y: auto; /* Adiciona a barra de rolagem vertical ao body */
+        margin: 0;
+        padding: 0;
+    }}
+
+    /* Estilo para o fieldset e legend */
+    .collapsible {{
+        border: none;
+        padding: 0;
+        margin: 0;
+    }}
+
+    .legend-text {{
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+    }}
+
+    /* Estilos para o container de filtros */
+    .filter-fields-style {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }}
+
+    .filter-fields-style label,
+    .filter-fields-style input,
+    .filter-fields-style select {{
+        flex: 1 1 100%;
+        box-sizing: border-box;
+    }}
+
+    /* Media Queries para diferentes larguras de tela */
+    @media (min-width: 600px) {{
+        .filter-fields-style label,
+        .filter-fields-style input,
+        .filter-fields-style select {{
+            flex: 1 1 calc(50% - 20px);
+        }}
+    }}
+
+    @media (min-width: 900px) {{
+        .filter-fields-style label,
+        .filter-fields-style input,
+        .filter-fields-style select {{
+            flex: 1 1 calc(33.3333% - 20px);
+        }}
+    }}
+
+    /* Outros estilos */
+    #commentPopup {{
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        z-index: 1000;
+        padding: 20px;
+        border-radius: 5px;
+        max-width: 90%;
+        max-height: 90%;
+        overflow-y: auto;
+    }}
+
+    #commentPopup .close-button {{
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+    }}
+
+    #commentPopup .close-button:hover {{
+        color: red;
+    }}
+
+    #header {{
+        position: fixed;
+        top: 0;
+        width: 100%;
+        z-index: 10; /* Garante que o header fique sobre outros elementos */
+        background-color: #333333; /* Defina a cor de fundo original aqui */
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adicione uma sombra para o header */
+    }}
+
+    .container {{
+        display: flex;
+        flex-direction: column;
+        margin-top: 60px; /* Espaço para o header fixo */
+    }}
+
+    .table-container th:nth-child(11),
+    .table-container td:nth-child(11) {{
+        width: 100px; /* Define uma largura menor para a coluna "Ações" */
+        text-align: center; /* Centraliza o texto e os botões na coluna */
+    }}
+
+    .filters-container {{
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+    }}
+
+    .toggle-filters {{
+        background-color: #1E90FF;
+        color: white;
+        padding: 10px;
+        text-align: center;
+        border: none;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        width: 100%;
+        max-width: 200px;
+        align-self: center;
+    }}
+
+    #time_entries_form {{
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+    }}
+
+    .filters label {{
+        font-weight: bold;
+        margin-bottom: 5px;
+    }}
+
+    .filters input,
+    .filters select {{
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+    }}
+
+    .legend-text {{
+        display: block; /* Mostrar a legenda no modo desktop */
+    }}
+
+    .arrow {{
+        display: inline; /* Mostrar a seta no modo desktop */
+    }}
+
+    .table-container {{
+        width: 100%;
+        max-height: 450px; /* Define uma altura máxima para a tabela */
+        font-size: 0.9em;
+    }}
+
+    .table-container th:nth-child(11),
+    .table-container td:nth-child(11) {{
+        width: 120px; /* Define uma largura menor para a coluna "Ações" */
+        text-align: center; /* Centraliza o texto e os botões na coluna */
+    }}
+
+    .table-container td {{
+        padding: 4px; /* Diminui a altura dos td */
+        text-align: left;
+        max-width: 200px;
+        border-bottom: 1px solid #ddd;
+        vertical-align: middle; /* Garante que o conteúdo fique alinhado verticalmente */
+        white-space: nowrap; /* Impede quebra de linha em células */
+        overflow: hidden; /* Oculta conteúdo que ultrapassa o limite */
+        text-overflow: ellipsis; /* Adiciona reticências ao conteúdo excedente */
+    }}
+
+    .table-container th {{
+        background-color: #f2f2f2;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        text-align: center; /* Centraliza o texto do thead */
+    }}
+
+    .btn-relatorio {{
+        background-color: #1E90FF; /* Cor azul padrão */
+        color: white;
+        width: 200px; /* Ajuste para corresponder ao tamanho dos outros botões */
+        border-radius: 5px; /* Bordas arredondadas */
+        border: none; /* Remover borda */
+        transition: background-color 0.3s; /* Suavização da transição de cor */
+    }}
+
+    .btn-relatorio:hover {{
+        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+    }}
+
+    .btn-group {{
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+    }}
+
+    .btn-approve-table,
+    .btn-reject-table {{
+        display: inline-block;
+        width: 90px;
+        margin-right: 5px; /* Adiciona espaçamento entre os botões */
+        text-align: center; /* Centraliza o texto do botão */
+    }}
+
+    .btn-approve-table {{
+        background-color: #28a745;
+        color: white;
+        margin-bottom: 5px; /* Adiciona espaçamento vertical entre os botões */
+    }}
+
+    .btn-reject-table {{
+        background-color: #dc3545;
+        color: white;
+        margin-top: 5px;
+    }}
+
+    .btn-approve-table.disabled,
+    .btn-reject-table.disabled {{
+        visibility: hidden; /* Torna os botões invisíveis quando desabilitados */
+    }}
+
+    .btn-relatorio:hover {{
+        background-color: #63B8FF; /* Azul claro ao passar o mouse */
+    }}
+
+    .filters label,
+    .legend-button {{
+        color: black;
+    }}
+
+    table {{
+        width: 100%;
+    }}
+
+    #detailsPopup {{
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        z-index: 1000;
+        padding: 20px;
+        border-radius: 5px;
+        max-width: 90%;
+        max-height: 90%;
+        overflow-y: auto;
+    }}
+
+    #detailsPopup .btn-group {{
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }}
+
+    .close-button {{
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+    }}
+
+    .close-button:hover {{
+        color: red;
+    }}
+
+    @media (max-width: 768px) {{
+        .filters-container {{
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            width: 100%;
+        }}
+
+        .toggle-filters {{
+            background-color: #1E90FF;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            border: none;
+            border-radius: 5px;
+            margin: 10px 0;
+            width: 80%;
+            max-width: 130px;
+            align-self: center;
+        }}
+
+        #time_entries_form {{
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }}
+
+        #filter-fields {{
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }}
+
+        .filters label {{
+            font-weight: bold;
+            margin-bottom: 5px;
+        }}
+
+        .filters input,
+        .filters select {{
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }}
+
+        .legend-text {{
+            display: none; /* Oculta a legenda no modo mobile */
+        }}
+
+        .arrow {{
+            display: none; /* Oculta a seta no modo mobile */
+        }}
+
+        .container {{
+            padding: 10px;
+            overflow-y: auto;
+            max-height: 80vh;
+        }}
+
+        .header-logo h1 {{
+            font-size: 1.5em;
+        }}
+
+        .filters {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0; /* Remove margem */
+            padding: 0; /* Remove padding */
+        }}
+
+        .table-wrapper {{
+            overflow-x: auto;
+        }}
+
+        .table-container {{
+            font-size: 0.9em;
+            overflow-x: scroll;
+        }}
+
+        .btn-group {{
+            flex-direction: column;
+            align-items: center;
+        }}
+
+        .btn-group .btn-relatorio {{
+            width: 180px; /* Ocupa a largura total do contêiner no modo mobile */
+            height: 40px; /* Garante que a altura do botão seja mantida */
+            margin: 0px 0;
+        }}
+
+        #hours-summary {{
+            display: block; /* Mostrar no modo mobile */
+        }}
+
+        #all-actions {{
+            display: none;
+        }}
+
+        #hours-summary-table {{
+            display: none;
+        }}
+
+        .mobile-actions {{
+            display: block;
+        }}
+
+        #hours-summary {{
+            display: block;
+        }}
+
+        .hours-summary {{
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin-top: 10px;
+        }}
+
+        .hours-summary p {{
+            margin: 5px 0;
+        }}
+
+        .hours-total-mobile,
+        .hours-approved-mobile,
+        .hours-unapproved-mobile {{
+            color: #1E90FF;
+        }}
+
+        .hours-approved-mobile {{
+            color: #28a745;
+        }}
+
+        .hours-repproved-mobile {{
+            color: #dc3545;
+        }}
+
+        .hours-unapproved-mobile {{
+            color: #bbdb03;
+        }}
+
+        #loadingSpinner {{
+            display: none;
+            position: fixed;
+            top: 90%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }}
+
+        .loading-active .container {{
+            margin-top: 20px; /* Ajuste conforme necessário */
+        }}
+
+        .spinner {{
+            border: 16px solid #f3f3f3;
+            border-top: 16px solid #3498db;
+            border-radius: 50%;
+            width: 60px; /* Metade do tamanho original */
+            height: 60px; /* Metade do tamanho original */
+            animation: spin 2s linear infinite;
+        }}
+    }}
+
+    @media (min-width: 769px) {{
+        #mobile-actions-buttons {{
+            display: none; /* Tornar invisível no modo desktop */
+        }}
+
+        .toggle-filters {{
+            display: none;
+        }}
+
+        #time_entries_form {{
+            display: block !important;
+        }}
+
+        #hours-summary {{
+            display: none; /* Esconder no modo desktop */
+        }}
+
+        .legend-text {{
+            display: block; /* Mostrar a legenda no modo desktop */
+        }}
+
+        .arrow {{
+            display: inline; /* Mostrar a seta no modo desktop */
+        }}
+
+        #loadingSpinner {{
+            display: none;
+            position: fixed;
+            top: 70%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }}
+
+        .loading-active .container {{
+            margin-top: 20px; /* Ajuste conforme necessário */
+        }}
+
+        .spinner {{
+            border: 16px solid #f3f3f3;
+            border-top: 16px solid #3498db;
+            border-radius: 50%;
+            width: 120px;
+            height: 120px;
+            animation: spin 2s linear infinite;
+        }}
+
+        @keyframes spin {{
+            0% {{
+                transform: rotate(0deg);
+            }}
+
+            100% {{
+                transform: rotate(360deg);
+            }}
+        }}
+    }}
+</style>
+
+
 
                 </head>
                 <body>
@@ -2074,41 +2260,49 @@ def relatorio_horas_client(user_id):
                         <div class="filters-container">
                             <button class="toggle-filters" onclick="toggleFilters()">Filtros</button>
                             <form id="time_entries_form" method="get" action="https://timesheetqas.evtit.com/validar_selecionados?client={is_client}">
-                                <fieldset class="collapsible" style="border: none;">
-                                    <legend class="legend-text" onclick="toggleFieldset(this);">
-                                        <span class="legend-button">
-                                            <span class="arrow">▶</span>
-                                            Filtros
-                                        </span>
-                                    </legend>
-                                    <div id="filter-fields" class="filter-fields-style" style="display: block;">
-                                        <label for="filterInput">Buscar:</label>
-                                        <input type="text" id="filterInput" onkeyup="filterBySelect()" placeholder="Digite para buscar...">
-                                        <label for="userSelect">Usuário:</label>
-                                        <select id="userSelect" onchange="filterBySelect()">
-                                            <option value="ALL">Todos</option>
-                                            {''.join(
-                    [f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
-                                        </select>
-                                        <label for="projectSelect">Projeto:</label>
-                                        <select id="projectSelect" >
-                                            <option value="ALL">Todos</option>
-                                            {''.join(
-                    [f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
-                                        </select>
-                                        <label for="approvalSelect">Aprovado:</label>
-                                        <select id="approvalSelect" onchange="filterBySelect()">
-                                            <option value="ALL">Todos</option>
-                                            <option value="SIM">Aprovadas</option>
-                                            <option value="NÃO">Reprovadas</option>
-                                            <option value="PENDENTE">Pendentes</option>
-                                        </select>
-                                    </div>
-                                </fieldset>
+                               <fieldset class="collapsible">
+                                        <legend class="legend-text" onclick="toggleFieldset(this);">
+                                            <span class="legend-button">
+                                                <span class="arrow">▶</span>
+                                                Filtros
+                                            </span>
+                                        </legend>
+                                        <div id="filter-fields" class="filter-fields-style" style="display: block;">
+                                            <label for="filterInput">Buscar:</label>
+                                            <input type="text" id="filterInput" onkeyup="filterBySelect()" placeholder="Digite para buscar...">
+                                            <label for="userSelect">Usuário:</label>
+                                            <select id="userSelect" onchange="filterBySelect()">
+                                                <option value="ALL">Todos</option>
+                                                <!-- Aqui é onde os options de usuários serão inseridos dinamicamente -->
+                                                {''.join(
+                                                    [f'<option value="{usuario.upper()}">{usuario}</option>' for usuario in sorted(usuarios)])}
+                                            </select>
+                                            <label for="projectSelect">Projeto:</label>
+                                            <select id="projectSelect">
+                                                <option value="ALL">Todos</option>
+                                                <!-- Aqui é onde os options de projetos serão inseridos dinamicamente -->
+                                                {''.join(
+                                                    [f'<option value="{projeto.upper()}">{projeto}</option>' for projeto in sorted(projetos)])}
+                                            </select>
+                                            <label for="approvalSelect">Aprovado:</label>
+                                            <select id="approvalSelect" onchange="filterBySelect()">
+                                                <option value="ALL">Todos</option>
+                                                <option value="SIM">Aprovadas</option>
+                                                <option value="NÃO">Reprovadas</option>
+                                                <option value="PENDENTE">Pendentes</option>
+                                            </select>
+                                        </div>
+                                    </fieldset>
+
                             </form>
                         </div>
                         <div class="table-container">
                             {table_html}
+                            <div id="commentPopup" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3); z-index: 1000; padding: 20px; border-radius: 5px; max-width: 90%; max-height: 90%; overflow-y: auto;">
+                                <div id="commentPopupContent"></div>
+                                <button id="closeCommentPopup" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 1.5rem; cursor: pointer;">×</button>
+                            </div>
+
                             <div id="all-actions" class="btn-group">
                                 <button type="button" onclick="approveAll('{token}', '{approve_entry_ids}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
                                 <button type="button" onclick="rejectAll('{token}', '{reject_entry_ids}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
