@@ -1298,7 +1298,7 @@ def relatorio_horas_client(user_id):
                           }}
 
                         function rejectAll(token, entryIds, isClient, reason) {{
-                            fetch(`${{API_URL}}reprovar_todos?token=${{token}}&entries=${{entryIds}}&client=${{isClient}}&motivo=${{encodeURIComponent(reason)}}`)
+                            fetch(`${API_URL}reprovar_todos?token=${{token}}&entries=${{entryIds}}&client=${{isClient}}&motivo=${{encodeURIComponent(reason)}}`)
                                 .then(response => response.json().then(body => ({{ status: response.status, body: body }})))
                                 .then(result => {{
                                     const status = result.status;
@@ -1532,10 +1532,10 @@ def relatorio_horas_client(user_id):
                             document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
 
                             document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
-                            document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
+                            document.querySelector('.btn-reject').setAttribute('onclick', `openBulkRejectPopup('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
 
                             document.querySelector('.mobile-actions .btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
-                            document.querySelector('.mobile-actions .btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
+                            document.querySelector('.mobile-actions .btn-reject').setAttribute('onclick', `openBulkRejectPopup('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
 
                             updateMobileSummary();
                         }}
@@ -1751,7 +1751,7 @@ def relatorio_horas_client(user_id):
                                 <p><strong>Aprovado:</strong> ${{approved_value}}</p>
                                 <div class="btn-group">
                                     <a href="#" onclick="approveHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
-                                    <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
+                                    <a href="#" onclick="rejectHour(${{entry['id']}}, '{request.args.get('token')}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); " class="btn btn-reject-table ${{approved_value === 'Não' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Não' ? '0' : '1'}};">Reprovar</a>
                                 </div>
                             `;
                             popup.style.display = 'block';
@@ -3171,10 +3171,10 @@ def relatorio_horas(user_id):
                         document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
 
                         document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
-                        document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
+                            document.querySelector('.btn-reject').setAttribute('onclick', `openBulkRejectPopup('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
 
-                        document.querySelector('.mobile-actions .btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
-                        document.querySelector('.mobile-actions .btn-reject').setAttribute('onclick', `rejectAll('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
+                            document.querySelector('.mobile-actions .btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
+                            document.querySelector('.mobile-actions .btn-reject').setAttribute('onclick', `openBulkRejectPopup('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
 
                         updateMobileSummary();
                     }}
@@ -3279,7 +3279,14 @@ def relatorio_horas(user_id):
 
                         return data;
                     }}
-
+                    function toggleFilters() {{
+                        var filters = document.getElementById('filter-fields');
+                        if (filters.style.display === 'none') {{
+                            filters.style.display = 'block';
+                        }} else {{
+                            filters.style.display = 'none';
+                        }}
+                    }}
                     function approveAll(token, entryIds, isClient) {{
                         fetch("{API_URL}aprovar_todos?token=" + token + "&entries=" + entryIds + "&client=" + isClient)
                         .then(response => response.json().then(body => {{ return {{ status: response.status, body: body }}; }}))
@@ -4435,7 +4442,7 @@ def relatorio_horas_geral():
                                         <p><strong>Aprovado:</strong> ${{approved_value}}</p>
                                         <div class="btn-group">
                                             <a href="#" onclick="approveHour(${{entry['id']}}, '{{{{request.args.get('token')}}}}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
-                                            <a href="#" onclick="rejectHour(${{entry['id']}}, '{{{{request.args.get('token')}}}}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Reprovar</a>
+                                            <a href="#" onclick="rejectHour(${{entry['id']}}, '{{{{request.args.get('token')}}}}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); " class="btn btn-reject-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Reprovar</a>
                                         </div>
                                     `;
                                     popup.style.display = 'block';
@@ -4503,13 +4510,11 @@ def relatorio_horas_geral():
                         document.querySelector('.hours-repproved').textContent = repprovedHours.toFixed(1);
                         document.querySelector('.hours-unapproved').textContent = unapprovedHours.toFixed(1);
 
-                        // Atualiza os botões no modo desktop
-                        document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{{token}}', '${{filteredApproveIds.join(',')}}', {is_client})`);
-                        document.querySelector('.btn-reject').setAttribute('onclick', `rejectAll('{{token}}', '${{filteredRejectIds.join(',')}}', {is_client})`);
+                        document.querySelector('.btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
+                            document.querySelector('.btn-reject').setAttribute('onclick', `openBulkRejectPopup('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
 
-                        // Atualiza os botões no modo mobile
-                        document.querySelector('.mobile-actions .btn-approve').setAttribute('onclick', `approveAll('{{token}}', '${{filteredApproveIds.join(',')}}', {is_client})`);
-                        document.querySelector('.mobile-actions .btn-reject').setAttribute('onclick', `rejectAll('{{token}}', '${{filteredRejectIds.join(',')}}', {is_client})`);
+                            document.querySelector('.mobile-actions .btn-approve').setAttribute('onclick', `approveAll('{token}', '${{filteredApproveIds.join(',')}}', {is_client})`);
+                            document.querySelector('.mobile-actions .btn-reject').setAttribute('onclick', `openBulkRejectPopup('{token}', '${{filteredRejectIds.join(',')}}', {is_client})`);
 
                         // Update mobile summary
                         updateMobileSummary();
@@ -4780,7 +4785,7 @@ def relatorio_horas_geral():
                             <p><strong>Aprovado:</strong> ${{approved_value}}</p>
                             <div class="btn-group">
                                 <a href="#" onclick="approveHour(${{entry['id']}}, '{{{{request.args.get('token')}}}}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-approve-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Aprovar</a>
-                                <a href="#" onclick="rejectHour(${{entry['id']}}, '{{{{request.args.get('token')}}}}', {is_client}, ${{entry['hours']}}, '${{approved_value}}'); setTimeout(() => location.reload(), 1000);" class="btn btn-reject-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Reprovar</a>
+                                <a href="#" onclick="rejectHour(${{entry['id']}}, '{{{{request.args.get('token')}}}}', {is_client}, ${{entry['hours']}}, '${{approved_value}}');" class="btn btn-reject-table ${{approved_value === 'Sim' ? 'disabled' : ''}}" style="opacity:${{approved_value === 'Sim' ? '0' : '1'}};">Reprovar</a>
                             </div>
                         `;
                         popup.style.display = 'block';
@@ -5281,7 +5286,7 @@ def relatorio_horas_geral():
                     <div id="mobile-actions-buttons" class="mobile-actions">
                         <div class="btn-group">
                             <button type="button" onclick="approveAll('{{token}}', '{{approve_entry_ids}}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
-                            <button type="button" onclick="rejectAll('{{token}}', '{{reject_entry_ids}}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
+                            <button type="button" onclick="openBulkRejectPopup('{token}', '{{reject_entry_ids}}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
                         </div>
                     </div>
                     <div class="filters-container">
@@ -5343,7 +5348,7 @@ def relatorio_horas_geral():
                         </nav>
                         <div id="all-actions" class="btn-group">
                             <button type="button" onclick="approveAll('{{token}}', '{{approve_entry_ids}}', {is_client})" class="btn btn-approve">Aprovar Todos</button>
-                            <button type="button" onclick="rejectAll('{{token}}', '{{reject_entry_ids}}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
+                            <button type="button" onclick="openBulkRejectPopup('{token}', '{{reject_entry_ids}}', {is_client})" class="btn btn-reject">Reprovar Todos</button>
                             <button type="button" onclick="sendFilteredData()" class="btn-relatorio">Enviar Relatório - Cliente</button>
                         </div>
                         <div id="selected-actions" class="btn-group">
@@ -5781,7 +5786,10 @@ def create_html_table(time_entries):
           showAlert('Erro ao aprovar hora.', 'error');
         }});
       }}
-
+      function closeDetailsPopup() {{
+        var popup = document.getElementById('detailsPopup');
+        popup.style.display = 'none';
+      }}
       function rejectHour(entryId, token, isClient, entryHours, currentStatus) {{
         closeDetailsPopup();
         openRejectPopup(entryId, token, isClient, entryHours, currentStatus);
